@@ -1102,15 +1102,22 @@ class CodeCollaborationServer implements MessageComponentInterface {
     }
 }
 
+// 獲取環境變數配置
+$host = $_ENV['WEBSOCKET_HOST'] ?? '0.0.0.0';
+$port = $_ENV['WEBSOCKET_PORT'] ?? 8081;
+
 // 啟動WebSocket服務器
+echo "WebSocket服務器啟動在 {$host}:{$port}\n";
+echo "環境: " . (isset($_ENV['ZEABUR_DOMAIN']) ? '雲端' : '本地') . "\n";
+
 $server = IoServer::factory(
     new HttpServer(
         new WsServer(
             new CodeCollaborationServer()
         )
     ),
-    8080
+    intval($port),
+    $host
 );
 
-echo "WebSocket服務器運行在 ws://localhost:8080\n";
 $server->run(); 

@@ -19,26 +19,33 @@ class WebSocketManager {
 
     // 建立 WebSocket 連接
     connect(roomName, userName) {
-        this.currentUser = userName;
         this.currentRoom = roomName;
+        this.currentUser = userName;
         
-        // 智能檢測 WebSocket URL
         let wsUrl;
         
-        // 檢查是否為本地開發環境
-        const isLocalhost = window.location.hostname === 'localhost' || 
-                           window.location.hostname === '127.0.0.1' || 
-                           window.location.hostname.includes('192.168.');
-        
-        if (isLocalhost) {
-            console.log('🏠 檢測到本地開發環境');
-            // 本地開發時 WebSocket 服務器運行在 8080 端口
-            wsUrl = `ws://${window.location.hostname}:8080`;
+        // 檢查是否有環境變數指定的 WSS_URL
+        if (window.WSS_URL) {
+            wsUrl = window.WSS_URL;
+            console.log('🌐 使用環境變數配置的 WebSocket URL:', wsUrl);
+        } else if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            // 本地開發時 WebSocket 服務器運行在 8081 端口
+            wsUrl = `ws://${window.location.hostname}:8081`;
+            console.log('🏠 本地開發環境，WebSocket端口: 8081');
         } else {
             // 雲端環境（如 Zeabur）
             console.log('☁️ 檢測到雲端環境');
-                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            wsUrl = `${protocol}//${window.location.host}`;
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            
+            // 嘗試多種 WebSocket 連接方式
+            const possibleUrls = [
+                `${protocol}//${window.location.host}/ws`,  // Nginx 代理路徑
+                `${protocol}//${window.location.host}:8081`, // 直接連接 WebSocket 端口
+                `${protocol}//${window.location.host}`       // 根路徑
+            ];
+            
+            wsUrl = possibleUrls[0]; // 優先使用代理路徑
+            console.log('🔗 雲端 WebSocket 連接選項:', possibleUrls);
         }
         
         console.log(`🔌 嘗試連接到 WebSocket: ${wsUrl}`);

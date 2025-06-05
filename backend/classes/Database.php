@@ -3,10 +3,6 @@
 // 引入 composer autoload
 require_once __DIR__ . '/../../vendor/autoload.php';
 
-use PDO;
-use PDOException;
-use Exception;
-
 class Database {
     private static $instance = null;
     private $connection;
@@ -376,6 +372,68 @@ class Database {
             
         } catch (Exception $e) {
             echo "<!-- ⚠️ 插入測試數據失敗: " . $e->getMessage() . " -->\n";
+        }
+    }
+    
+    /**
+     * 獲取數據庫狀態信息
+     */
+    public function getStatus() {
+        try {
+            if (!$this->connection) {
+                return [
+                    'connected' => false,
+                    'type' => 'none',
+                    'error' => '數據庫未連接'
+                ];
+            }
+            
+            $databaseType = $this->getDatabaseType();
+            $status = [
+                'connected' => true,
+                'type' => $databaseType === 'mysql' ? 'MySQL' : 'SQLite',
+                'driver' => $databaseType
+            ];
+            
+            // 獲取表數量
+            try {
+                if ($databaseType === 'mysql') {
+                    $result = $this->fetch("SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = DATABASE()");
+                } else {
+                    $result = $this->fetch("SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
+                }
+                $status['tables_count'] = $result['count'] ?? 0;
+            } catch (Exception $e) {
+                $status['tables_count'] = 0;
+                $status['table_error'] = $e->getMessage();
+            }
+            
+            // 獲取用戶數量
+            try {
+                $result = $this->fetch("SELECT COUNT(*) as count FROM users");
+                $status['users_count'] = $result['count'] ?? 0;
+            } catch (Exception $e) {
+                $status['users_count'] = 0;
+                $status['users_error'] = '用戶表不存在或無法訪問';
+            }
+            
+            // 獲取房間數量
+            try {
+                $result = $this->fetch("SELECT COUNT(*) as count FROM rooms");
+                $status['rooms_count'] = $result['count'] ?? 0;
+            } catch (Exception $e) {
+                $status['rooms_count'] = 0;
+                $status['rooms_error'] = '房間表不存在或無法訪問';
+            }
+            
+            return $status;
+            
+        } catch (Exception $e) {
+            return [
+                'connected' => false,
+                'type' => 'error',
+                'error' => $e->getMessage()
+            ];
         }
     }
 }

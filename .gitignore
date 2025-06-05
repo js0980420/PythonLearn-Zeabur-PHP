@@ -1,17 +1,59 @@
-# 忽略 Composer 依賴
+# 依賴目錄
 vendor/
+node_modules/
 
-# 忽略日誌文件和數據文件
-logs/
-data/
-
-# 忽略環境變數文件
+# 環境配置檔案
 .env
+.env.local
+.env.production
+ai_config.json
 
-# 忽略Cursor相關文件和規則文件
+# 日誌檔案
+*.log
+logs/
+
+# 臨時檔案
+*.tmp
+*.temp
+
+# 系統檔案
+.DS_Store
+Thumbs.db
+
+# IDE 配置
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Cursor 規則檔案 (僅本地使用)
 .cursor/
 
-# 忽略臨時文件和其他不應提交的文件
-*.log
-*.tmp
-*.bak 
+# Composer 鎖定檔案 (保留composer.json，排除lock)
+composer.lock
+
+# 測試檔案
+test-*.php
+test-*.html
+test-*.bat
+*-test.php
+*-test.html
+
+# 文檔檔案 (根據需求排除)
+README*.md
+CHANGELOG.md
+CONTRIBUTING.md
+
+# 備份檔案
+*.bak
+*.backup
+
+# 快取檔案
+cache/
+tmp/
+
+# 上傳檔案
+uploads/
+
+# 編譯檔案
+*.compiled 

@@ -1,56 +1,74 @@
 @echo off
-echo 🚀 Python 教學多人協作平台 - 純 PHP 版本
+echo 🚀 Python多人協作教學平台 - 本地開發環境啟動
 echo ================================================
 
-REM 檢查 PHP 是否可用
+REM 檢查PHP是否安裝
 php --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo ❌ 錯誤: 找不到 PHP，請確保 PHP 已安裝並在 PATH 中
+    echo ❌ 錯誤: 未找到PHP，請先安裝PHP 8.0+
     pause
     exit /b 1
 )
 
-echo ✅ PHP 已就緒
+echo ✅ PHP版本檢查通過
 
-REM 檢查 Composer 依賴
-if not exist vendor\autoload.php (
-    echo ❌ 錯誤: 未找到 vendor\autoload.php
-    echo 請運行: composer install
-    pause
-    exit /b 1
+REM 檢查端口8080是否被占用
+netstat -an | findstr :8080 >nul
+if %errorlevel% equ 0 (
+    echo ⚠️  警告: 端口8080已被占用，正在嘗試終止相關進程...
+    taskkill /F /IM php.exe >nul 2>&1
+    timeout /t 2 >nul
 )
 
-echo ✅ Composer 依賴已就緒
+REM 檢查端口8081是否被占用
+netstat -an | findstr :8081 >nul
+if %errorlevel% equ 0 (
+    echo ⚠️  警告: 端口8081已被占用，正在嘗試終止相關進程...
+    taskkill /F /IM php.exe >nul 2>&1
+    timeout /t 2 >nul
+)
 
-REM 創建必要目錄
-if not exist data mkdir data
-if not exist data\rooms mkdir data\rooms
-if not exist logs mkdir logs
+REM 安裝Composer依賴 (如果需要)
+if exist composer.json (
+    if not exist vendor (
+        echo 📦 安裝Composer依賴...
+        composer install --no-dev
+    )
+)
 
-echo 📁 目錄結構已就緒
+echo 🔌 啟動WebSocket服務器 (端口8081)...
+start "WebSocket Server" cmd /k "php websocket/server.php"
+
+REM 等待WebSocket服務器啟動
+timeout /t 3 >nul
+
+echo 🌐 啟動Web服務器 (端口8080)...
+start "Web Server" cmd /k "php -S localhost:8080 router.php"
+
+REM 等待服務器啟動
+timeout /t 3 >nul
+
+echo 🔍 檢查服務器狀態...
+curl -s http://localhost:8080/health >nul 2>&1
+if %errorlevel% equ 0 (
+    echo ✅ 服務器啟動成功！
+    echo.
+    echo 📱 訪問地址:
+    echo    學生端: http://localhost:8080
+    echo    教師後台: http://localhost:8080/teacher-dashboard.html
+    echo    健康檢查: http://localhost:8080/health
+    echo.
+    echo 🛑 按任意鍵停止服務器...
+    pause >nul
+    
+    echo 🔄 正在停止服務器...
+    taskkill /F /IM php.exe >nul 2>&1
+    echo ✅ 服務器已停止
+) else (
+    echo ❌ 服務器啟動失敗，請檢查錯誤信息
+    pause
+)
 
 echo.
-echo 🚀 啟動服務器...
-echo ================================
-
-REM 在後台啟動 WebSocket 服務器
-echo 📡 啟動 WebSocket 服務器 (端口 8080)...
-start /B php websocket\server.php
-
-REM 等待 WebSocket 服務器啟動
-timeout /t 3 /nobreak >nul
-
-echo 🌐 啟動 Web 服務器 (端口 8000)...
-echo.
-echo 🌟 服務器已啟動！
-echo ================================
-echo 📱 Web 界面: http://localhost:8000
-echo 📡 WebSocket: ws://localhost:8080
-echo 💊 健康檢查: http://localhost:8000/backend/api/health.php
-echo 🎓 教師後台: http://localhost:8000/teacher-dashboard.html
-echo.
-echo 按 Ctrl+C 停止服務器
-echo ================================
-
-REM 啟動 PHP 內建 Web 服務器
-php -S localhost:8000 
+echo 👋 感謝使用Python多人協作教學平台！
+pause 

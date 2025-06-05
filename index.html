@@ -5,6 +5,42 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Python多人協作教學平台</title>
     
+    <!-- 🌐 環境自動檢測配置 -->
+    <script>
+    (function() {
+        const hostname = window.location.hostname;
+        
+        console.log('🔍 檢測當前環境:', hostname);
+        
+        if (hostname === 'localhost' || hostname === '127.0.0.1') {
+            // 本地開發環境
+            window.WSS_URL = 'ws://localhost:8080';
+            console.log('🏠 本地開發環境 - WebSocket URL:', window.WSS_URL);
+        } else if (hostname.includes('zeabur.app') || hostname.includes('python-learn')) {
+            // Zeabur 環境
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            window.WSS_URL = `${protocol}//${hostname}/ws`;
+            console.log('☁️ Zeabur 雲端環境 - WebSocket URL:', window.WSS_URL);
+        } else {
+            // 自定義域名或其他環境
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            window.WSS_URL = `${protocol}//${hostname}/ws`;
+            console.log('🌐 自定義域名環境 - WebSocket URL:', window.WSS_URL);
+        }
+        
+        // 設置環境標識
+        window.ENVIRONMENT = {
+            isLocal: hostname === 'localhost' || hostname === '127.0.0.1',
+            isZeabur: hostname.includes('zeabur.app'),
+            hostname: hostname,
+            protocol: window.location.protocol,
+            wsUrl: window.WSS_URL
+        };
+        
+        console.log('🔧 環境配置完成:', window.ENVIRONMENT);
+    })();
+    </script>
+    
     <!-- 避免 favicon 404 錯誤 -->
     <link rel="icon" href="data:,">
     
