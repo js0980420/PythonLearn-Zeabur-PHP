@@ -140,7 +140,7 @@ if (php_sapi_name() === 'cli') {
     echo "================================\n";
     
     // 啟動內建 Web 服務器
-    $webCmd = "php -S 0.0.0.0:{$webPort}";
+    $webCmd = "php -S 0.0.0.0:{$webPort} router.php";
     system($webCmd);
     
 } else {
