@@ -1,0 +1,17 @@
+# 忽略 Composer 依賴
+vendor/
+
+# 忽略日誌文件和數據文件
+logs/
+data/
+
+# 忽略環境變數文件
+.env
+
+# 忽略Cursor相關文件和規則文件
+.cursor/
+
+# 忽略臨時文件和其他不應提交的文件
+*.log
+*.tmp
+*.bak 
