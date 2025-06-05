@@ -1,0 +1,214 @@
+# Zeabur 配置文件 - 純 PHP + Ratchet 架構
+app:
+  name: pythonlearn-php-collaboration
+  
+# PHP Web 服務器配置
+services:
+  web:
+    build:
+      # 使用 PHP 8.2 + Apache
+      dockerfile: |
+        FROM php:8.2-apache
+        
+        # 安裝必要的擴展
+        RUN apt-get update && apt-get install -y \
+            zip unzip git curl \
+            && docker-php-ext-install pdo pdo_mysql mysqli \
+            && a2enmod rewrite
+        
+        # 安裝 Composer
+        COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+        
+        # 複製項目文件
+        COPY . /var/www/html/
+        
+        # 設置權限
+        RUN chown -R www-data:www-data /var/www/html \
+            && chmod -R 755 /var/www/html
+        
+        # 安裝 PHP 依賴
+        WORKDIR /var/www/html
+        RUN composer install --no-dev --optimize-autoloader
+        
+        EXPOSE 80
+    
+    # 環境變數
+    env:
+      # PHP 配置
+      PHP_VERSION: "8.2"
+      APACHE_DOCUMENT_ROOT: "/var/www/html"
+      
+      # AI 配置
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: "gpt-3.5-turbo"
+      OPENAI_MAX_TOKENS: "1000"
+      OPENAI_TEMPERATURE: "0.3"
+      
+      # 數據庫配置
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: "python_collaboration"
+      MYSQL_PORT: "3306"
+      
+      # WebSocket 配置
+      WEBSOCKET_PORT: "8080"
+      WEBSOCKET_HOST: "0.0.0.0"
+      
+      # 應用配置
+      MAX_CONCURRENT_USERS: "100"
+      MAX_ROOMS: "50"
+      MAX_USERS_PER_ROOM: "8"
+    
+    # 端口映射
+    ports:
+      - 80
+      
+    # 健康檢查
+    healthcheck:
+      path: /backend/api/health.php
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      
+    # 資源配置
+    resources:
+      cpu: 1000m      # 1 CPU core
+      memory: 512Mi   # 512MB RAM
+
+  # WebSocket 服務器 (獨立的 PHP Ratchet 進程)
+  websocket:
+    build:
+      dockerfile: |
+        FROM php:8.2-cli
+        
+        # 安裝必要的擴展
+        RUN apt-get update && apt-get install -y \
+            zip unzip git \
+            && docker-php-ext-install pdo pdo_mysql mysqli sockets
+        
+        # 安裝 Composer
+        COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+        
+        # 複製項目文件
+        COPY . /app/
+        WORKDIR /app
+        
+        # 安裝 PHP 依賴
+        RUN composer install --no-dev --optimize-autoloader
+        
+        EXPOSE 8080
+        
+        # 啟動 WebSocket 服務器
+        CMD ["php", "websocket/server.php"]
+    
+    # 環境變數
+    env:
+      WEBSOCKET_PORT: "8080"
+      WEBSOCKET_HOST: "0.0.0.0"
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: "python_collaboration"
+    
+    # 端口映射
+    ports:
+      - 8080
+
+# 數據庫服務
+  mysql:
+    image: mysql:8.0
+    env:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: "python_collaboration"
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - name: mysql-data
+        mount: /var/lib/mysql
+
+# 🌐 網路配置
+networks:
+  default:
+    driver: bridge
+
+# 📁 持久化卷
+volumes:
+  mysql-data:
+    driver: local
+
+# 🔧 部署策略
+deployment:
+  # 滾動更新策略
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  
+  # 部署順序
+  order:
+    - mysql
+    - websocket
+    - web
+
+# 📊 監控配置
+monitoring:
+  enabled: true
+  metrics:
+    - name: http_requests_total
+      type: counter
+      help: "Total HTTP requests"
+    
+    - name: websocket_connections
+      type: gauge
+      help: "Active WebSocket connections"
+    
+    - name: ai_requests_total
+      type: counter
+      help: "Total AI assistant requests"
+    
+    - name: python_executions_total
+      type: counter
+      help: "Total Python code executions"
+
+# 🔍 日誌配置
+logging:
+  driver: json-file
+  options:
+    max-size: "100m"
+    max-file: "3"
+  
+  # 日誌聚合
+  aggregation:
+    enabled: true
+    retention: 7d
+
+# ⚙️ 配置檔案映射
+configs:
+  apache-config:
+    file: ./apache-config.conf
+    target: /etc/apache2/sites-available/000-default.conf
+  
+  supervisor-config:
+    file: ./supervisor.conf
+    target: /etc/supervisor/conf.d/pythonlearn.conf
+  
+  start-script:
+    file: ./start.sh
+    target: /usr/local/bin/start.sh
+    mode: 0755
+
+# 🔐 密鑰管理
+secrets:
+  openai-api-key:
+    external: true
+    name: OPENAI_API_KEY
+  
+  mysql-root-password:
+    external: true
+    name: MYSQL_ROOT_PASSWORD
+  
+  session-secret:
+    external: true
+    name: SESSION_SECRET 

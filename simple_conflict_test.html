@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>衝突檢測快速測試</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { 
+            background: #f8f9fa;
+            padding: 20px;
+        }
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .editor-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 10px 0;
+            border: 1px solid #dee2e6;
+        }
+        .editor-section.connected {
+            border-color: #28a745;
+            background: #f8fff9;
+        }
+        textarea {
+            width: 100%;
+            height: 150px;
+            font-family: monospace;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+        }
+        .status-log {
+            background: #f1f3f4;
+            border-radius: 4px;
+            padding: 10px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .conflict-alert {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1 class="text-center mb-4">🔥 Ratchet WebSocket 衝突檢測測試</h1>
+        
+        <!-- 服務器狀態 -->
+        <div class="alert alert-info">
+            <strong>WebSocket狀態:</strong> <span id="wsStatus">檢查中...</span><br>
+            <strong>房間ID:</strong> <span id="currentRoomId">-</span>
+        </div>
+        
+        <!-- 控制面板 -->
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5>測試控制</h5>
+                <button class="btn btn-primary me-2" onclick="connectBothEditors()">🔗 連接雙編輯器</button>
+                <button class="btn btn-warning me-2" onclick="simulateConflict()">⚡ 模擬衝突</button>
+                <button class="btn btn-danger me-2" onclick="testSameLineConflict()">🚨 同行衝突測試</button>
+                <button class="btn btn-success me-2" onclick="openRealEditors()">🖥️ 打開真實編輯器</button>
+                <button class="btn btn-secondary me-2" onclick="clearLog()">🗑️ 清空日誌</button>
+            </div>
+        </div>
+
+        <!-- 衝突警告區域 -->
+        <div id="conflictAlert" class="conflict-alert">
+            <h5>🚨 檢測到衝突!</h5>
+            <div id="conflictDetails"></div>
+            <button class="btn btn-sm btn-success me-2" onclick="resolveConflict('accept')">同意修改</button>
+            <button class="btn btn-sm btn-danger me-2" onclick="resolveConflict('reject')">拒絕修改</button>
+            <button class="btn btn-sm btn-info me-2" onclick="resolveConflict('ai_analyze')">AI分析</button>
+        </div>
+
+        <!-- 編輯器A -->
+        <div class="editor-section" id="editorSectionA">
+            <h5>📝 編輯器A (張三 - zhang_san) <span id="statusA" class="badge bg-secondary">未連接</span></h5>
+            <textarea id="codeA" oninput="onCodeChangeA()">def hello():
+    print("Hello from 張三")
+    return "A"</textarea>
+            <button class="btn btn-sm btn-outline-primary mt-2" onclick="sendCodeA()">發送變更A</button>
+            <button class="btn btn-sm btn-outline-info mt-2" onclick="loadCodeFromServer('A')">載入服務器代碼A</button>
+        </div>
+
+        <!-- 編輯器B -->
+        <div class="editor-section" id="editorSectionB">
+            <h5>📝 編輯器B (李四 - li_si) <span id="statusB" class="badge bg-secondary">未連接</span></h5>
+            <textarea id="codeB" oninput="onCodeChangeB()">def hello():
+    print("Hello from 李四")
+    return "B"</textarea>
+            <button class="btn btn-sm btn-outline-primary mt-2" onclick="sendCodeB()">發送變更B</button>
+            <button class="btn btn-sm btn-outline-info mt-2" onclick="loadCodeFromServer('B')">載入服務器代碼B</button>
+        </div>
+
+        <!-- 狀態日誌 -->
+        <div class="card">
+            <div class="card-body">
+                <h5>📋 測試日誌</h5>
+                <div id="statusLog" class="status-log"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let wsA = null;
+        let wsB = null;
+        const testRoomId = Math.floor(Math.random() * 1000) + 1;
+        const userIdA = 'zhang_san';
+        const usernameA = '張三';
+        const userIdB = 'li_si';
+        const usernameB = '李四';
+        let currentConflictId = null;
+        let lastCodeA = document.getElementById('codeA').value;
+        let lastCodeB = document.getElementById('codeB').value;
+        let codeChangeTimerA = null;
+        let codeChangeTimerB = null;
+
+        // 更新房間ID顯示
+        document.getElementById('currentRoomId').textContent = testRoomId;
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logDiv = document.getElementById('statusLog');
+            const colorClass = type === 'error' ? 'text-danger' : 
+                              type === 'success' ? 'text-success' : 
+                              type === 'warning' ? 'text-warning' : 'text-muted';
+            logDiv.innerHTML += `<div class="${colorClass}">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('statusLog').innerHTML = '';
+            log('日誌已清空');
+        }
+
+        function updateWSStatus() {
+            const statusAOpen = wsA && wsA.readyState === WebSocket.OPEN;
+            const statusBOpen = wsB && wsB.readyState === WebSocket.OPEN;
+            
+            document.getElementById('statusA').textContent = statusAOpen ? '已連接' : '未連接';
+            document.getElementById('statusA').className = statusAOpen ? 'badge bg-success' : 'badge bg-secondary';
+            
+            document.getElementById('statusB').textContent = statusBOpen ? '已連接' : '未連接';
+            document.getElementById('statusB').className = statusBOpen ? 'badge bg-success' : 'badge bg-secondary';
+            
+            document.getElementById('editorSectionA').className = statusAOpen ? 'editor-section connected' : 'editor-section';
+            document.getElementById('editorSectionB').className = statusBOpen ? 'editor-section connected' : 'editor-section';
+            
+            const wsStatus = document.getElementById('wsStatus');
+            if (statusAOpen && statusBOpen) {
+                wsStatus.innerHTML = '<span class="text-success">✅ 雙編輯器已連接</span>';
+            } else if (statusAOpen || statusBOpen) {
+                wsStatus.innerHTML = '<span class="text-warning">⚠️ 部分連接</span>';
+            } else {
+                wsStatus.innerHTML = '<span class="text-danger">❌ 未連接</span>';
+            }
+        }
+
+        function connectEditor(editorId, wsVar, userId, username) {
+            log(`開始連接編輯器 ${editorId} (${username}) 到 ws://localhost:8080`, 'info');
+            let ws = new WebSocket('ws://localhost:8080');
+            
+            ws.onopen = function() {
+                log(`編輯器 ${editorId} WebSocket連接成功`, 'success');
+                const joinMessage = {
+                    type: 'join_room',
+                    room_id: testRoomId,
+                    user_id: userId,
+                    username: username
+                };
+                ws.send(JSON.stringify(joinMessage));
+                log(`編輯器 ${editorId} 發送加入房間: ${JSON.stringify(joinMessage)}`, 'info');
+                if (editorId === 'A') wsA = ws; else wsB = ws;
+                updateWSStatus();
+            };
+            
+            ws.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                log(`編輯器 ${editorId} 收到: ${data.type} (來自 ${data.username || data.user_id || '服務器'}) - ${data.message || (data.code ? data.code.substring(0,30)+'...' : JSON.stringify(data).substring(0,50)+'...')} `,'info');
+                handleWebSocketMessage(editorId, data);
+            };
+            
+            ws.onerror = function(errorEvent) {
+                log(`編輯器 ${editorId} WebSocket錯誤: ${errorEvent.message || '未知錯誤'}`, 'error');
+                if (editorId === 'A') wsA = null; else wsB = null;
+                updateWSStatus();
+            };
+            
+            ws.onclose = function(closeEvent) {
+                log(`編輯器 ${editorId} WebSocket連接關閉 (Code: ${closeEvent.code}, Reason: ${closeEvent.reason || 'N/A'})`, 'warning');
+                if (editorId === 'A') wsA = null; else wsB = null;
+                updateWSStatus();
+            };
+            return ws;
+        }
+
+        function connectBothEditors() {
+            if (wsA && wsA.readyState === WebSocket.OPEN) wsA.close();
+            if (wsB && wsB.readyState === WebSocket.OPEN) wsB.close();
+            wsA = connectEditor('A', wsA, userIdA, usernameA);
+            // Small delay to avoid potential race conditions on server or client when establishing multiple connections too quickly
+            setTimeout(() => {
+                 wsB = connectEditor('B', wsB, userIdB, usernameB);
+            }, 200);
+        }
+
+        function handleWebSocketMessage(editorId, data) {
+            switch(data.type) {
+                case 'room_joined':
+                    log(`✅ 編輯器 ${editorId} (${data.username}) 成功加入房間 ${data.room_id}`, 'success');
+                    if(data.initial_code !== undefined) {
+                         if (editorId === 'A') {
+                            document.getElementById('codeA').value = data.initial_code;
+                            lastCodeA = data.initial_code;
+                        } else if (editorId === 'B') {
+                            document.getElementById('codeB').value = data.initial_code;
+                            lastCodeB = data.initial_code;
+                        }
+                        log(`📝 編輯器 ${editorId} 載入初始代碼 (長度: ${data.initial_code.length})`, 'info');
+                    }
+                    break;
+                case 'user_joined':
+                    log(`👤 用戶 ${data.username} (${data.user_id}) 加入房間 ${data.room_id}`, 'info');
+                    break;
+                case 'user_left':
+                    log(`🚪 用戶 ${data.username} (${data.user_id}) 離開房間 ${data.room_id}`, 'warning');
+                    break;
+                case 'code_changed': // Server sends 'code_changed'
+                    log(`🔄 編輯器 ${editorId} 收到代碼變更 (來自 ${data.username}, ${data.user_id})`, 'info');
+                    if (data.code !== undefined) {
+                        if (editorId === 'A' && data.user_id === userIdB) { // Editor A receives change from B
+                            if (data.code !== document.getElementById('codeA').value) {
+                                document.getElementById('codeA').value = data.code;
+                                lastCodeA = data.code;
+                                log(`📝 編輯器A已同步來自 ${data.username} 的代碼`, 'success');
+                            }
+                        } else if (editorId === 'B' && data.user_id === userIdA) { // Editor B receives change from A
+                            if (data.code !== document.getElementById('codeB').value) {
+                                document.getElementById('codeB').value = data.code;
+                                lastCodeB = data.code;
+                                log(`📝 編輯器B已同步來自 ${data.username} 的代碼`, 'success');
+                            }
+                        }
+                    }
+                    break;
+                case 'conflict_detected':
+                    log(`🚨 編輯器 ${editorId} 檢測到衝突! (ID: ${data.conflict_id})`, 'warning');
+                    showConflictAlert(data);
+                    break;
+                case 'conflict_resolved':
+                    log(`✅ 編輯器 ${editorId} 衝突已解決 (ID: ${data.conflict_id})`, 'success');
+                    hideConflictAlert();
+                    // Potentially re-sync code if server sends resolved code
+                    if (data.resolved_code !== undefined) {
+                        document.getElementById('codeA').value = data.resolved_code;
+                        document.getElementById('codeB').value = data.resolved_code;
+                        lastCodeA = data.resolved_code;
+                        lastCodeB = data.resolved_code;
+                        log(`📝 雙編輯器已同步解決後的代碼 (版本: ${data.version || 'N/A'})`, 'success');
+                    }
+                    break;
+                case 'error':
+                    log(`❌ 編輯器 ${editorId} 收到服務器錯誤: ${data.message}`, 'error');
+                    break;
+                default:
+                    log(`📨 編輯器 ${editorId} 收到未知服務器消息: ${data.type}`, 'info');
+            }
+        }
+
+        function showConflictAlert(conflictData) {
+            currentConflictId = conflictData.conflict_id;
+            let detailsHtml = `<p><strong>衝突ID:</strong> ${conflictData.conflict_id}</p>
+                               <p><strong>衝突類型:</strong> ${conflictData.conflict_type || (conflictData.type === 'same_line_conflict' ? '同行修改' : '代碼衝突')}</p>
+                               <p><strong>描述:</strong> ${conflictData.description || conflictData.message || '檢測到代碼衝突'}</p>`;
+            if (conflictData.conflict_lines && conflictData.conflict_lines.length > 0) {
+                detailsHtml += '<h5>衝突行:</h5><ul>';
+                conflictData.conflict_lines.forEach(line => {
+                    detailsHtml += `<li>行 ${line.line_number}: 原='${line.original}', 他='${line.other_user}', 你='${line.current_user}'</li>`;
+                });
+                detailsHtml += '</ul>';
+            }
+            document.getElementById('conflictDetails').innerHTML = detailsHtml;
+            document.getElementById('conflictAlert').style.display = 'block';
+        }
+
+        function hideConflictAlert() {
+            document.getElementById('conflictAlert').style.display = 'none';
+            currentConflictId = null;
+        }
+
+        function resolveConflict(resolutionType) {
+            if (!currentConflictId) {
+                log('沒有待解決的衝突', 'warning');
+                return;
+            }
+            const activeWs = (wsA && wsA.readyState === WebSocket.OPEN) ? wsA : ((wsB && wsB.readyState === WebSocket.OPEN) ? wsB : null);
+            if (!activeWs) {
+                log('沒有可用的WebSocket連接來解決衝突', 'error');
+                return;
+            }
+            const resolutionMessage = {
+                type: 'conflict_resolution',
+                room_id: testRoomId,
+                conflict_id: currentConflictId,
+                resolution: resolutionType,
+                // The user resolving the conflict. Assuming Zhang San (Editor A) is the main resolver here for simplicity.
+                user_id: userIdA 
+            };
+            activeWs.send(JSON.stringify(resolutionMessage));
+            log(`發送衝突解決請求: ${resolutionType} (衝突ID: ${currentConflictId})`, 'info');
+            // Optimistically hide, server will confirm with 'conflict_resolved' and new code
+            // hideConflictAlert(); 
+        }
+
+        function sendCode(editorId, ws, userId, codeContent) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log(`編輯器 ${editorId} 未連接，無法發送代碼`, 'error');
+                return false;
+            }
+            const message = {
+                type: 'code_change',
+                room_id: testRoomId,
+                user_id: userId,
+                code: codeContent,
+                change_type: 'edit' // Or determine based on actual change if more granular
+            };
+            ws.send(JSON.stringify(message));
+            log(`編輯器 ${editorId} (${userId}) 發送代碼 (長度: ${codeContent.length})`, 'info');
+            return true;
+        }
+
+        function sendCodeA() {
+            const code = document.getElementById('codeA').value;
+            if(sendCode('A', wsA, userIdA, code)) lastCodeA = code;
+        }
+
+        function sendCodeB() {
+            const code = document.getElementById('codeB').value;
+            if(sendCode('B', wsB, userIdB, code)) lastCodeB = code;
+        }
+
+        function onCodeChangeA() {
+            clearTimeout(codeChangeTimerA);
+            codeChangeTimerA = setTimeout(() => {
+                const code = document.getElementById('codeA').value;
+                if (code !== lastCodeA) {
+                    sendCodeA();
+                }
+            }, 500);
+        }
+
+        function onCodeChangeB() {
+            clearTimeout(codeChangeTimerB);
+            codeChangeTimerB = setTimeout(() => {
+                const code = document.getElementById('codeB').value;
+                if (code !== lastCodeB) {
+                    sendCodeB();
+                }
+            }, 500);
+        }
+        
+        function loadCodeFromServer(editorId) {
+            const ws = (editorId === 'A') ? wsA : wsB;
+            const userId = (editorId === 'A') ? userIdA : userIdB;
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                log(`編輯器 ${editorId} (${userId}) 請求從服務器載入代碼...`, 'info');
+                ws.send(JSON.stringify({
+                    type: 'load_code', // Ensure server handles this type
+                    room_id: testRoomId,
+                    user_id: userId
+                }));
+            } else {
+                log(`編輯器 ${editorId} 未連接，無法載入代碼`, 'error');
+            }
+        }
+
+        function simulateConflict() {
+            if (!wsA || wsA.readyState !== WebSocket.OPEN || !wsB || wsB.readyState !== WebSocket.OPEN) {
+                log('請先連接雙編輯器', 'error');
+                return;
+            }
+            log('🔥 開始模擬衝突 (快速連續發送不同代碼)...', 'warning');
+            const codeAVal = document.getElementById('codeA').value;
+            const codeBVal = document.getElementById('codeB').value;
+            // Ensure they are different to actually cause a change
+            if (codeAVal === codeBVal) {
+                 document.getElementById('codeA').value = codeAVal + "\n# A的修改";
+            }
+            // Send A's current (potentially modified) code
+            sendCode('A', wsA, userIdA, document.getElementById('codeA').value);
+            // Then, after a short delay, send B's current code
+            setTimeout(() => {
+                sendCode('B', wsB, userIdB, document.getElementById('codeB').value);
+            }, 100); // Short delay to ensure server processes A's change first, then B's as a conflicting one
+        }
+
+        function testSameLineConflict() {
+            log('準備同行衝突數據...', 'info');
+            document.getElementById('codeA').value = `def main():\n    print("張三的版本 - V1") # Line 2 by ZhangSan\n    return 1`;
+            lastCodeA = document.getElementById('codeA').value;
+            document.getElementById('codeB').value = `def main():\n    print("李四的版本 - V1") # Line 2 by LiSi\n    return 1`;
+            lastCodeB = document.getElementById('codeB').value;
+            log('📝 已設置同行衝突代碼。請先「連接雙編輯器」，然後「手動各自發送一次變更」，或直接點擊「模擬衝突」', 'info');
+        }
+
+        function openRealEditors() {
+            const urlA = `http://localhost:8000/frontend/editor.php?room_id=${testRoomId}&user_id=${userIdA}&username=${usernameA}&role=main_changer`;
+            const urlB = `http://localhost:8000/frontend/editor.php?room_id=${testRoomId}&user_id=${userIdB}&username=${usernameB}&role=secondary_changer`;
+            window.open(urlA, '_blank', 'width=800,height=600,left=50,top=50,noopener,noreferrer');
+            window.open(urlB, '_blank', 'width=800,height=600,left=900,top=50,noopener,noreferrer');
+            log(`🖥️ 已打開真實編輯器窗口 (房間ID: ${testRoomId})`, 'success');
+        }
+
+        // 初始化
+        window.onload = function() {
+            log('🚀 Ratchet WebSocket 衝突檢測測試頁面已載入');
+            log(`設定房間ID: ${testRoomId}, 張三 (${userIdA}), 李四 (${userIdB})`);
+            updateWSStatus();
+        };
+
+        // 頁面關閉時清理連接
+        window.onbeforeunload = function() {
+            if (wsA && wsA.readyState === WebSocket.OPEN) wsA.close();
+            if (wsB && wsB.readyState === WebSocket.OPEN) wsB.close();
+        };
+    </script>
+</body>
+</html> 

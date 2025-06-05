@@ -1,0 +1,48 @@
+# Python教學多人協作平台開發規則
+
+## 專案概述
+- 後端限定使用PHP
+- 前端主要使用PHP，可使用少量JavaScript和Python
+- 使用PHP Ratchet實現WebSocket多人連線
+- 整合OpenAI API作為AI助教
+- 支援Zeabur部署
+
+## 開發原則
+1. 先確保功能正常運作，再改進UI
+2. 不使用複雜的註冊登入系統
+3. 使用真實數據，不使用演示數據、模擬數據、測試數據
+4. 確保前後端函數正確映射
+5. 每個API都要有正確的路由連接
+6. 完整的錯誤日誌記錄
+
+## 技術棧
+- 後端：PHP 8.0+
+- WebSocket：PHP Ratchet
+- 前端：PHP + 少量JavaScript
+- AI：OpenAI API
+- 部署：Zeabur
+- 資料庫：MySQL
+
+## 核心功能
+1. WebSocket多人同步代碼編輯
+2. 衝突檢測與解決系統
+3. AI助教（5大功能）
+4. 代碼保存/載入/運行/下載
+5. 教師後台監控
+6. 歷史紀錄管理
+
+## 開發流程
+1. 建立基礎架構
+2. 實現WebSocket連線
+3. 開發代碼編輯器
+4. 實現衝突檢測
+5. 整合AI助教
+6. 添加教師監控
+7. 測試與部署
+
+## 文件結構
+- `/backend/` - PHP後端代碼
+- `/frontend/` - 前端頁面
+- `/websocket/` - WebSocket服務器
+- `/config/` - 配置文件
+- `/.cursor/rules/` - 詳細規則文件 

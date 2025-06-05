@@ -1,0 +1,222 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+<rule>
+  <meta>
+    <title>Universal Development Standards</title>
+    <description>通用開發規範，適用於所有專案的基礎規則和工作流程</description>
+    <created-at utc-timestamp="1737936000">2025-01-27, 08:14 AM UTC+8</created-at>
+    <last-updated-at utc-timestamp="1738022400">2025-01-28, 08:00 AM UTC+8</last-updated-at>
+    <applies-to>
+      <file-matcher glob="**/*">All files in the project</file-matcher>
+      <action-matcher action="code-modification">Triggered when modifying any code</action-matcher>
+      <action-matcher action="debug-session">Triggered during debugging sessions</action-matcher>
+      <action-matcher action="documentation">Triggered when creating documentation</action-matcher>
+    </applies-to>
+  </meta>
+  <requirements>
+    <non-negotiable priority="critical">
+      <description>總是使用繁體中文回應，技術術語保持英文但說明使用繁體中文。</description>
+      <examples>
+        <example title="Language Usage">
+          <correct-example title="Proper Traditional Chinese with English terms" conditions="Writing code comments or documentation" expected-result="Clear bilingual communication" correctness-criteria="Uses Traditional Chinese for explanations with English technical terms"><![CDATA[// 使用 WebSocket 建立即時連線
+const socket = new WebSocket('ws://localhost:3000');
+console.log('✅ WebSocket 連線已建立');]]></correct-example>
+          <incorrect-example title="English-only documentation" conditions="Writing code comments or documentation" expected-result="Clear bilingual communication" incorrectness-criteria="Uses only English without Traditional Chinese explanations"><![CDATA[// Establish real-time connection using WebSocket
+const socket = new WebSocket('ws://localhost:3000');
+console.log('WebSocket connection established');]]></incorrect-example>
+        </example>
+      </examples>
+    </non-negotiable>
+    <non-negotiable priority="critical">
+      <description>每次 Debug 都必須更新對應的 _debug.mdc 檔案，記錄問題、解決方案、測試結果和經驗總結。</description>
+      <examples>
+        <example title="Debug Documentation">
+          <correct-example title="Complete debug record" conditions="After fixing a bug" expected-result="Updated debug file with full details" correctness-criteria="Includes problem description, solution, test results, and lessons learned"><![CDATA[---
+title: "WebSocket 連線問題 Debug 記錄"
+description: "解決 WebSocket 連線中斷問題的完整記錄"
+created: "2025-01-28"
+status: "已解決"
+---
+
+<debug-record>
+  <problem-description>
+    <![CDATA[WebSocket 連線經常中斷，影響即時通訊功能]]>
+  </problem-description>
+  <solution-implemented>
+    <![CDATA[添加自動重連機制和心跳檢測]]>
+  </solution-implemented>
+  <testing-verification>
+    <![CDATA[連線穩定性從 60% 提升至 95%]]>
+  </testing-verification>
+</debug-record>]]></correct-example>
+          <incorrect-example title="Missing debug documentation" conditions="After fixing a bug" expected-result="Updated debug file with full details" incorrectness-criteria="No documentation of the debugging process"><![CDATA[// Fixed the WebSocket issue
+// (No debug file updated)]]></incorrect-example>
+        </example>
+      </examples>
+    </non-negotiable>
+    <non-negotiable priority="critical">
+      <description>禁止生成多餘的 .md 文檔，除非明確要求才生成文檔檔案。</description>
+      <examples>
+        <example title="Documentation Generation">
+          <correct-example title="Generate only when requested" conditions="User asks for specific documentation" expected-result="Targeted documentation creation" correctness-criteria="Creates documentation only upon explicit request"><![CDATA[User: "請生成 API 文檔"
+Assistant: 我將為您創建 api-documentation.md 檔案
+[Creates specific requested documentation]]]></correct-example>
+          <incorrect-example title="Automatic documentation generation" conditions="Completing a feature" expected-result="No unnecessary documentation" incorrectness-criteria="Automatically generates documentation without request"><![CDATA[// Automatically creates:
+// - README.md
+// - DEPLOYMENT.md  
+// - USER_GUIDE.md
+// - CONTRIBUTING.md
+// (Without user request)]]></incorrect-example>
+        </example>
+      </examples>
+    </non-negotiable>
+    <non-negotiable priority="critical">
+      <description>網路搜索時以英文優先查找 2025 年最新資訊，確保技術相容性和時效性。</description>
+      <examples>
+        <example title="Information Search">
+          <correct-example title="Search for latest information" conditions="Looking up technical documentation" expected-result="Current and relevant information" correctness-criteria="Prioritizes 2025 information and latest versions"><![CDATA[Search: "Node.js 2025 latest features LTS"
+Search: "React 19 best practices 2025"
+Search: "WebSocket API 2025 browser support"]]></correct-example>
+          <incorrect-example title="Using outdated information" conditions="Looking up technical documentation" expected-result="Current and relevant information" incorrectness-criteria="Uses outdated information without checking for updates"><![CDATA[Search: "Node.js tutorial"
+Uses: Node.js 14 documentation from 2021
+References: Deprecated APIs without checking current status]]></incorrect-example>
+        </example>
+      </examples>
+    </non-negotiable>
+    <requirement priority="high">
+      <description>生成的代碼必須能立即運行，包含所有必要的 import、依賴項和配置。</description>
+      <examples>
+        <example title="Code Completeness">
+          <correct-example title="Complete runnable code" conditions="Generating code snippet" expected-result="Immediately executable code" correctness-criteria="Includes all necessary imports, dependencies, and configuration"><![CDATA[const express = require('express');
+const WebSocket = require('ws');
+const http = require('http');
+
+const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
+
+// 設定靜態檔案服務
+app.use(express.static('public'));
+
+// WebSocket 連線處理
+wss.on('connection', (ws) => {
+  console.log('✅ 新的 WebSocket 連線');
+  
+  ws.on('message', (message) => {
+    console.log('📨 收到訊息:', message.toString());
+  });
+});
+
+server.listen(3000, () => {
+  console.log('🚀 服務器運行在 http://localhost:3000');
+});]]></correct-example>
+          <incorrect-example title="Incomplete code" conditions="Generating code snippet" expected-result="Immediately executable code" incorrectness-criteria="Missing imports, incomplete setup, or missing configuration"><![CDATA[const wss = new WebSocket.Server({ server });
+
+wss.on('connection', (ws) => {
+  ws.on('message', (message) => {
+    console.log('Message:', message);
+  });
+});
+
+server.listen(3000);
+// Missing: express, WebSocket, http imports
+// Missing: server setup and static file configuration]]></incorrect-example>
+        </example>
+      </examples>
+    </requirement>
+    <requirement priority="high">
+      <description>修改前必須檢索相關檔案，確保前後端映射一致性，修改後進行測試驗證。</description>
+      <examples>
+        <example title="Pre-modification Workflow">
+          <correct-example title="Complete workflow execution" conditions="Modifying AI assistant functionality" expected-result="Consistent front-end and back-end implementation" correctness-criteria="Checks related files, ensures mapping consistency, and verifies changes"><![CDATA[1. 檢索相關檔案:
+   - public/js/ai-assistant.js (前端)
+   - server.js (後端 AI 處理)
+   - .cursor/rules/AI_assistant_rules.mdc
+
+2. 確認前後端映射:
+   - 前端: action: 'analyze' 
+   - 後端: case 'analyze': analyzeCode()
+
+3. 同步修改並測試:
+   - 更新前端請求格式
+   - 更新後端處理邏輯
+   - 測試功能正常運作]]></correct-example>
+          <incorrect-example title="Direct modification without checks" conditions="Modifying AI assistant functionality" expected-result="Consistent implementation" incorrectness-criteria="Makes changes without checking related files or verifying consistency"><![CDATA[// 直接修改後端代碼
+case 'new_action':
+  return await newFunction(code);
+
+// 沒有檢查前端是否支援 'new_action'
+// 沒有更新相關規則檔案
+// 沒有測試前後端整合]]></incorrect-example>
+        </example>
+      </examples>
+    </requirement>
+    <requirement priority="medium">
+      <description>使用現代化的 UI/UX 設計原則，確保響應式設計和良好的用戶體驗。</description>
+      <examples>
+        <example title="Modern UI Design">
+          <correct-example title="Responsive and accessible design" conditions="Creating user interface components" expected-result="Modern, accessible UI" correctness-criteria="Uses modern CSS, responsive design, and accessibility features"><![CDATA[<!-- 響應式按鈕設計 -->
+<button class="btn btn-primary d-flex align-items-center gap-2" 
+        aria-label="分析程式碼"
+        data-bs-toggle="tooltip" 
+        data-bs-title="使用 AI 分析您的程式碼">
+  <i class="fas fa-brain" aria-hidden="true"></i>
+  <span class="d-none d-sm-inline">AI 分析</span>
+</button>
+
+<style>
+.btn {
+  transition: all 0.3s ease;
+  border-radius: 8px;
+}
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+</style>]]></correct-example>
+          <incorrect-example title="Basic, non-responsive design" conditions="Creating user interface components" expected-result="Modern, accessible UI" incorrectness-criteria="Uses outdated design patterns without responsiveness or accessibility"><![CDATA[<!-- 基本按鈕，無響應式設計 -->
+<button onclick="analyze()">分析</button>
+
+<style>
+button {
+  background: blue;
+  color: white;
+}
+</style>]]></incorrect-example>
+        </example>
+      </examples>
+    </requirement>
+  </requirements>
+  <grammar>
+    <grammar-entry title="Debug File Naming Convention">
+      <pattern description="Debug files must end with _debug.mdc">.*_debug\.mdc$</pattern>
+      <example description="Valid debug file name">ai_response_length_debug.mdc</example>
+    </grammar-entry>
+    <grammar-entry title="Rule File Naming Convention">
+      <pattern description="Rule files must end with _rules.mdc or .mdc">.*(_rules)?\.mdc$</pattern>
+      <example description="Valid rule file names">frontend_rules.mdc, user_rules.mdc, cursor_rules.mdc</example>
+    </grammar-entry>
+    <grammar-entry title="Traditional Chinese Usage">
+      <pattern description="Comments and documentation should use Traditional Chinese">[\u4e00-\u9fff]+</pattern>
+      <example description="Traditional Chinese comment">// 建立 WebSocket 連線</example>
+    </grammar-entry>
+  </grammar>
+  <context description="Workflow and priority guidelines">
+    這些規則建立了一個清晰的工作流程：修改前檢查相關檔案和規則，確保前後端映射一致性，修改後更新 Debug 記錄並進行測試驗證。優先級設定確保語言規範和 Debug 記錄具有最高優先級，其次是代碼完整性和工作流程，最後是 UI/UX 設計。所有規則都旨在提高開發效率、代碼品質和用戶體驗，同時保持一致的繁體中文溝通標準。
+  </context>
+  <references>
+    <reference as="dependency" href=".cursor/rules/rules.mdc" reason="Follows standard rule format">Base rule format definition</reference>
+    <reference as="context" href=".cursor/rules/AI_assistant_rules.mdc" reason="Related AI functionality rules">AI assistant development guidelines</reference>
+    <reference as="context" href=".cursor/rules/frontend_rules.mdc" reason="Related frontend development rules">Frontend development standards</reference>
+    <reference as="context" href=".cursor/rules/backend_rules.mdc" reason="Related backend development rules">Backend development standards</reference>
+  </references>
+</rule>
+
+
+
+
+
+

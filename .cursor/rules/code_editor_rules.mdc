@@ -1,0 +1,283 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# 代碼編輯器規則 (Code Editor Rules)
+
+## 編輯器功能需求
+
+### 基本編輯功能
+1. **語法高亮**：
+   - Python語法高亮顯示
+   - 關鍵字、字符串、註釋區分顏色
+   - 行號顯示
+
+2. **代碼格式化**：
+   - 自動縮進
+   - 括號匹配
+   - 代碼摺疊
+
+3. **編輯操作**：
+   - 撤銷/重做 (Ctrl+Z/Ctrl+Y)
+   - 複製/貼上/剪切
+   - 查找/替換 (Ctrl+F/Ctrl+H)
+   - 全選 (Ctrl+A)
+
+### 協作功能
+1. **多用戶游標**：
+   - 顯示其他用戶的游標位置
+   - 不同顏色區分不同用戶
+   - 用戶名標籤顯示
+
+2. **實時同步**：
+   - 即時顯示其他用戶的編輯
+   - 平滑的文字插入/刪除動畫
+   - 衝突區域高亮顯示
+
+3. **用戶狀態**：
+   - 在線用戶列表
+   - 用戶活動狀態指示
+   - 用戶離線/上線通知
+
+## 代碼操作功能
+
+### 保存功能
+1. **自動保存**：
+   - 每30秒自動保存到服務器
+   - 本地瀏覽器存儲備份
+   - 保存狀態指示器
+
+2. **手動保存**：
+   - Ctrl+S快捷鍵
+   - 保存按鈕
+   - 保存成功提示
+
+### 載入功能
+1. **歷史紀錄載入**：
+   - 顯示保存歷史列表
+   - 時間戳和版本號
+   - 預覽功能
+
+2. **文件導入**：
+   - 支援.py文件上傳
+   - 拖拽上傳功能
+   - 文件內容驗證
+
+### 運行功能
+1. **代碼執行**：
+   - 在線Python解釋器
+   - 輸出結果顯示
+   - 錯誤信息高亮
+
+2. **執行環境**：
+   - 沙盒執行環境
+   - 執行時間限制（10秒）
+   - 內存使用限制
+
+### 導出功能
+1. **複製代碼**：
+   - 一鍵複製全部代碼
+   - 選中區域複製
+   - 複製成功提示
+
+2. **下載到本地**：
+   - 下載為.py文件
+   - 自定義文件名
+   - 包含時間戳
+
+## 技術實現
+
+### 前端編輯器
+使用CodeMirror或Monaco Editor：
+```html
+<div id="code-editor">
+  <div class="editor-toolbar">
+    <button onclick="saveCode()">保存</button>
+    <button onclick="runCode()">運行</button>
+    <button onclick="loadHistory()">歷史</button>
+    <button onclick="downloadCode()">下載</button>
+  </div>
+  <div class="editor-container">
+    <textarea id="code-textarea"></textarea>
+  </div>
+  <div class="editor-output">
+    <div id="execution-result"></div>
+  </div>
+</div>
+```
+
+### JavaScript編輯器配置
+```javascript
+const editor = CodeMirror.fromTextArea(document.getElementById('code-textarea'), {
+  mode: 'python',
+  theme: 'default',
+  lineNumbers: true,
+  autoCloseBrackets: true,
+  matchBrackets: true,
+  indentUnit: 4,
+  indentWithTabs: false,
+  extraKeys: {
+    'Ctrl-S': saveCode,
+    'Ctrl-Enter': runCode,
+    'Ctrl-/': toggleComment
+  }
+});
+```
+
+### WebSocket同步
+```javascript
+// 代碼變更同步
+editor.on('change', function(cm, change) {
+  if (change.origin !== 'setValue') {
+    const changeData = {
+      type: 'code_change',
+      room_id: currentRoom,
+      user_id: currentUser,
+      change: {
+        from: change.from,
+        to: change.to,
+        text: change.text,
+        removed: change.removed
+      },
+      timestamp: Date.now()
+    };
+    websocket.send(JSON.stringify(changeData));
+  }
+});
+
+// 游標位置同步
+editor.on('cursorActivity', function(cm) {
+  const cursor = cm.getCursor();
+  const cursorData = {
+    type: 'cursor_position',
+    room_id: currentRoom,
+    user_id: currentUser,
+    position: cursor,
+    timestamp: Date.now()
+  };
+  websocket.send(JSON.stringify(cursorData));
+});
+```
+
+## API接口
+
+### 代碼保存API
+```php
+// POST /backend/api/code.php?action=save
+{
+  "room_id": "room_123",
+  "user_id": "user_456", 
+  "code": "Python代碼內容",
+  "version": 1
+}
+```
+
+### 代碼載入API
+```php
+// GET /backend/api/code.php?action=load&room_id=123
+{
+  "success": true,
+  "data": {
+    "code": "Python代碼內容",
+    "version": 1,
+    "last_modified": "2024-01-01T00:00:00Z"
+  }
+}
+```
+
+### 歷史紀錄API
+```php
+// GET /backend/api/history.php?room_id=123
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "version": 1,
+      "code": "代碼內容",
+      "saved_at": "2024-01-01T00:00:00Z",
+      "saved_by": "user_456"
+    }
+  ]
+}
+```
+
+### 代碼執行API
+```php
+// POST /backend/api/code.php?action=execute
+{
+  "code": "print('Hello World')",
+  "timeout": 10
+}
+
+// 響應
+{
+  "success": true,
+  "data": {
+    "output": "Hello World\n",
+    "error": null,
+    "execution_time": 0.001
+  }
+}
+```
+
+## 用戶體驗優化
+
+### 性能優化
+1. **代碼高亮優化**：
+   - 延遲加載語法高亮
+   - 大文件分段處理
+   - 虛擬滾動
+
+2. **同步優化**：
+   - 變更去重
+   - 批量發送
+   - 增量同步
+
+### 錯誤處理
+1. **網絡錯誤**：
+   - 離線模式支援
+   - 自動重連
+   - 數據恢復
+
+2. **編輯錯誤**：
+   - 操作撤銷
+   - 狀態回滾
+   - 錯誤提示
+
+### 用戶提示
+1. **狀態指示**：
+   - 保存狀態指示器
+   - 同步狀態顯示
+   - 網絡連接狀態
+
+2. **操作反饋**：
+   - 成功/失敗提示
+   - 進度條顯示
+   - 快捷鍵提示
+
+## 安全考慮
+
+### 代碼執行安全
+1. **沙盒環境**：
+   - 限制文件系統訪問
+   - 限制網絡訪問
+   - 限制系統調用
+
+2. **資源限制**：
+   - CPU使用限制
+   - 內存使用限制
+   - 執行時間限制
+
+### 輸入驗證
+1. **代碼內容驗證**：
+   - 文件大小限制（1MB）
+   - 惡意代碼檢測
+   - 字符編碼驗證
+
+2. **用戶輸入過濾**：
+   - XSS防護
+   - SQL注入防護
+   - 特殊字符過濾
+

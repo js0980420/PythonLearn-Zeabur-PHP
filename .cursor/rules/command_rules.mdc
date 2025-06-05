@@ -1,0 +1,344 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# ⚡ 指令規則與最佳實踐系統
+
+**規則類型**: always
+**檔案保護**: 唯讀，禁止刪除
+
+## 📋 模組概述
+指令規則系統定義了PythonLearn-Zeabur平台開發、測試、部署過程中的標準指令集合和最佳實踐。確保所有操作都遵循統一的標準，提升開發效率和減少錯誤。
+
+## 🎯 核心指令原則
+
+### 指令分類體系
+- **開發指令**: 本地開發、代碼編輯、功能測試
+- **測試指令**: 單元測試、集成測試、性能測試
+- **部署指令**: Git操作、Zeabur部署、環境配置
+- **維護指令**: 系統監控、Debug診斷、性能優化
+
+### 指令安全規範
+- **檢查再執行**: 危險指令必須先檢查影響
+- **備份機制**: 重要操作前先備份
+- **權限控制**: 最小權限原則
+- **錯誤處理**: 完善的錯誤回饋機制
+
+---
+
+## 🚀 開發環境指令
+
+### 專案啟動指令
+```bash
+# 標準啟動流程
+npm install          # 安裝依賴
+npm start            # 啟動服務器 (端口8080)
+
+# 開發模式啟動
+npm run dev          # 開發模式 (如果配置)
+node server.js       # 直接啟動
+
+# 指定端口啟動
+PORT=8081 npm start  # 指定不同端口
+```
+
+### 依賴管理指令
+```bash
+# 查看依賴狀態
+npm list            # 查看已安裝依賴
+npm outdated        # 查看過期依賴
+npm audit           # 安全漏洞檢查
+
+# 依賴更新
+npm update          # 更新所有依賴
+npm install [package]@latest  # 安裝最新版本
+```
+
+### 代碼檢查指令
+```bash
+# 檢查代碼格式
+npx eslint .        # ESLint檢查
+npx prettier --check .  # Prettier格式檢查
+
+# 自動修復
+npx eslint . --fix  # 自動修復ESLint問題
+npx prettier --write .  # 自動格式化代碼
+```
+
+---
+
+## 🧪 測試驗證指令
+
+### 本地測試指令
+```bash
+# 端口可用性測試
+netstat -ano | findstr :8080     # Windows檢查端口
+lsof -i :8080                    # Linux/Mac檢查端口
+
+# 服務可用性測試
+curl http://localhost:8080       # 基本連接測試
+curl -I http://localhost:8080    # 檢查響應頭
+
+# WebSocket測試
+curl --include \
+     --no-buffer \
+     --header "Connection: Upgrade" \
+     --header "Upgrade: websocket" \
+     --header "Sec-WebSocket-Key: SGVsbG8sIHdvcmxkIQ==" \
+     --header "Sec-WebSocket-Version: 13" \
+     http://localhost:8080/
+```
+
+### 功能測試指令
+```bash
+# AI助教功能測試
+node test-ai.js              # 如果有測試腳本
+npm test                     # 運行測試套件
+
+# 數據庫連接測試
+node -e "
+const mysql = require('mysql2');
+const connection = mysql.createConnection({
+  host: process.env.MYSQL_HOST,
+  user: process.env.MYSQL_USER,
+  password: process.env.MYSQL_PASSWORD
+});
+connection.connect(err => {
+  console.log(err ? '❌ 連接失敗' : '✅ 連接成功');
+  connection.end();
+});
+"
+```
+
+### 性能測試指令
+```bash
+# 記憶體使用監控
+node -e "
+setInterval(() => {
+  const used = process.memoryUsage();
+  console.log(\`記憶體使用: \${Math.round(used.heapUsed / 1024 / 1024)} MB\`);
+}, 5000);
+"
+
+# 負載測試 (如果安裝了artillery)
+artillery quick --count 10 --num 100 http://localhost:8080
+```
+
+---
+
+## 🚢 部署操作指令
+
+### Git標準操作
+```bash
+# 檔案狀態檢查
+git status                   # 查看檔案狀態
+git diff                     # 查看變更內容
+git log --oneline -10        # 查看最近10次提交
+
+# 標準提交流程
+git add .                    # 添加所有變更
+git commit -m "✨ 新功能: [描述]"  # 標準提交格式
+git push origin main         # 推送到主分支
+
+# 架構清理 (危險操作 - 需謹慎)
+git rm --cached -r .         # 清理Git索引 (不刪除本地檔案)
+git add [指定檔案]           # 重新添加必要檔案
+```
+
+### Zeabur部署檢查
+```bash
+# 部署前檢查清單
+ls -la                       # 查看檔案列表
+cat package.json             # 檢查依賴配置
+cat zeabur.yaml              # 檢查部署配置
+
+# 檔案數量驗證 (必須是15個)
+git ls-files | wc -l         # Linux/Mac
+(git ls-files).Count         # PowerShell
+
+# 環境變數檢查
+echo $OPENAI_API_KEY         # Linux/Mac
+$env:OPENAI_API_KEY          # PowerShell
+```
+
+---
+
+## 🔧 系統維護指令
+
+### 進程管理指令
+```bash
+# Windows進程管理
+tasklist | findstr node.exe  # 查看Node.js進程
+taskkill /IM node.exe /F     # 強制終止所有Node.js進程
+taskkill /PID [PID] /F       # 終止特定進程
+
+# Linux/Mac進程管理
+ps aux | grep node           # 查看Node.js進程
+kill -9 [PID]               # 終止特定進程
+pkill -f node                # 終止所有Node.js進程
+```
+
+### 日誌管理指令
+```bash
+# 日誌輸出與記錄
+node server.js > server.log 2>&1  # 重新導向日誌到檔案
+tail -f server.log                # 即時查看日誌
+grep "error" server.log           # 搜索錯誤訊息
+
+# 日誌分析
+grep "AI 請求" server.log | wc -l     # 統計AI請求數量
+grep "WebSocket" server.log | tail -20  # 查看最近WebSocket日誌
+```
+
+### 系統清理指令
+```bash
+# Node.js緩存清理
+npm cache clean --force      # 清理npm緩存
+rm -rf node_modules          # 刪除node_modules (需重新安裝)
+npm install                  # 重新安裝依賴
+
+# 系統檔案清理
+rm -f *.log                  # 清理日誌檔案
+rm -f *.tmp                  # 清理臨時檔案
+```
+
+---
+
+## 🛡️ 安全指令規範
+
+### 敏感資料處理
+```bash
+# 環境變數安全設置
+export OPENAI_API_KEY="your-key-here"     # Linux/Mac
+$env:OPENAI_API_KEY = "your-key-here"     # PowerShell
+
+# 檢查敏感資料洩露
+grep -r "sk-" .                           # 搜索API密鑰
+grep -r "password" .                      # 搜索密碼
+git log --all --full-history -- "*.env"  # 檢查.env檔案歷史
+```
+
+### 權限檢查指令
+```bash
+# 檔案權限檢查
+ls -la .cursor/rules/        # 檢查規則檔案權限
+chmod 444 .cursor/rules/*.mdc  # 設置規則檔案為唯讀
+
+# Git權限檢查
+git config --list           # 查看Git配置
+git remote -v               # 查看遠端倉庫
+```
+
+---
+
+## 📊 監控與診斷指令
+
+### 系統狀態監控
+```bash
+# 系統資源監控
+top                          # Linux/Mac系統監控
+Get-Process                  # PowerShell進程監控
+wmic process list full       # Windows詳細進程資訊
+
+# 網路狀態監控
+netstat -tulpn              # Linux網路連接
+netstat -ano                # Windows網路連接
+```
+
+### 應用狀態檢查
+```bash
+# 應用健康檢查
+curl -f http://localhost:8080/health || echo "服務不可用"
+ping localhost              # 本地連接測試
+
+# 資料庫狀態檢查
+mysqladmin ping -h localhost  # MySQL連接測試
+mysqladmin status            # MySQL狀態資訊
+```
+
+---
+
+## 🎯 常用指令組合
+
+### 完整重啟流程
+```bash
+# 1. 停止所有Node.js進程
+taskkill /IM node.exe /F
+
+# 2. 檢查端口清空
+netstat -ano | findstr :8080
+
+# 3. 清理緩存 (可選)
+npm cache clean --force
+
+# 4. 重新啟動
+npm start
+```
+
+### 快速Debug流程
+```bash
+# 1. 檢查服務狀態
+curl -I http://localhost:8080
+
+# 2. 檢查進程狀態
+tasklist | findstr node
+
+# 3. 檢查日誌
+tail -50 server.log
+
+# 4. 檢查端口占用
+netstat -ano | findstr :8080
+```
+
+### 部署前檢查流程
+```bash
+# 1. 本地測試
+npm start &
+sleep 5
+curl http://localhost:8080
+kill %1
+
+# 2. 檔案檢查
+git ls-files | wc -l  # 應該是15
+
+# 3. 依賴檢查
+npm audit
+
+# 4. 提交部署
+git add .
+git commit -m "🚀 準備部署"
+git push origin main
+```
+
+---
+
+## 📝 指令執行記錄
+
+### 最近執行的重要指令 - 2025-06-04
+```bash
+# 端口占用問題解決
+taskkill /PID 12345 /F       # 終止占用進程
+npm start                    # 重新啟動服務
+
+# 前後端映射檢查
+grep -n "case '" server.js   # 檢查action映射
+grep -n "action:" public/js/ai-assistant.js  # 檢查前端發送
+
+# 檔案架構驗證
+git ls-files | wc -l         # 確認15檔案架構
+```
+
+---
+
+**📝 文檔版本**: v1.0  
+**📅 最後更新**: 2025-06-04  
+**🔧 維護狀態**: 活躍維護
+
+**🎯 核心原則**: 
+- ✅ 所有指令都要有明確用途說明
+- ✅ 危險指令必須標記警告
+- ✅ 提供完整的錯誤處理機制
+- ✅ 指令組合形成標準流程
+- ✅ 定期更新和優化指令集
+

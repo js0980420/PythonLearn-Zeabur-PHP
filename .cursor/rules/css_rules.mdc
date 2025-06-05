@@ -1,0 +1,728 @@
+---
+description: 
+globs: *.css
+alwaysApply: false
+---
+# 🎨 CSS 樣式規則 - 樣式開發規範
+
+**規則類型**: always
+**檔案保護**: 唯讀，禁止刪除
+
+## 📋 模組概述
+CSS樣式規則負責定義PythonLearn-Zeabur協作教學平台的樣式開發標準，包含CSS組織結構、設計系統、響應式設計、動畫效果等規範。確保樣式代碼的可維護性、一致性和性能優化。
+
+## 🎯 樣式開發原則
+
+### 設計系統優先
+1. **一致性** - 統一的視覺語言和組件樣式
+2. **可擴展** - 模組化的樣式結構，易於擴展
+3. **可維護** - 清晰的命名規範和組織結構
+4. **性能優化** - 高效的CSS選擇器和載入策略
+
+### 開發優先級
+- 🔴 **P0 核心**: 布局系統、色彩系統、字體系統
+- 🟠 **P1 重要**: 組件樣式、響應式設計、交互效果
+- 🟡 **P2 輔助**: 動畫效果、主題變化、微交互
+- 🟢 **P3 優化**: 性能優化、瀏覽器兼容、載入優化
+
+---
+
+## 📁 CSS 檔案組織
+
+### 模組化結構
+```css
+/* styles.css - 主樣式表組織 */
+
+/* 🔧 CSS 變數系統 */
+:root {
+    /* 色彩系統 */
+    --primary: #007bff;
+    --secondary: #6c757d;
+    --success: #28a745;
+    --warning: #ffc107;
+    --danger: #dc3545;
+    --info: #17a2b8;
+    
+    /* 字體系統 */
+    --font-family-base: 'Microsoft JhengHei', sans-serif;
+    --font-family-code: 'Cascadia Code', monospace;
+    --font-size-base: 1rem;
+    --line-height-base: 1.5;
+    
+    /* 間距系統 */
+    --spacing-1: 0.25rem;
+    --spacing-2: 0.5rem;
+    --spacing-3: 0.75rem;
+    --spacing-4: 1rem;
+    --spacing-5: 1.25rem;
+    --spacing-6: 1.5rem;
+    
+    /* 斷點系統 */
+    --breakpoint-sm: 576px;
+    --breakpoint-md: 768px;
+    --breakpoint-lg: 992px;
+    --breakpoint-xl: 1200px;
+}
+
+/* 🏗️ 基礎樣式重置 */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-base);
+    color: #333;
+    background-color: #fff;
+}
+
+/* 📱 響應式容器 */
+.container-fluid {
+    width: 100%;
+    padding-right: var(--spacing-3);
+    padding-left: var(--spacing-3);
+    margin-right: auto;
+    margin-left: auto;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 var(--spacing-4);
+}
+
+/* 🎨 工具類系統 */
+.d-flex { display: flex; }
+.d-grid { display: grid; }
+.d-none { display: none; }
+.d-block { display: block; }
+
+.justify-content-between { justify-content: space-between; }
+.justify-content-center { justify-content: center; }
+.align-items-center { align-items: center; }
+
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+
+.mb-2 { margin-bottom: var(--spacing-2); }
+.mb-3 { margin-bottom: var(--spacing-3); }
+.mb-4 { margin-bottom: var(--spacing-4); }
+
+.p-2 { padding: var(--spacing-2); }
+.p-3 { padding: var(--spacing-3); }
+.p-4 { padding: var(--spacing-4); }
+```
+
+---
+
+## 🧩 組件樣式系統
+
+### 按鈕組件
+```css
+/* 🔘 按鈕系統 */
+.btn {
+    display: inline-block;
+    font-weight: 500;
+    text-align: center;
+    vertical-align: middle;
+    user-select: none;
+    border: 1px solid transparent;
+    padding: var(--spacing-2) var(--spacing-4);
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-base);
+    border-radius: 0.375rem;
+    transition: all 0.15s ease-in-out;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.btn:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.btn-primary {
+    color: #fff;
+    background-color: var(--primary);
+    border-color: var(--primary);
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+    border-color: #004085;
+}
+
+.btn-outline-primary {
+    color: var(--primary);
+    border-color: var(--primary);
+    background-color: transparent;
+}
+
+.btn-outline-primary:hover {
+    color: #fff;
+    background-color: var(--primary);
+}
+
+/* AI助教專用按鈕 */
+.btn-ai {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    color: white;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-ai::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+}
+
+.btn-ai:hover::before {
+    left: 100%;
+}
+
+.btn-sm {
+    padding: var(--spacing-1) var(--spacing-3);
+    font-size: 0.875rem;
+}
+
+.btn-lg {
+    padding: var(--spacing-3) var(--spacing-6);
+    font-size: 1.125rem;
+}
+```
+
+### 表單組件
+```css
+/* 📝 表單控件 */
+.form-control {
+    display: block;
+    width: 100%;
+    padding: var(--spacing-2) var(--spacing-3);
+    font-size: var(--font-size-base);
+    font-weight: 400;
+    line-height: var(--line-height-base);
+    color: #495057;
+    background-color: #fff;
+    background-clip: padding-box;
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.form-control:focus {
+    color: #495057;
+    background-color: #fff;
+    border-color: #80bdff;
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.form-control::placeholder {
+    color: #6c757d;
+    opacity: 1;
+}
+
+.form-label {
+    margin-bottom: var(--spacing-2);
+    font-weight: 500;
+}
+
+.form-group {
+    margin-bottom: var(--spacing-4);
+}
+
+.input-group {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    width: 100%;
+}
+
+.input-group-text {
+    display: flex;
+    align-items: center;
+    padding: var(--spacing-2) var(--spacing-3);
+    font-size: var(--font-size-base);
+    font-weight: 400;
+    line-height: var(--line-height-base);
+    color: #495057;
+    text-align: center;
+    white-space: nowrap;
+    background-color: #e9ecef;
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+}
+```
+
+### 卡片組件
+```css
+/* 🎴 卡片系統 */
+.card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    word-wrap: break-word;
+    background-color: #fff;
+    background-clip: border-box;
+    border: 1px solid rgba(0, 0, 0, 0.125);
+    border-radius: 0.5rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: box-shadow 0.15s ease-in-out;
+}
+
+.card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.card-header {
+    padding: var(--spacing-4);
+    margin-bottom: 0;
+    background-color: rgba(0, 0, 0, 0.03);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+    border-radius: 0.5rem 0.5rem 0 0;
+    font-weight: 600;
+}
+
+.card-body {
+    flex: 1 1 auto;
+    padding: var(--spacing-4);
+}
+
+.card-footer {
+    padding: var(--spacing-4);
+    background-color: rgba(0, 0, 0, 0.03);
+    border-top: 1px solid rgba(0, 0, 0, 0.125);
+    border-radius: 0 0 0.5rem 0.5rem;
+}
+
+/* 編輯器專用卡片 */
+.card-editor {
+    border: 2px solid var(--primary);
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.1);
+}
+
+.card-editor .card-header {
+    background: linear-gradient(135deg, var(--primary) 0%, #0056b3 100%);
+    color: white;
+    border-bottom-color: var(--primary);
+}
+
+/* 教師監控專用卡片 */
+.card-teacher {
+    border-left: 4px solid #8b5cf6;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+}
+```
+
+---
+
+## 📱 響應式設計系統
+
+### 媒體查詢標準
+```css
+/* 📱 移動優先響應式設計 */
+
+/* 小螢幕設備 (手機橫式, 576px 和以上) */
+@media (min-width: 576px) {
+    .container {
+        max-width: 540px;
+    }
+    
+    .col-sm-6 {
+        flex: 0 0 auto;
+        width: 50%;
+    }
+    
+    .col-sm-12 {
+        flex: 0 0 auto;
+        width: 100%;
+    }
+}
+
+/* 中等螢幕設備 (平板, 768px 和以上) */
+@media (min-width: 768px) {
+    .container {
+        max-width: 720px;
+    }
+    
+    .main-layout {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: var(--spacing-4);
+    }
+    
+    .editor-container {
+        min-height: 60vh;
+    }
+    
+    .chat-container {
+        min-height: 40vh;
+    }
+}
+
+/* 大螢幕設備 (桌面, 992px 和以上) */
+@media (min-width: 992px) {
+    .container {
+        max-width: 960px;
+    }
+    
+    .main-layout {
+        grid-template-columns: 3fr 1fr;
+        gap: var(--spacing-6);
+    }
+    
+    .editor-container {
+        min-height: 70vh;
+    }
+    
+    .btn-group {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: var(--spacing-2);
+    }
+}
+
+/* 超大螢幕設備 (大桌面, 1200px 和以上) */
+@media (min-width: 1200px) {
+    .container {
+        max-width: 1140px;
+    }
+    
+    .main-layout {
+        gap: var(--spacing-8);
+    }
+    
+    .editor-container {
+        min-height: 75vh;
+    }
+}
+
+/* 移動設備專用樣式 */
+@media (max-width: 767.98px) {
+    .mobile-stack {
+        flex-direction: column;
+    }
+    
+    .mobile-full {
+        width: 100% !important;
+        margin-bottom: var(--spacing-3);
+    }
+    
+    .mobile-hide {
+        display: none !important;
+    }
+    
+    /* 觸控優化 */
+    .btn, .form-control, .nav-link {
+        min-height: 44px;
+        font-size: 16px; /* 防止iOS縮放 */
+    }
+    
+    .ai-assistant-buttons {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--spacing-2);
+    }
+    
+    .chat-input {
+        font-size: 16px; /* 防止iOS縮放 */
+    }
+}
+```
+
+---
+
+## 🎭 動畫和過渡效果
+
+### 動畫系統
+```css
+/* ✨ 動畫效果庫 */
+
+/* 基礎過渡 */
+.transition {
+    transition: all 0.3s ease;
+}
+
+.transition-fast {
+    transition: all 0.15s ease;
+}
+
+.transition-slow {
+    transition: all 0.5s ease;
+}
+
+/* 懸停效果 */
+.hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.hover-scale:hover {
+    transform: scale(1.05);
+}
+
+.hover-glow:hover {
+    box-shadow: 0 0 20px rgba(0, 123, 255, 0.4);
+}
+
+/* 載入動畫 */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+@keyframes slideInUp {
+    from {
+        transform: translateY(30px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.spinner {
+    animation: spin 1s linear infinite;
+}
+
+.pulse {
+    animation: pulse 2s infinite;
+}
+
+.slide-in-up {
+    animation: slideInUp 0.3s ease;
+}
+
+.fade-in {
+    animation: fadeIn 0.5s ease;
+}
+
+/* 狀態指示動畫 */
+.status-online {
+    position: relative;
+}
+
+.status-online::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    background-color: #28a745;
+    border-radius: 50%;
+    animation: pulse 1.5s infinite;
+}
+
+.typing-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.typing-indicator span {
+    width: 4px;
+    height: 4px;
+    background-color: #6c757d;
+    border-radius: 50%;
+    animation: typing 1.4s infinite ease-in-out;
+}
+
+.typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+.typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes typing {
+    0%, 80%, 100% {
+        transform: scale(0.8);
+        opacity: 0.5;
+    }
+    40% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+```
+
+---
+
+## 🎨 主題和色彩系統
+
+### 深色模式支援
+```css
+/* 🌙 深色模式 */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg-primary: #1a1a1a;
+        --bg-secondary: #2d2d2d;
+        --text-primary: #ffffff;
+        --text-secondary: #cccccc;
+        --border-color: #404040;
+    }
+    
+    body {
+        background-color: var(--bg-primary);
+        color: var(--text-primary);
+    }
+    
+    .card {
+        background-color: var(--bg-secondary);
+        border-color: var(--border-color);
+        color: var(--text-primary);
+    }
+    
+    .form-control {
+        background-color: var(--bg-secondary);
+        border-color: var(--border-color);
+        color: var(--text-primary);
+    }
+    
+    .form-control::placeholder {
+        color: var(--text-secondary);
+    }
+}
+
+/* 手動深色模式切換 */
+[data-theme="dark"] {
+    --bg-primary: #1a1a1a;
+    --bg-secondary: #2d2d2d;
+    --text-primary: #ffffff;
+    --text-secondary: #cccccc;
+    --border-color: #404040;
+}
+
+.theme-toggle {
+    background: none;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: var(--spacing-2);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.theme-toggle:hover {
+    background-color: var(--bg-secondary);
+    transform: rotate(180deg);
+}
+```
+
+---
+
+## 🧪 CSS 最佳實踐
+
+### 命名規範
+```css
+/* BEM 命名方法論 */
+
+/* 塊 (Block) */
+.editor { }
+.chat { }
+.ai-assistant { }
+
+/* 元素 (Element) */
+.editor__toolbar { }
+.editor__content { }
+.chat__message { }
+.chat__input { }
+
+/* 修飾符 (Modifier) */
+.editor--dark { }
+.chat__message--system { }
+.ai-assistant__button--active { }
+
+/* 狀態類 */
+.is-active { }
+.is-loading { }
+.is-hidden { }
+.is-disabled { }
+
+/* 工具類前綴 */
+.u-text-center { }
+.u-margin-bottom { }
+.u-display-none { }
+```
+
+### 性能優化
+```css
+/* 🚀 性能優化技巧 */
+
+/* 使用 transform 代替 position 改變 */
+.optimized-animation {
+    transform: translateX(0);
+    transition: transform 0.3s ease;
+}
+
+.optimized-animation.move {
+    transform: translateX(100px);
+}
+
+/* 硬體加速 */
+.gpu-accelerated {
+    transform: translateZ(0);
+    will-change: transform;
+}
+
+/* 避免重繪的屬性 */
+.no-repaint {
+    backface-visibility: hidden;
+    perspective: 1000px;
+}
+
+/* 關鍵渲染路徑優化 */
+.above-fold {
+    content-visibility: auto;
+    contain-intrinsic-size: 200px;
+}
+
+/* 字體載入優化 */
+@font-face {
+    font-family: 'CustomFont';
+    src: url('font.woff2') format('woff2');
+    font-display: swap;
+}
+```
+
+---
+
+**📝 文檔版本**: v1.0  
+**📅 最後更新**: 2025-06-04  
+**🔧 維護狀態**: 活躍維護
+
+**🎯 核心原則**: 
+- ✅ 設計系統統一，組件可復用
+- ✅ 響應式優先，移動端友好
+- ✅ 性能優化，載入速度快
+- ✅ 可維護性強，命名規範清晰
+- ✅ 動效適度，提升用戶體驗
+
+
+

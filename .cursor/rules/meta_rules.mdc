@@ -1,0 +1,452 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# 📜 規則管理元系統 - 規則的規則
+
+**規則類型**: always
+**檔案保護**: 唯讀，禁止刪除
+**最高優先級**: 此檔案為所有規則檔案的管理準則
+
+## 📋 模組概述
+規則管理元系統負責定義如何創建、維護、更新和保護所有`.cursor/rules/`目錄下的規則檔案。這是"規則的規則"，確保整個規則體系的一致性、完整性和有效性。
+
+## 🎯 元規則核心原則
+
+### 規則檔案分類體系
+```
+📁 .cursor/rules/
+├── meta_rules.mdc           # 🎯 [元規則] 規則管理系統 (本檔案)
+├── cursor_rules.mdc         # 🌐 [通用規則] Cursor整體開發規範
+├── AI_assistant_rules.mdc   # 🤖 [功能規則] AI助教專門規則
+├── editor_rules.mdc         # 📝 [功能規則] 編輯器功能規則
+├── teacher_rules.mdc        # 👨‍🏫 [功能規則] 教師監控規則
+├── debug_rules.mdc          # 🔧 [流程規則] Debug診斷系統
+├── command_rules.mdc        # ⚡ [流程規則] 指令操作規範
+├── deployment_rules.mdc     # 🚀 [流程規則] 測試部署規範
+├── mysql_rules.mdc          # 🗄️ [技術規則] 數據庫管理系統
+└── architecture_rules.mdc   # 🏗️ [技術規則] 檔案架構規範
+```
+
+### 規則優先級體系
+1. **🎯 元規則** (最高) - 管理所有其他規則
+2. **🌐 通用規則** (高) - 整體開發規範
+3. **🤖 功能規則** (中高) - 具體功能專門規則
+4. **🔧 流程規則** (中) - 開發流程規範
+5. **🗄️ 技術規則** (中低) - 技術實現細節
+
+---
+
+## 📝 規則檔案標準格式
+
+### 必要檔案結構
+```markdown
+# 📋 [圖標] [檔案標題] - [簡短描述]
+
+**規則類型**: always
+**檔案保護**: 唯讀，禁止刪除
+
+## 📋 模組概述
+[詳細描述此規則檔案的職責和範圍]
+
+## 🎯 核心[主題]原則
+[定義核心原則和設計理念]
+
+---
+
+## [主要章節]
+[具體內容組織]
+
+---
+
+## 📝 [主題]記錄
+[Debug記錄、更新記錄等]
+
+---
+
+**📝 文檔版本**: v[版本號]  
+**📅 最後更新**: YYYY-MM-DD  
+**🔧 維護狀態**: 活躍維護
+
+**🎯 核心原則**: 
+[列出3-5個核心原則，每個以✅開頭]
+```
+
+### 必要標頭規範
+- **規則類型**: 必須為 `always`
+- **檔案保護**: 必須為 `唯讀，禁止刪除`
+- **圖標使用**: 每個規則檔案必須有獨特的emoji圖標
+- **中文標題**: 所有標題必須使用繁體中文
+
+---
+
+## 🔒 規則檔案保護機制
+
+### 檔案權限設定
+```bash
+# Windows系統檔案保護
+attrib +R .cursor\rules\*.mdc
+
+# Linux/Mac系統檔案保護
+chmod 444 .cursor/rules/*.mdc
+chattr +i .cursor/rules/*.mdc  # 設為不可變
+```
+
+### Git忽略設定
+```bash
+# .gitignore 配置 (本地開發用)
+.cursor/
+.vscode/
+*.mdc
+
+# 規則檔案絕對不上傳到GitHub
+# 僅在本地開發環境中使用
+```
+
+### 備份保護機制
+```powershell
+# 自動備份腳本
+function Backup-RulesFiles {
+    $backup_dir = ".cursor/backups/$(Get-Date -Format 'yyyy-MM-dd')"
+    New-Item -Path $backup_dir -ItemType Directory -Force
+    
+    Get-ChildItem ".cursor/rules/*.mdc" | ForEach-Object {
+        Copy-Item $_.FullName "$backup_dir/$($_.Name)"
+        Write-Host "✅ 備份: $($_.Name)" -ForegroundColor Green
+    }
+    
+    Write-Host "🔐 規則檔案備份完成: $backup_dir" -ForegroundColor Cyan
+}
+```
+
+---
+
+## 📊 規則檔案管理系統
+
+### 規則檔案清單檢查
+```powershell
+# rules-integrity-check.ps1
+function Test-RulesIntegrity {
+    Write-Host "🔍 開始規則檔案完整性檢查..."
+    
+    # 定義必要的規則檔案
+    $required_rules = @(
+        'meta_rules.mdc',
+        'cursor_rules.mdc',
+        'AI_assistant_rules.mdc',
+        'editor_rules.mdc',
+        'teacher_rules.mdc',
+        'debug_rules.mdc',
+        'command_rules.mdc',
+        'deployment_rules.mdc',
+        'mysql_rules.mdc',
+        'architecture_rules.mdc'
+    )
+    
+    $missing_files = @()
+    foreach ($file in $required_rules) {
+        $file_path = ".cursor/rules/$file"
+        if (-not (Test-Path $file_path)) {
+            $missing_files += $file
+            Write-Host "❌ 缺少規則檔案: $file" -ForegroundColor Red
+        } else {
+            # 檢查檔案標頭格式
+            $content = Get-Content $file_path -First 10
+            $has_header = $content | Where-Object { $_ -match "規則類型.*always" }
+            $has_protection = $content | Where-Object { $_ -match "檔案保護.*禁止刪除" }
+            
+            if ($has_header -and $has_protection) {
+                Write-Host "✅ 規則檔案完整: $file" -ForegroundColor Green
+            } else {
+                Write-Host "⚠️ 規則檔案格式異常: $file" -ForegroundColor Yellow
+            }
+        }
+    }
+    
+    if ($missing_files.Count -eq 0) {
+        Write-Host "🎉 所有規則檔案完整" -ForegroundColor Green
+        return $true
+    } else {
+        Write-Host "❌ 發現 $($missing_files.Count) 個缺失檔案" -ForegroundColor Red
+        return $false
+    }
+}
+```
+
+### 規則同步機制
+```powershell
+# 規則檔案同步工具
+function Sync-RulesFiles {
+    param([string]$SourcePath, [string]$TargetPath)
+    
+    Write-Host "🔄 開始同步規則檔案..."
+    
+    $source_files = Get-ChildItem "$SourcePath/*.mdc"
+    foreach ($file in $source_files) {
+        $target_file = "$TargetPath/$($file.Name)"
+        
+        if (Test-Path $target_file) {
+            $source_hash = Get-FileHash $file.FullName
+            $target_hash = Get-FileHash $target_file
+            
+            if ($source_hash.Hash -ne $target_hash.Hash) {
+                Copy-Item $file.FullName $target_file -Force
+                Write-Host "🔄 更新: $($file.Name)" -ForegroundColor Yellow
+            } else {
+                Write-Host "✅ 相同: $($file.Name)" -ForegroundColor Green
+            }
+        } else {
+            Copy-Item $file.FullName $target_file
+            Write-Host "➕ 新增: $($file.Name)" -ForegroundColor Blue
+        }
+    }
+    
+    Write-Host "🎉 規則檔案同步完成" -ForegroundColor Green
+}
+```
+
+---
+
+## ✏️ 規則檔案編輯規範
+
+### 修改權限控制
+```javascript
+// 規則檔案修改權限矩陣
+const editPermissions = {
+    'meta_rules.mdc': {
+        canEdit: ['system_admin'],
+        requiresApproval: true,
+        backupRequired: true
+    },
+    'cursor_rules.mdc': {
+        canEdit: ['lead_developer', 'system_admin'],
+        requiresApproval: true,
+        backupRequired: true
+    },
+    'AI_assistant_rules.mdc': {
+        canEdit: ['ai_developer', 'lead_developer'],
+        requiresApproval: false,
+        backupRequired: true
+    },
+    // ... 其他規則檔案
+};
+```
+
+### 修改記錄追蹤
+```markdown
+## 📝 修改記錄追蹤格式
+### YYYY-MM-DD - [修改類型] - [修改者]
+**修改範圍**: [具體修改的章節]
+**修改原因**: [為什麼需要修改]
+**修改內容**: 
+- ✅ 添加: [具體添加內容]
+- 🔄 修改: [具體修改內容] 
+- ❌ 刪除: [具體刪除內容]
+**影響評估**: [對其他規則或系統的影響]
+**測試驗證**: [如何驗證修改的正確性]
+```
+
+---
+
+## 🔄 規則檔案更新流程
+
+### 標準更新流程
+1. **備份現有檔案** - 自動創建時間戳備份
+2. **編輯內容** - 按照標準格式編輯
+3. **格式驗證** - 檢查檔案結構完整性
+4. **影響評估** - 評估對其他規則的影響
+5. **測試驗證** - 驗證修改不會破壞系統
+6. **更新記錄** - 在相關檔案中記錄變更
+7. **權限恢復** - 恢復檔案保護設定
+
+### 緊急修復流程
+```powershell
+# 緊急規則修復
+function Emergency-RuleFix {
+    param([string]$RuleFile, [string]$Issue)
+    
+    Write-Host "🚨 緊急修復開始: $RuleFile" -ForegroundColor Red
+    
+    # 1. 立即備份
+    $emergency_backup = ".cursor/emergency_backup/$(Get-Date -Format 'yyyy-MM-dd-HH-mm-ss')"
+    New-Item -Path $emergency_backup -ItemType Directory -Force
+    Copy-Item ".cursor/rules/$RuleFile" "$emergency_backup/" -Force
+    
+    # 2. 記錄問題
+    $issue_log = @"
+緊急修復記錄 - $(Get-Date)
+檔案: $RuleFile
+問題: $Issue
+備份位置: $emergency_backup
+"@
+    Add-Content ".cursor/emergency.log" $issue_log
+    
+    # 3. 解除保護進行修復
+    attrib -R ".cursor\rules\$RuleFile"
+    
+    Write-Host "⚠️ 檔案保護已暫時解除，請立即進行修復" -ForegroundColor Yellow
+    Write-Host "🔐 修復完成後請運行 Restore-RuleProtection" -ForegroundColor Cyan
+}
+
+function Restore-RuleProtection {
+    Write-Host "🔐 恢復規則檔案保護..."
+    attrib +R .cursor\rules\*.mdc
+    Write-Host "✅ 規則檔案保護已恢復" -ForegroundColor Green
+}
+```
+
+---
+
+## 📈 規則檔案版本管理
+
+### 版本號規範
+```
+格式: v主版本.次版本.修補版本
+- 主版本: 重大架構變更 (v2.0.0)
+- 次版本: 功能新增或重要修改 (v1.1.0)  
+- 修補版本: Bug修復或小幅調整 (v1.0.1)
+```
+
+### 版本兼容性矩陣
+```javascript
+const versionCompatibility = {
+    'v1.0.x': {
+        compatible: ['v1.0.0', 'v1.0.1', 'v1.0.2'],
+        deprecated: [],
+        breaking_changes: []
+    },
+    'v1.1.x': {
+        compatible: ['v1.0.x', 'v1.1.0'],
+        deprecated: ['某些舊功能'],
+        breaking_changes: ['重要API變更']
+    }
+};
+```
+
+---
+
+## 🔍 規則執行監控
+
+### 規則違規檢測
+```powershell
+# 規則違規自動檢測
+function Test-RuleCompliance {
+    Write-Host "🕵️ 開始規則遵循性檢查..."
+    
+    $violations = @()
+    
+    # 檢查檔案架構規則
+    $file_count = (git ls-files).Count
+    if ($file_count -ne 15) {
+        $violations += "檔案數量違規: $file_count (應為15)"
+    }
+    
+    # 檢查禁止檔案
+    $forbidden_files = git ls-files | Where-Object { $_ -match '\.(md|txt)$' }
+    if ($forbidden_files) {
+        $violations += "存在禁止檔案: $($forbidden_files -join ', ')"
+    }
+    
+    # 檢查AI助教映射
+    $ai_mappings = Select-String -Path "server.js" -Pattern "case 'analyze':"
+    if (-not $ai_mappings) {
+        $violations += "AI助教前後端映射不完整"
+    }
+    
+    if ($violations.Count -eq 0) {
+        Write-Host "✅ 所有規則遵循檢查通過" -ForegroundColor Green
+    } else {
+        Write-Host "❌ 發現 $($violations.Count) 項規則違規:" -ForegroundColor Red
+        $violations | ForEach-Object { Write-Host "  - $_" -ForegroundColor Red }
+    }
+    
+    return $violations.Count -eq 0
+}
+```
+
+### 規則執行報告
+```powershell
+# 生成規則執行報告
+function Generate-RuleReport {
+    $report = @{
+        timestamp = Get-Date
+        file_count = (git ls-files).Count
+        rules_integrity = Test-RulesIntegrity
+        compliance = Test-RuleCompliance
+        last_update = (Get-ChildItem ".cursor/rules/*.mdc" | Sort-Object LastWriteTime -Descending | Select-Object -First 1).LastWriteTime
+    }
+    
+    $report_json = $report | ConvertTo-Json -Depth 3
+    $report_json | Out-File ".cursor/compliance_report.json" -Encoding UTF8
+    
+    Write-Host "📊 規則執行報告已生成" -ForegroundColor Cyan
+}
+```
+
+---
+
+## 📝 元規則維護記錄
+
+### 最新元規則更新 - 2025-06-04
+
+#### 🎯 元規則系統建立
+**目標**: 建立完整的規則管理體系
+**實施內容**:
+- ✅ 定義規則檔案分類體系
+- ✅ 建立規則優先級制度
+- ✅ 制定檔案格式標準
+- ✅ 實施保護機制
+
+#### 🔒 檔案保護機制完善
+**範圍**: 所有規則檔案的安全保護
+**保護措施**:
+- ✅ 檔案權限設定 (唯讀)
+- ✅ Git忽略配置
+- ✅ 自動備份機制
+- ✅ 完整性檢查
+
+#### 📊 管理工具開發
+**功能**: 規則檔案管理自動化
+**工具清單**:
+- ✅ 完整性檢查工具
+- ✅ 同步機制
+- ✅ 緊急修復流程
+- ✅ 合規性監控
+
+---
+
+## 🎯 元規則核心原則總結
+
+### 不可變原則
+- **規則檔案結構不可隨意變更**
+- **檔案保護機制必須始終啟用**
+- **備份機制必須自動執行**
+- **修改必須有完整記錄**
+
+### 一致性原則
+- **所有規則檔案格式必須統一**
+- **命名規範必須嚴格遵循**
+- **更新流程必須標準化**
+- **版本管理必須規範化**
+
+### 完整性原則
+- **必要規則檔案不可缺失**
+- **檔案內容必須完整**
+- **交叉引用必須正確**
+- **依賴關係必須明確**
+
+---
+
+**📝 文檔版本**: v1.0  
+**📅 最後更新**: 2025-06-04  
+**🔧 維護狀態**: 活躍維護  
+**🎯 檔案地位**: 所有規則檔案的管理準則
+
+**🎯 核心原則**: 
+- ✅ 元規則具有最高優先級，管理所有其他規則
+- ✅ 所有規則檔案必須遵循統一的格式和保護標準
+- ✅ 規則修改必須有完整的追蹤和備份機制
+- ✅ 自動化工具確保規則體系的完整性和一致性
+- ✅ 緊急情況下有完善的修復和恢復流程
+

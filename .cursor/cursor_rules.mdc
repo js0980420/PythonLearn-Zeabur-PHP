@@ -1,0 +1,509 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# 🎓 PythonLearn-Zeabur 協作教學平台 - Cursor Rules 配置
+
+**規則類型**: always
+**檔案保護**: 唯讀，禁止刪除
+**系統保護**: 禁止刪除任何規則檔案和系統核心檔案
+**🚫 重要：規則檔案不上傳到 GitHub，僅本地開發使用**
+
+## 📋 規則檔案索引
+
+### 核心規則檔案 (18個)
+1. **cursor_rules.mdc** - 主規則檔案和索引
+2. **AI_assistant_rules.mdc** - AI助教功能規範
+3. **editor_rules.mdc** - 編輯器和界面規範
+4. **websocket_rules.mdc** - WebSocket通信規範
+5. **collaboration_rules.mdc** - 多人協作規範
+6. **teacher_dashboard_rules.mdc** - 教師監控後台規範
+7. **file_management_rules.mdc** - 檔案管理規範
+8. **security_rules.mdc** - 安全性規範
+9. **performance_rules.mdc** - 性能優化規範
+10. **deployment_rules.mdc** - 部署配置規範
+11. **database_rules.mdc** - 資料庫操作規範
+12. **error_handling_rules.mdc** - 錯誤處理規範
+13. **testing_rules.mdc** - 測試規範
+14. **code_quality_rules.mdc** - 代碼品質規範
+15. **ui_ux_rules.mdc** - UI/UX設計規範
+16. **api_rules.mdc** - API設計規範
+17. **debugging_guidelines.mdc** - Debug規則與問題診斷系統
+18. **architecture_rules.mdc** - 系統架構規範
+
+### 規則檔案特性
+- **檔案格式**: 統一使用 `.mdc` 格式
+- **權限設定**: `type=always`，確保持續載入
+- **保護機制**: 禁止刪除，唯讀保護
+- **版本控制**: Git 追蹤所有變更
+
+## 📚 完整規則系統索引
+
+### 🔗 核心規則檔案清單 (按重要性排序)
+1. **cursor_rules.mdc** - 本檔案，總體規則配置
+2. **AI_assistant_rules.mdc** - AI助教系統規則，前後端映射規範
+3. **editor_rules.mdc** - 編輯器功能規則，CodeMirror配置
+4. **GITHUB_RULES.mdc** - GitHub上傳規範，15檔案架構限制
+5. **debugging_guidelines.mdc** - Debug記錄系統，問題診斷流程
+6. **teacher.mdc** - 教師監控後台規則
+7. **js_rules.mdc** - JavaScript開發規範
+8. **css_rules.mdc** - CSS樣式開發規範
+9. **backend_rules.mdc** - 後端開發規範
+10. **frontend_rules.mdc** - 前端開發規範
+
+### 🎯 關鍵開發原則 (來自所有規則檔案)
+1. **繁體中文優先** - 所有對話、文檔、註解使用繁體中文
+2. **前後端同步修改** - 修改AI功能時必須檢查前後端映射一致性
+3. **Debug記錄更新** - 每次修復問題都要更新對應規則檔案
+4. **15檔案架構嚴格遵守** - GitHub上傳限制15個核心檔案
+5. **AI助教四大功能** - 解釋程式、檢查錯誤、改進建議、衝突協助
+6. **規則檔案保護** - 嚴格禁止刪除或修改規則檔案結構
+
+### ⚡ 快速參考 (最常用規則)
+
+#### AI助教前後端映射 (來自 AI_assistant_rules.mdc)
+```javascript
+// 前端 → 後端映射表
+'analyze' → analyzeCode()      // 解釋程式
+'check' → debugCode()          // 檢查錯誤  
+'suggest' → improveCode()      // 改進建議
+'resolve' → analyzeConflict()  // 衝突協助
+```
+
+#### GitHub檔案架構 (來自 GITHUB_RULES.mdc)
+- **根目錄**: server.js, package.json, package-lock.json, zeabur.yaml
+- **public目錄**: index.html, teacher-dashboard.html, config.html, styles.css, favicon.ico
+- **js目錄**: ai-assistant.js, chat.js, conflict.js, editor.js, ui.js, websocket.js
+- **總計**: 精確15個檔案，禁止超出
+
+#### 核心開發流程 (整合所有規則)
+1. **修改前** → 檢索相關檔案 → 確認前後端映射
+2. **實施修改** → 同步更新 → 測試驗證
+3. **修改後** → 更新規則檔案 → 記錄Debug過程
+
+---
+
+## 🚫 檔案保護規範
+
+### 禁止刪除的檔案類型
+- **規則檔案**: `.cursor/rules/*.mdc` - 系統核心配置，禁止刪除
+- **核心程式檔案**: `server.js`, `package.json`, `package-lock.json` - 系統運行必需
+- **前端核心檔案**: `public/index.html`, `public/js/*.js` - 界面功能核心
+- **部署配置**: `zeabur.yaml` - 雲端部署配置
+
+### 檔案操作限制
+```
+⛔ 嚴格禁止操作:
+❌ 刪除 .cursor/rules/ 目錄下任何檔案
+❌ 重新命名或移動規則檔案
+❌ 清空規則檔案內容
+❌ 修改規則檔案的 type=always 設定
+❌ 將規則檔案添加到 Git 追蹤（已被 .gitignore 忽略）
+
+✅ 允許操作:
+✅ 更新規則檔案內容 (Debug記錄、功能改進)
+✅ 新增新的規則檔案
+✅ 讀取和檢索規則檔案內容
+✅ 規則檔案只存在於本地開發環境中使用
+```
+
+### 🚫 GitHub 上傳政策
+- **規則檔案絕不上傳**: `.cursor/` 目錄被 `.gitignore` 完全忽略
+- **GitHub 架構**: 嚴格維持 15 檔案規範，不包含任何 `.mdc` 檔案
+- **本地 vs 雲端**: 規則檔案只存在於本地開發環境
+- **數據分離**: 開發配置與部署配置完全分離
+
+---
+
+## 📋 專案概述
+這是一個基於 **Node.js + WebSocket + AI 助教** 的 Python 多人協作教學平台。支援即時多人協作學習、AI 智能輔助、教師監控管理等功能。專為 **Zeabur 雲端平台部署**優化，提供穩定高效的線上協作環境。
+
+## 🌐 語言規範
+⭐ **Always respond in 繁體中文** ⭐
+- 所有對話、文檔、註解都使用繁體中文
+- 技術術語保持英文，但說明使用繁體中文
+- 錯誤訊息和日誌輸出使用繁體中文
+
+## 🎯 專案目標
+
+### 核心功能目標
+- **多人協作學習**: 支援 2-5 人同時編輯 Python 代碼
+- **AI 智能助教**: 四大功能（解釋程式、檢查錯誤、改進建議、衝突協助）
+- **即時同步**: WebSocket 實現毫秒級代碼同步
+- **教師監控**: 完整的房間管理和學習追蹤
+- **雲端部署**: Zeabur 一鍵雲端部署
+
+### 客戶交付要求
+- **即開即用**: 一鍵部署，無需複雜配置
+- **跨平台**: Windows/Mac/Linux 全平台支援
+- **雲端就緒**: Zeabur 雲端部署優化
+- **文檔精簡**: 避免過度生成文檔，只在必要時創建
+
+---
+
+## 🏗️ 技術架構
+
+### 當前專案架構
+
+#### 服務器架構
+- **Node.js + Express**: 後端服務器，處理業務邏輯和 API
+- **WebSocket**: 多人協作即時同步，支援代碼編輯、聊天、用戶狀態同步
+- **衝突檢測系統**: 版本控制和衝突解決機制
+
+#### 前端架構
+- **HTML5 + CSS3 + JavaScript**: 響應式界面
+- **CodeMirror**: Python 語法高亮和代碼編輯
+- **Bootstrap**: UI 框架和響應式設計
+- **WebSocket Client**: 即時通訊客戶端
+
+#### 數據庫
+- **MySQL**: 用戶資料、房間信息、聊天記錄（雲端模式）
+- **本地存儲**: 內存 + localStorage（本地模式，作為降級方案）
+
+#### AI 助教功能
+- **OpenAI API**: 串接 gpt-3.5-turbo 模型
+- **四大核心功能**:
+  1. 📝 解釋程式 (`explain_code`)
+  2. 🔍 檢查錯誤 (`check_errors`)
+  3. ⚡ 改進建議 (`improve_code`)
+  4. 🔄 衝突協助 (`conflict_resolution`)
+- **聊天室整合**: AI 分析結果可一鍵分享到團隊聊天
+
+### 核心技術棧
+```
+後端服務: Node.js + Express + WebSocket
+數據庫: MySQL (雲端) / localStorage (本地)
+前端: HTML5 + CSS3 + JavaScript + Bootstrap + CodeMirror
+AI 整合: OpenAI API (gpt-3.5-turbo)
+部署平台: Zeabur 雲端部署
+協作引擎: 版本控制 + 衝突檢測系統
+```
+
+---
+
+## 🔧 開發規範
+
+### 專案結構（嚴格遵守 15 檔案限制）
+```
+PythonLearn-Zeabur/
+├── server.js                    # Node.js 主服務器
+├── package.json                 # 依賴配置
+├── package-lock.json            # 依賴鎖定
+├── zeabur.yaml                  # Zeabur 部署配置
+├── public/
+│   ├── index.html               # 學生端主頁
+│   ├── teacher-dashboard.html   # 教師監控後台
+│   ├── config.html              # 配置頁面
+│   ├── css/styles.css           # 主要樣式
+│   ├── favicon.ico              # 網站圖標
+│   └── js/
+│       ├── ai-assistant.js      # AI 助教功能
+│       ├── chat.js              # 聊天功能
+│       ├── conflict.js          # 衝突檢測
+│       ├── editor.js            # 代碼編輯器
+│       ├── ui.js                # UI 管理
+│       └── websocket.js         # WebSocket 管理
+└── .cursor/
+    └── rules/                   # 規則檔案（受保護，禁止刪除）
+```
+
+### AI 模型使用指導
+#### Claude-4-Sonnet（主要開發）
+- **適用場景**: 日常開發、架構設計、文檔撰寫、創意功能
+- **優勢**: 理解能力強、架構思維佳、代碼質量高
+- **使用於**: 新功能開發、系統重構、複雜邏輯設計
+
+#### Gemini-2.5-Pro（Debug 專用）
+- **適用場景**: Bug 修復、細節調試、錯誤診斷
+- **優勢**: Debug 能力強、細節處理精確、錯誤定位準確
+- **使用於**: 修復 bug、性能優化、錯誤排查
+
+---
+
+## 📝 開發流程規範
+
+### 程式碼修改流程（重要！）
+1. **本地檢索相關檔案**: 修改前必須檢索所有相關檔案
+2. **前後端同步修改**: 確保前端和後端的映射一致性
+3. **測試驗證**: 本地測試無誤後再提交
+4. **更新規則檔案**: 每次 Debug 都要更新對應的規則檔案
+
+### 前後端映射檢查清單
+在修改 AI 助教或其他功能時，必須檢查：
+- [ ] 前端發送的 action 類型
+- [ ] 後端處理的 action 映射
+- [ ] WebSocket 消息格式一致性
+- [ ] 錯誤處理機制同步
+
+### Debug 更新規範
+每次 Debug 完成後必須：
+1. **更新對應規則檔案** (`.cursor/rules/*.mdc`)
+2. **記錄問題原因和解決方案**
+3. **更新前後端映射表**
+4. **驗證修復效果**
+
+---
+
+## 🚫 文檔生成限制
+⚠️ **重要限制**: 不需要頻繁新增部署指南、使用說明等 `.md` 檔案
+- **只有在明確指令時才生成文檔**
+- **避免過度文檔化**
+- **專注於代碼品質和功能實現**
+- **規則檔案 (`.mdc`) 存放在 `.cursor/rules/` 資料夾**
+
+---
+
+## 🌍 網路搜索規範
+### 搜索要求
+- **使用 2025 最新資訊搜索**
+- **用英文進行搜索**
+- **將結果翻譯成繁體中文輸出**
+- **重點關注最新的技術趨勢和最佳實踐**
+
+### 搜索主題範例
+```
+英文搜索: "Node.js WebSocket real-time collaboration 2025"
+中文輸出: "2025年 Node.js WebSocket 即時協作最佳實踐"
+
+英文搜索: "OpenAI API integration best practices 2025"
+中文輸出: "2025年 OpenAI API 整合最佳實踐"
+```
+
+---
+
+## 📁 GitHub 上傳規範
+
+### 嚴格架構限制
+- **15 個核心檔案，不多不少**
+- **所有檔案直接在根目錄**（除 `public/` 內部結構）
+- **禁止任何多餘的子資料夾結構**
+
+### 禁止上傳的資料夾類型
+```
+❌ projects/          ❌ python-main/      ❌ src/
+❌ dist/              ❌ build/            ❌ assets/
+❌ components/        ❌ modules/          ❌ utils/
+❌ config/            ❌ lib/              ❌ scripts/
+❌ docs/              ❌ examples/         ❌ tests/
+❌ backup/            ❌ old/              ❌ temp/
+❌ archive/           ❌ .cursor/          ❌ *.md 檔案
+```
+
+### Git 操作指令
+```bash
+# 檢查檔案數量（必須是 15 個）
+git ls-files | wc -l
+
+# 檢查是否有禁止的資料夾
+git ls-files | grep -E "^(projects|src|dist)/"
+
+# 強制清理並重新追蹤
+git rm --cached -r .
+git add -f server.js package.json package-lock.json zeabur.yaml
+git add -f public/index.html public/teacher-dashboard.html public/config.html
+git add -f public/css/styles.css public/favicon.ico
+git add -f public/js/ai-assistant.js public/js/chat.js public/js/conflict.js
+git add -f public/js/editor.js public/js/ui.js public/js/websocket.js
+git commit -m "🔧 符合 15 檔案架構規範"
+git push origin main --force
+```
+
+---
+
+## ⚙️ Zeabur 部署配置
+
+### 環境變數設置
+```bash
+# AI 助教配置
+OPENAI_API_KEY=sk-proj-your-openai-api-key-here
+OPENAI_MODEL=gpt-3.5-turbo
+OPENAI_MAX_TOKENS=1000
+OPENAI_TEMPERATURE=0.3
+
+# 數據庫配置（雲端模式）
+MYSQL_HOST=your-mysql-host
+MYSQL_USER=your-mysql-user
+MYSQL_PASSWORD=your-mysql-password
+MYSQL_DATABASE=python_collaboration
+MYSQL_PORT=3306
+
+# 系統配置
+NODE_ENV=production
+MAX_CONCURRENT_USERS=60
+MAX_ROOMS=20
+MAX_USERS_PER_ROOM=5
+```
+
+### zeabur.yaml 配置
+```yaml
+name: python-collaboration-platform
+services:
+  web:
+    build:
+      dockerfile: Dockerfile
+    env:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: gpt-3.5-turbo
+      NODE_ENV: production
+    ports:
+      - 8080
+```
+
+---
+
+## 🧪 測試和驗證標準
+
+### 功能測試清單
+- [ ] ✅ WebSocket 連接正常
+- [ ] ✅ 多人協作同步
+- [ ] ✅ AI 助教四大功能
+- [ ] ✅ 衝突檢測機制
+- [ ] ✅ 教師監控功能
+- [ ] ✅ 聊天室分享
+- [ ] ✅ 數據持久化
+
+### 性能要求
+- **API 回應時間** < 3 秒
+- **WebSocket 延遲** < 100ms
+- **並發用戶支援** 60+ 同時在線
+- **錯誤率** < 5%
+
+---
+
+## 🔍 故障排除指南
+
+### 常見問題修復
+1. **前後端映射不匹配**
+   - 檢查 `ai-assistant.js` 的 action 發送
+   - 檢查 `server.js` 的 action 處理
+   - 更新 `.cursor/rules/AI_assistant_rules.mdc`
+
+2. **「未知消息類型」錯誤**
+   - 檢查 `handleMessage` 函數的 switch case
+   - 確保所有消息類型都有對應處理
+
+3. **AI 請求無回應**
+   - 檢查 OpenAI API 密鑰設置
+   - 檢查網路連接和超時設置
+   - 檢查前端 WebSocket 連接狀態
+
+### Debug 記錄範本
+```markdown
+## 🐛 Bug 修復記錄 - YYYY-MM-DD
+
+### 問題描述
+- 具體的錯誤現象
+- 觸發條件和重現步驟
+
+### 根本原因
+- 深入分析問題的根本原因
+- 相關的代碼邏輯問題
+
+### 解決方案
+- 具體的修復步驟
+- 涉及的檔案修改
+
+### 測試驗證
+- 修復後的測試結果
+- 確保沒有引入新問題
+
+### 規則更新
+- 更新的規則檔案
+- 預防類似問題的措施
+```
+
+---
+
+## 📊 專案狀態監控
+
+### 開發進度追蹤
+- **AI 助教**: ✅ 完成（四大功能已實現）
+- **多人協作**: ✅ 完成（WebSocket 同步）
+- [ ] ✅ 衝突檢測
+- [ ] ✅ 教師監控
+- [ ] ✅ Zeabur 部署
+
+### 技術債務管理
+- **MySQL 連接優化**: 需要優化連接池配置
+- **AI API 錯誤處理**: 加強錯誤處理和回退機制
+- **前端響應式**: 提升移動設備適配
+- **性能優化**: WebSocket 連接數優化
+
+---
+
+## 🛡️ 系統保護機制
+
+### 規則檔案保護
+```bash
+# 規則檔案權限設定
+chmod 444 .cursor/rules/*.mdc  # 設為唯讀
+chattr +i .cursor/rules/*.mdc  # 設為不可變 (Linux)
+```
+
+### 備份策略
+- **自動備份**: 每次修改前自動備份規則檔案
+- **版本控制**: Git 追蹤所有規則檔案變更
+- **災難恢復**: 雲端備份機制
+
+### 檔案完整性檢查
+```javascript
+// 系統啟動時檢查核心檔案
+const CORE_FILES = [
+    '.cursor/rules/cursor_rules.mdc',
+    '.cursor/rules/AI_assistant_rules.mdc', 
+    '.cursor/rules/editor_rules.mdc',
+    'server.js',
+    'package.json'
+];
+
+function checkFileIntegrity() {
+    CORE_FILES.forEach(file => {
+        if (!fs.existsSync(file)) {
+            console.error(`🚨 核心檔案遺失: ${file}`);
+            process.exit(1);
+        }
+    });
+    console.log('✅ 檔案完整性檢查通過');
+}
+```
+
+---
+
+**📝 文檔版本**: v3.1  
+**📅 最後更新**: 2025-06-04  
+**👨‍💻 維護者**: PythonLearn-Zeabur 團隊
+
+**🎯 核心原則**: 
+- ✅ 始終使用繁體中文回應
+- ✅ 修改前檢索所有相關檔案
+- ✅ 前後端同步修改確保一致性
+- ✅ 每次 Debug 更新對應的 debug 檔案
+- ✅ 嚴格遵守 GitHub 15 檔案架構
+- ✅ 避免過度文檔化，專注代碼品質
+- 🔒 **嚴格保護系統規則檔案，禁止刪除**
+
+**注意**: 所有具體的問題記錄已移動到對應的 debug 文件中：
+- 架構問題 → `.cursor/debug/architecture_debug.mdc`
+- AI助教問題 → `.cursor/debug/ai_assistant_debug.mdc`
+- 編輯器問題 → `.cursor/debug/editor_debug.mdc`
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

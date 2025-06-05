@@ -1,0 +1,339 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# 🚀 Zeabur 雲端部署規則 - 配置與最佳實踐
+
+**規則類型**: always
+**檔案保護**: 唯讀，禁止刪除
+
+## 📋 模組概述
+Zeabur部署規則負責定義PythonLearn-Zeabur協作教學平台在Zeabur雲端平台的部署標準、環境配置、監控機制等規範。確保從本地開發到雲端生產環境的無縫銜接和穩定運行。
+
+## 🔐 安全配置核心原則
+
+### 🚫 敏感資料保護
+- **絕不上傳** `ai_config.json` 到 GitHub
+- **優先使用** Zeabur 環境變數配置
+- **禁止硬編碼** API 密鑰和資料庫密碼
+- **嚴格分離** 開發環境與生產環境配置
+
+### 配置優先級 (由高到低)
+1. **Zeabur 環境變數** - 生產環境最高優先級
+2. **系統環境變數** - 本地測試環境
+3. **本地 ai_config.json** - 僅限本地開發 (不上傳 GitHub)
+4. **預設降級模式** - AI 功能停用，確保服務可用
+
+---
+
+## ⚙️ 環境變數配置規範
+
+### 🤖 AI助教必需環境變數
+```bash
+# Zeabur 控制台設定 (最高優先級)
+OPENAI_API_KEY=sk-proj-your-openai-api-key-here
+OPENAI_MODEL=gpt-3.5-turbo
+OPENAI_MAX_TOKENS=1000
+OPENAI_TEMPERATURE=0.3
+OPENAI_TIMEOUT=30000
+```
+
+### 🗄️ 數據庫配置 (Zeabur MySQL)
+```bash
+MYSQL_HOST=your-mysql-host.zeabur.app
+MYSQL_USER=root
+MYSQL_PASSWORD=your-secure-password
+MYSQL_DATABASE=python_collaboration
+MYSQL_PORT=3306
+```
+
+### 🌐 應用基礎配置
+```bash
+NODE_ENV=production
+PORT=8080
+MAX_CONCURRENT_USERS=100
+MAX_ROOMS=50
+MAX_USERS_PER_ROOM=8
+```
+
+### 🔒 安全與性能配置
+```bash
+# 安全配置
+SESSION_SECRET=your-session-secret-key
+CORS_ORIGIN=https://your-domain.zeabur.app
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=100
+
+# 性能調優
+WEBSOCKET_PING_INTERVAL=25000
+WEBSOCKET_PING_TIMEOUT=5000
+DATABASE_POOL_SIZE=10
+API_TIMEOUT=30000
+
+# 監控配置
+ENABLE_METRICS=true
+LOG_LEVEL=info
+DEBUG_MODE=false
+```
+
+---
+
+## 📄 zeabur.yaml 最佳實踐配置
+
+### 生產級配置範本
+```yaml
+# zeabur.yaml - 生產級 Zeabur 部署配置
+name: pythonlearn-collaboration
+services:
+  web:
+    # 🏗️ 建構設定
+    build:
+      command: |
+        npm ci --only=production
+        npm run build
+    
+    # 🌐 環境變數 (從 Zeabur 控制台引用)
+    env:
+      NODE_ENV: production
+      PORT: 8080
+      # AI 配置
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL}
+      OPENAI_MAX_TOKENS: ${OPENAI_MAX_TOKENS}
+      OPENAI_TEMPERATURE: ${OPENAI_TEMPERATURE}
+      # 數據庫配置
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_PORT: ${MYSQL_PORT}
+      # 應用配置
+      MAX_CONCURRENT_USERS: 100
+      MAX_ROOMS: 50
+      MAX_USERS_PER_ROOM: 8
+    
+    # 🔌 端口配置
+    ports:
+      - 8080
+    
+    # 🏥 健康檢查
+    healthcheck:
+      path: /api/status
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    
+    # 📊 資源配置
+    resources:
+      cpu: 1000m      # 1 CPU core
+      memory: 512Mi   # 512MB RAM
+    
+    # 🔄 自動擴展
+    autoscaling:
+      enabled: false  # 教學平台暫不需要
+      minReplicas: 1
+      maxReplicas: 2
+
+  # 🗄️ MySQL 數據庫服務 (Zeabur 預構建)
+  mysql:
+    image: mysql:8.0
+    env:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: python_collaboration
+    volumes:
+      - name: mysql-data
+        mount: /var/lib/mysql
+```
+
+---
+
+## 🚀 部署流程規範
+
+### 一鍵部署流程
+```bash
+# 1. 本地開發完成
+npm test                    # 確保所有測試通過
+npm run lint               # 代碼風格檢查
+
+# 2. 檔案架構驗證
+git ls-files | wc -l       # 確保是 15 個檔案
+
+# 3. 提交到 GitHub
+git add -A
+git commit -m "🚀 準備 Zeabur 部署"
+git push origin main
+
+# 4. Zeabur 自動部署
+# - 檢測 GitHub 推送
+# - 拉取最新代碼  
+# - 執行建構指令
+# - 部署到生產環境
+# - 執行健康檢查
+```
+
+### 部署前檢查清單
+- [ ] ✅ 本地 8080 端口測試通過
+- [ ] ✅ AI 助教功能 (在有 API 密鑰時) 正常
+- [ ] ✅ WebSocket 連接穩定
+- [ ] ✅ 多人協作功能正常
+- [ ] ✅ 檔案數量精確為 15 個
+- [ ] ✅ 無敏感配置檔案在 Git 追蹤中
+- [ ] ✅ Zeabur 環境變數已正確設定
+- [ ] ✅ package.json 依賴版本穩定
+
+---
+
+## 📊 部署監控與維護
+
+### 健康檢查端點
+```javascript
+// /api/status - 系統健康檢查
+{
+  "status": "healthy",
+  "timestamp": 1640995200000,
+  "services": {
+    "webserver": "running",
+    "websocket": "running", 
+    "database": "connected",
+    "ai_assistant": "enabled"  // 依 API 密鑰狀態
+  },
+  "performance": {
+    "uptime": 86400000,
+    "memory_usage": "45%",
+    "active_connections": 25,
+    "active_rooms": 8
+  }
+}
+```
+
+### 部署後驗證步驟
+```bash
+# 1. 健康檢查
+curl https://your-app.zeabur.app/api/status
+
+# 2. WebSocket 測試
+# 打開瀏覽器開發者工具，確認 WebSocket 連接成功
+
+# 3. 功能測試
+# - 創建房間
+# - 多人協作編輯
+# - AI 助教功能 (如果已配置)
+# - 代碼執行功能
+
+# 4. 性能監控
+# 觀察 Zeabur 控制台中的 CPU、記憶體使用情況
+```
+
+---
+
+## 🛠️ 本地開發環境設定
+
+### AI 配置本地降級 (不上傳 GitHub)
+```javascript
+// 本地開發時可選：創建 ai_config.json (僅限本地)
+// 注意：此檔案不應上傳到 GitHub
+{
+  "openai_api_key": "sk-proj-your-local-test-key",
+  "model": "gpt-3.5-turbo",
+  "max_tokens": 500,
+  "temperature": 0.7,
+  "timeout": 30000,
+  "enabled": true,
+  "features": {
+    "code_analysis": true,
+    "code_review": true,
+    "debug_assistance": true,
+    "improvement_suggestions": true,
+    "collaboration_guidance": true
+  }
+}
+```
+
+### .gitignore 確保安全
+```bash
+# .gitignore - 確保敏感檔案不被追蹤
+ai_config.json           # AI 配置檔案 (僅本地)
+.env                     # 環境變數檔案
+*.log                    # 日誌檔案
+node_modules/            # 依賴目錄
+.DS_Store               # macOS 系統檔案
+Thumbs.db               # Windows 系統檔案
+.cursor/                # Cursor 規則目錄 (僅本地)
+```
+
+---
+
+## 🔧 故障排除指南
+
+### 常見部署問題
+
+#### 1. AI 助教功能失效
+**症狀**: AI 請求回應「AI 助教功能未啟用」
+**解決方案**:
+```bash
+# 檢查 Zeabur 環境變數設定
+1. 登入 Zeabur 控制台
+2. 進入專案設定
+3. 確認 OPENAI_API_KEY 已正確設定
+4. 重新部署服務
+```
+
+#### 2. 數據庫連接失敗
+**症狀**: 用戶無法加入房間，聊天記錄不保存
+**解決方案**:
+```bash
+# 檢查 MySQL 服務狀態
+1. 確認 Zeabur MySQL 服務正在運行
+2. 檢查數據庫連接字符串
+3. 驗證數據庫用戶權限
+4. 檢查資料庫名稱是否正確
+```
+
+#### 3. WebSocket 連接問題
+**症狀**: 多人協作功能失效，即時同步停止
+**解決方案**:
+```bash
+# 檢查 WebSocket 配置
+1. 確認 PORT 環境變數設定為 8080
+2. 檢查防火牆設定
+3. 驗證 CORS 配置
+4. 監控連接數是否超過限制
+```
+
+#### 4. 建構失敗
+**症狀**: Zeabur 部署過程中建構失敗
+**解決方案**:
+```bash
+# 檢查依賴和配置
+1. 確認 package.json 格式正確
+2. 檢查 Node.js 版本兼容性
+3. 驗證所有依賴包版本
+4. 檢查檔案架構是否符合 15 檔案規範
+```
+
+---
+
+## 📝 維護記錄
+
+### 最新更新 - 2025-06-04
+- ✅ 強化敏感資料保護，禁止 `ai_config.json` 上傳
+- ✅ 優化環境變數配置優先級
+- ✅ 改進 AI 助教錯誤處理和用戶提示
+- ✅ 增強部署前檢查清單
+- ✅ 完善故障排除指南
+- ✅ 更新 zeabur.yaml 最佳實踐
+
+---
+
+**📝 文檔版本**: v3.0  
+**📅 最後更新**: 2025-06-04  
+**🔧 維護狀態**: 活躍維護
+
+**🎯 核心原則**: 
+- ✅ 環境變數優先，零敏感資料上傳
+- ✅ 一鍵部署，無需複雜配置  
+- ✅ 生產級穩定性和安全性
+- ✅ AI 功能優雅降級
+- ✅ 完整的監控和故障排除機制
+

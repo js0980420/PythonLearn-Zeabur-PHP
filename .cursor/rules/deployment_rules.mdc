@@ -1,0 +1,503 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# 🚀 測試部署規則與流程管控系統
+
+**規則類型**: always
+**檔案保護**: 唯讀，禁止刪除
+
+## 📋 模組概述
+測試部署規則系統負責定義從本地開發到Zeabur雲端部署的完整流程規範。包含端口占用檢查、多進程處理、檔案架構驗證、環境配置等關鍵環節，確保部署過程穩定可靠。
+
+## 🎯 核心部署原則
+
+### 部署階段劃分
+1. **本地驗證階段** - 8080端口測試、功能完整性檢查
+2. **預部署檢查** - 檔案架構、依賴完整性、安全掃描
+3. **Git準備階段** - 版本控制、提交規範、推送驗證
+4. **Zeabur部署** - 雲端部署、環境配置、服務監控
+5. **部署後驗證** - 功能測試、性能監控、錯誤追蹤
+
+### 部署安全規範
+- **零停機部署** - 確保服務連續性
+- **回滾機制** - 部署失敗時快速回滾
+- **環境隔離** - 開發、測試、生產環境分離
+- **敏感資料保護** - API密鑰、數據庫密碼安全管理
+
+---
+
+## 🔍 本地驗證階段規範
+
+### 端口占用檢查標準流程
+```powershell
+# 1. 檢查當前端口使用狀況
+netstat -ano | findstr :8080
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "⚠️ 警告：端口8080被占用"
+    # 顯示占用進程詳細資訊
+    netstat -ano | findstr :8080 | ForEach-Object {
+        $port_info = $_ -split '\s+'
+        $pid = $port_info[-1]
+        $process = Get-Process -Id $pid -ErrorAction SilentlyContinue
+        if ($process) {
+            Write-Host "📋 進程名稱: $($process.ProcessName)"
+            Write-Host "🆔 進程ID: $pid"
+            Write-Host "⏰ 啟動時間: $($process.StartTime)"
+        }
+    }
+} else {
+    Write-Host "✅ 端口8080可用"
+}
+```
+
+### 多進程問題處理機制
+```powershell
+# 2. 檢查並處理多個Node.js進程
+$node_processes = Get-Process -Name "node" -ErrorAction SilentlyContinue
+if ($node_processes.Count -gt 0) {
+    Write-Host "🔍 發現 $($node_processes.Count) 個Node.js進程:"
+    $node_processes | ForEach-Object {
+        Write-Host "  - PID: $($_.Id), 記憶體: $([math]::Round($_.WorkingSet/1MB))MB, 啟動: $($_.StartTime)"
+    }
+    
+    # 用戶選擇處理方式
+    $choice = Read-Host "選擇操作: [K]終止所有, [S]選擇性終止, [C]繼續 (預設: C)"
+    switch ($choice.ToUpper()) {
+        "K" { 
+            $node_processes | Stop-Process -Force
+            Write-Host "✅ 已終止所有Node.js進程"
+        }
+        "S" {
+            $node_processes | ForEach-Object {
+                $confirm = Read-Host "終止進程 $($_.Id) ($($_.ProcessName))? [y/N]"
+                if ($confirm.ToUpper() -eq "Y") {
+                    Stop-Process -Id $_.Id -Force
+                    Write-Host "✅ 已終止進程 $($_.Id)"
+                }
+            }
+        }
+        default { Write-Host "ℹ️ 保持現有進程運行" }
+    }
+}
+```
+
+### 服務啟動驗證
+```powershell
+# 3. 啟動服務並驗證
+Write-Host "🚀 啟動服務..."
+$job = Start-Job -ScriptBlock { 
+    Set-Location $using:PWD
+    npm start 
+}
+
+# 等待服務啟動
+Start-Sleep -Seconds 5
+
+# 驗證服務可用性
+try {
+    $response = Invoke-WebRequest -Uri "http://localhost:8080" -TimeoutSec 10
+    if ($response.StatusCode -eq 200) {
+        Write-Host "✅ 服務啟動成功，狀態碼: $($response.StatusCode)"
+        
+        # 測試關鍵功能端點
+        $endpoints = @(
+            "/teacher",
+            "/config"
+        )
+        
+        foreach ($endpoint in $endpoints) {
+            try {
+                $test_response = Invoke-WebRequest -Uri "http://localhost:8080$endpoint" -TimeoutSec 5
+                Write-Host "✅ 端點 $endpoint 可用 (狀態: $($test_response.StatusCode))"
+            } catch {
+                Write-Host "⚠️ 端點 $endpoint 不可用: $($_.Exception.Message)"
+            }
+        }
+    }
+} catch {
+    Write-Host "❌ 服務啟動失敗: $($_.Exception.Message)"
+    Stop-Job -Job $job
+    exit 1
+} finally {
+    Stop-Job -Job $job -ErrorAction SilentlyContinue
+}
+```
+
+---
+
+## 📁 檔案架構驗證規範
+
+### 15檔案架構強制檢查
+```powershell
+# 檢查檔案數量和結構
+$git_files = git ls-files
+$file_count = $git_files.Count
+
+Write-Host "📊 檔案數量檢查..."
+if ($file_count -eq 15) {
+    Write-Host "✅ 檔案數量正確: $file_count"
+} else {
+    Write-Host "❌ 檔案數量錯誤: $file_count (應該是15個)"
+    Write-Host "📋 當前追蹤的檔案:"
+    $git_files | ForEach-Object { Write-Host "  - $_" }
+    exit 1
+}
+
+# 檢查必需檔案
+$required_files = @(
+    "server.js",
+    "package.json", 
+    "package-lock.json",
+    "zeabur.yaml",
+    "public/index.html",
+    "public/teacher-dashboard.html",
+    "public/config.html",
+    "public/css/styles.css",
+    "public/favicon.ico",
+    "public/js/ai-assistant.js",
+    "public/js/chat.js",
+    "public/js/conflict.js",
+    "public/js/editor.js",
+    "public/js/ui.js",
+    "public/js/websocket.js"
+)
+
+$missing_files = @()
+foreach ($file in $required_files) {
+    if (-not (Test-Path $file)) {
+        $missing_files += $file
+    }
+}
+
+if ($missing_files.Count -gt 0) {
+    Write-Host "❌ 缺少必需檔案:"
+    $missing_files | ForEach-Object { Write-Host "  - $_" }
+    exit 1
+} else {
+    Write-Host "✅ 所有必需檔案存在"
+}
+```
+
+### 禁止檔案檢查
+```powershell
+# 檢查是否包含禁止的檔案類型
+$forbidden_patterns = @(
+    "*.md",
+    "README*",
+    ".gitignore",
+    ".env*",
+    "node_modules/*",
+    "*.log",
+    "*.tmp"
+)
+
+$forbidden_files = @()
+foreach ($pattern in $forbidden_patterns) {
+    $matches = git ls-files | Where-Object { $_ -like $pattern }
+    if ($matches) {
+        $forbidden_files += $matches
+    }
+}
+
+if ($forbidden_files.Count -gt 0) {
+    Write-Host "❌ 發現禁止的檔案:"
+    $forbidden_files | ForEach-Object { Write-Host "  - $_" }
+    exit 1
+} else {
+    Write-Host "✅ 無禁止檔案"
+}
+```
+
+---
+
+## ⚙️ 環境配置驗證
+
+### 關鍵環境變數檢查
+```powershell
+# 檢查必要的環境變數
+$required_env_vars = @{
+    "OPENAI_API_KEY" = "OpenAI API 密鑰"
+    "MYSQL_HOST" = "MySQL 主機地址"  
+    "MYSQL_USER" = "MySQL 用戶名"
+    "MYSQL_PASSWORD" = "MySQL 密碼"
+    "MYSQL_DATABASE" = "MySQL 數據庫名"
+}
+
+Write-Host "🔐 環境變數檢查..."
+$missing_vars = @()
+foreach ($var in $required_env_vars.Keys) {
+    $value = [Environment]::GetEnvironmentVariable($var)
+    if ([string]::IsNullOrEmpty($value)) {
+        $missing_vars += $var
+        Write-Host "⚠️ 缺少環境變數: $var ($($required_env_vars[$var]))"
+    } else {
+        # 遮蔽敏感資料顯示
+        $masked_value = if ($var -like "*KEY*" -or $var -like "*PASSWORD*") { 
+            "*" * 8 + $value.Substring([Math]::Max(0, $value.Length - 4))
+        } else { 
+            $value 
+        }
+        Write-Host "✅ $var = $masked_value"
+    }
+}
+
+if ($missing_vars.Count -gt 0) {
+    Write-Host "ℹ️ 部分環境變數缺失，將使用本地模式"
+} else {
+    Write-Host "✅ 所有環境變數配置完整"
+}
+```
+
+### package.json 依賴檢查
+```powershell
+# 檢查package.json配置
+if (Test-Path "package.json") {
+    $package_json = Get-Content "package.json" | ConvertFrom-Json
+    
+    # 檢查必要的依賴
+    $required_deps = @(
+        "express",
+        "socket.io", 
+        "mysql2",
+        "openai"
+    )
+    
+    $missing_deps = @()
+    foreach ($dep in $required_deps) {
+        if (-not $package_json.dependencies.$dep) {
+            $missing_deps += $dep
+        }
+    }
+    
+    if ($missing_deps.Count -gt 0) {
+        Write-Host "❌ 缺少必要依賴:"
+        $missing_deps | ForEach-Object { Write-Host "  - $_" }
+        exit 1
+    } else {
+        Write-Host "✅ 所有必要依賴已配置"
+    }
+    
+    # 檢查啟動腳本
+    if ($package_json.scripts.start) {
+        Write-Host "✅ 啟動腳本已配置: $($package_json.scripts.start)"
+    } else {
+        Write-Host "⚠️ 缺少啟動腳本配置"
+    }
+} else {
+    Write-Host "❌ package.json 檔案不存在"
+    exit 1
+}
+```
+
+---
+
+## 🌐 Zeabur 部署規範
+
+### zeabur.yaml 配置驗證
+```powershell
+# 檢查 Zeabur 部署配置
+if (Test-Path "zeabur.yaml") {
+    Write-Host "✅ zeabur.yaml 配置檔存在"
+    
+    # 檢查配置內容
+    $zeabur_config = Get-Content "zeabur.yaml" -Raw
+    
+    # 檢查必要配置項
+    $required_configs = @(
+        "name:",
+        "services:",
+        "ports:"
+    )
+    
+    foreach ($config in $required_configs) {
+        if ($zeabur_config -match $config) {
+            Write-Host "✅ 包含配置: $config"
+        } else {
+            Write-Host "⚠️ 缺少配置: $config"
+        }
+    }
+} else {
+    Write-Host "❌ zeabur.yaml 配置檔不存在"
+    exit 1
+}
+```
+
+### Git 推送前最後檢查
+```powershell
+# Git 狀態檢查
+$git_status = git status --porcelain
+if ($git_status) {
+    Write-Host "📝 發現未提交的變更:"
+    $git_status | ForEach-Object { Write-Host "  $_" }
+    
+    $commit_choice = Read-Host "是否提交所有變更? [Y/n]"
+    if ($commit_choice.ToUpper() -ne "N") {
+        git add .
+        $commit_message = Read-Host "輸入提交訊息 (預設: 🚀 部署更新)"
+        if ([string]::IsNullOrEmpty($commit_message)) {
+            $commit_message = "🚀 部署更新"
+        }
+        git commit -m $commit_message
+        Write-Host "✅ 變更已提交"
+    }
+} else {
+    Write-Host "✅ Git 狀態乾淨"
+}
+
+# 推送到遠端倉庫
+Write-Host "📤 推送到遠端倉庫..."
+try {
+    git push origin main
+    Write-Host "✅ 推送成功"
+} catch {
+    Write-Host "❌ 推送失敗: $($_.Exception.Message)"
+    exit 1
+}
+```
+
+---
+
+## 📊 部署後驗證規範
+
+### 自動化部署驗證腳本
+```powershell
+# 部署後自動驗證
+param(
+    [string]$DeploymentUrl = "https://your-app.zeabur.app"
+)
+
+Write-Host "🔍 開始部署後驗證..."
+
+# 等待服務啟動
+Write-Host "⏳ 等待服務啟動 (60秒)..."
+Start-Sleep -Seconds 60
+
+# 檢查基本可用性
+try {
+    $response = Invoke-WebRequest -Uri $DeploymentUrl -TimeoutSec 30
+    if ($response.StatusCode -eq 200) {
+        Write-Host "✅ 部署成功，服務可用"
+    } else {
+        Write-Host "⚠️ 服務回應異常，狀態碼: $($response.StatusCode)"
+    }
+} catch {
+    Write-Host "❌ 服務不可用: $($_.Exception.Message)"
+    exit 1
+}
+
+# 檢查關鍵功能端點
+$test_endpoints = @(
+    "/teacher",
+    "/config"
+)
+
+foreach ($endpoint in $test_endpoints) {
+    try {
+        $test_response = Invoke-WebRequest -Uri "$DeploymentUrl$endpoint" -TimeoutSec 15
+        Write-Host "✅ 端點 $endpoint 正常 (狀態: $($test_response.StatusCode))"
+    } catch {
+        Write-Host "❌ 端點 $endpoint 異常: $($_.Exception.Message)"
+    }
+}
+
+Write-Host "🎉 部署驗證完成"
+```
+
+---
+
+## 🚨 常見部署問題與解決方案
+
+### 端口占用問題
+```
+問題: EADDRINUSE: address already in use
+診斷: netstat -ano | findstr :8080
+解決: 
+1. taskkill /PID [PID] /F
+2. 檢查是否有多個npm start進程
+3. 重啟系統 (最後手段)
+```
+
+### 依賴安裝問題
+```
+問題: npm install 失敗
+診斷: npm cache verify
+解決:
+1. npm cache clean --force
+2. 刪除 node_modules 和 package-lock.json
+3. npm install
+```
+
+### 環境變數問題
+```
+問題: 環境變數未生效
+診斷: echo $env:變數名 (PowerShell)
+解決:
+1. 確認 .env 檔案格式
+2. 重啟終端或IDE
+3. 檢查 Zeabur 環境變數設置
+```
+
+### Git 推送問題
+```
+問題: git push 被拒絕
+診斷: git status, git log --oneline
+解決:
+1. git pull origin main --rebase
+2. 解決衝突後重新推送
+3. 強制推送 (謹慎使用): git push origin main --force
+```
+
+---
+
+## 📝 部署記錄範本
+
+### 部署記錄格式
+```markdown
+## 🚀 部署記錄 - YYYY-MM-DD
+
+### 部署環境
+- **目標平台**: Zeabur
+- **部署分支**: main
+- **部署版本**: v1.x.x
+- **部署人員**: [姓名]
+
+### 部署前檢查
+- [ ] ✅ 端口8080測試通過
+- [ ] ✅ 檔案架構符合15檔案規範
+- [ ] ✅ 依賴完整性檢查通過
+- [ ] ✅ 環境變數配置完整
+
+### 部署過程
+- [ ] ✅ Git 推送成功
+- [ ] ✅ Zeabur 自動部署觸發
+- [ ] ✅ 服務啟動成功
+- [ ] ✅ 健康檢查通過
+
+### 部署後驗證
+- [ ] ✅ 基本功能測試
+- [ ] ✅ AI助教功能測試
+- [ ] ✅ 多人協作測試
+- [ ] ✅ 性能指標檢查
+
+### 遇到的問題
+- 無問題 / [具體問題描述]
+
+### 解決方案
+- 無需處理 / [具體解決步驟]
+```
+
+---
+
+**📝 文檔版本**: v1.0  
+**📅 最後更新**: 2025-06-04  
+**🔧 維護狀態**: 活躍維護
+
+**🎯 核心原則**: 
+- ✅ 部署前必須完成完整的本地驗證
+- ✅ 檔案架構必須嚴格符合15檔案規範
+- ✅ 環境配置必須完整且安全
+- ✅ 部署過程必須有完整記錄
+- ✅ 部署後必須進行功能驗證
+

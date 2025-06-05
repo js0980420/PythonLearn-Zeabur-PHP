@@ -1,0 +1,485 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# 🏗️ 檔案架構規則與組織系統
+
+**規則類型**: always
+**檔案保護**: 唯讀，禁止刪除
+
+## 📋 模組概述
+檔案架構規則系統負責定義PythonLearn-Zeabur平台的完整檔案組織結構、命名規範和管理原則。確保專案保持簡潔高效的15檔案架構，避免過度複雜化，提升部署效率和維護性。
+
+## 🎯 核心架構原則
+
+### 檔案數量限制
+- **嚴格15檔案規範** - 不多不少，精確控制
+- **扁平化結構** - 避免過深的目錄嵌套
+- **功能性分組** - 按功能和職責組織檔案
+- **部署友好** - 符合Zeabur雲端部署要求
+
+### 架構設計哲學
+- **極簡主義** - 每個檔案都有明確用途
+- **可維護性** - 清晰的檔案職責劃分
+- **可擴展性** - 在限制內支援功能擴展
+- **雲端優化** - 專為雲端部署優化
+
+---
+
+## 📁 標準檔案架構定義
+
+### 完整15檔案結構
+```
+PythonLearn-Zeabur/
+├── server.js                    # [1] Node.js 主服務器 - 核心後端邏輯
+├── package.json                 # [2] 依賴配置檔案 - npm套件管理
+├── package-lock.json            # [3] 依賴鎖定檔案 - 版本確定性
+├── zeabur.yaml                  # [4] Zeabur 部署配置 - 雲端部署設定
+├── public/                      # 前端資源目錄
+│   ├── index.html               # [5] 學生端主頁 - 主要用戶界面
+│   ├── teacher-dashboard.html   # [6] 教師監控後台 - 管理界面
+│   ├── config.html              # [7] 配置頁面 - 系統設定界面
+│   ├── css/
+│   │   └── styles.css           # [8] 主要樣式檔案 - 統一UI設計
+│   ├── favicon.ico              # [9] 網站圖標 - 品牌識別
+│   └── js/                      # JavaScript 功能模組
+│       ├── ai-assistant.js      # [10] AI 助教功能 - 智能輔助
+│       ├── chat.js              # [11] 聊天功能 - 即時通訊
+│       ├── conflict.js          # [12] 衝突檢測 - 協作衝突管理
+│       ├── editor.js            # [13] 代碼編輯器 - 核心編輯功能
+│       ├── ui.js                # [14] UI 管理 - 界面控制
+│       └── websocket.js         # [15] WebSocket 管理 - 即時通訊
+```
+
+### 檔案職責矩陣
+| 檔案名稱 | 主要職責 | 依賴關係 | 核心功能 |
+|---------|---------|---------|---------|
+| `server.js` | 後端服務器 | express, socket.io, mysql2 | WebSocket、API、AI助教 |
+| `package.json` | 依賴管理 | - | 套件配置、啟動腳本 |
+| `package-lock.json` | 版本鎖定 | package.json | 依賴版本固定 |
+| `zeabur.yaml` | 部署配置 | - | 雲端部署設定 |
+| `index.html` | 學生界面 | js/*, css/* | 主要用戶界面 |
+| `teacher-dashboard.html` | 教師界面 | js/*, css/* | 監控管理界面 |
+| `config.html` | 配置界面 | js/ui.js | 系統配置管理 |
+| `styles.css` | 樣式定義 | Bootstrap, FontAwesome | 統一視覺設計 |
+| `favicon.ico` | 網站圖標 | - | 品牌識別 |
+| `ai-assistant.js` | AI功能 | websocket.js | AI助教四大功能 |
+| `chat.js` | 聊天功能 | websocket.js | 即時聊天通訊 |
+| `conflict.js` | 衝突管理 | editor.js | 協作衝突檢測 |
+| `editor.js` | 編輯器 | CodeMirror | 代碼編輯核心 |
+| `ui.js` | UI控制 | - | 界面交互管理 |
+| `websocket.js` | 通訊管理 | socket.io-client | WebSocket連接 |
+
+---
+
+## 🚫 禁止檔案類型規範
+
+### 絕對禁止的檔案類型
+```bash
+❌ 文檔檔案類型:
+- *.md (README.md, CHANGELOG.md, API.md 等)
+- *.txt (說明檔案、文檔檔案)
+- *.doc, *.docx (Word文檔)
+- *.pdf (PDF文檔)
+
+❌ 配置檔案類型:
+- .gitignore (本地使用，不上傳)
+- .env, .env.* (環境變數檔案)
+- .cursorrules (IDE配置檔案)
+- .eslintrc.* (代碼檢查配置)
+- .prettierrc.* (代碼格式配置)
+
+❌ 開發工具檔案:
+- Dockerfile (容器化配置)
+- docker-compose.yml (容器編排)
+- .htaccess (Apache配置)
+- web.config (IIS配置)
+
+❌ 備份和臨時檔案:
+- *.bak, *.backup (備份檔案)
+- *.tmp, *.temp (臨時檔案)
+- *.log (日誌檔案)
+- *.cache (快取檔案)
+
+❌ 系統檔案:
+- .DS_Store (macOS系統檔案)
+- Thumbs.db (Windows縮圖檔案)
+- desktop.ini (Windows桌面配置)
+```
+
+### 禁止目錄結構
+```bash
+❌ 開發相關目錄:
+- node_modules/ (依賴安裝目錄)
+- dist/, build/ (建構輸出目錄)
+- src/, source/ (源碼目錄)
+- lib/, libs/ (第三方庫目錄)
+
+❌ 文檔相關目錄:
+- docs/, documentation/ (文檔目錄)
+- examples/, samples/ (範例目錄)
+- guides/, tutorials/ (教學目錄)
+
+❌ 測試相關目錄:
+- test/, tests/ (測試目錄)
+- spec/, specs/ (規格目錄)
+- __tests__/ (Jest測試目錄)
+
+❌ 工具相關目錄:
+- scripts/, tools/ (腳本工具目錄)
+- utils/, helpers/ (工具函數目錄)
+- config/, configurations/ (配置目錄)
+
+❌ 資源相關目錄:
+- assets/, resources/ (資源目錄)
+- images/, img/ (圖片目錄，favicon.ico除外)
+- fonts/, font/ (字體目錄)
+
+❌ 備份相關目錄:
+- backup/, backups/ (備份目錄)
+- archive/, old/ (歸檔目錄)
+- temp/, tmp/ (臨時目錄)
+```
+
+---
+
+## 📏 檔案組織原則
+
+### 目錄分層規範
+```
+Level 0 (根目錄): 4個核心檔案
+├── server.js (主服務器)
+├── package.json (依賴配置)
+├── package-lock.json (依賴鎖定)
+└── zeabur.yaml (部署配置)
+
+Level 1 (public/): 11個前端檔案
+├── 3個HTML頁面 (index.html, teacher-dashboard.html, config.html)
+├── 1個CSS檔案 (css/styles.css)
+├── 1個圖標檔案 (favicon.ico)
+└── 6個JavaScript模組 (js/目錄下)
+```
+
+### 檔案命名規範
+```javascript
+// 命名格式規範
+const namingRules = {
+    // HTML檔案: kebab-case
+    html: ['index.html', 'teacher-dashboard.html', 'config.html'],
+    
+    // JavaScript檔案: kebab-case
+    javascript: [
+        'ai-assistant.js',    // AI助教功能
+        'chat.js',           // 聊天功能
+        'conflict.js',       // 衝突檢測
+        'editor.js',         // 編輯器核心
+        'ui.js',             // 界面管理
+        'websocket.js'       // 通訊管理
+    ],
+    
+    // CSS檔案: 複數形式
+    css: ['styles.css'],
+    
+    // 配置檔案: 標準名稱
+    config: ['package.json', 'package-lock.json', 'zeabur.yaml'],
+    
+    // 服務器檔案: 功能描述
+    server: ['server.js']
+};
+```
+
+### 功能模組化原則
+```javascript
+// 模組責任劃分
+const moduleResponsibilities = {
+    'server.js': [
+        'WebSocket服務器管理',
+        'Express API路由',
+        'MySQL數據庫連接',
+        'AI助教API整合',
+        '房間和用戶管理'
+    ],
+    
+    'ai-assistant.js': [
+        'AI助教界面控制',
+        '四大功能按鈕管理',
+        'AI請求發送和處理',
+        '結果顯示和分享'
+    ],
+    
+    'editor.js': [
+        'CodeMirror編輯器初始化',
+        '代碼編輯功能',
+        '檔案操作(下載/複製/導入)',
+        '版本管理和保存'
+    ],
+    
+    'websocket.js': [
+        'WebSocket連接管理',
+        '消息發送和接收',
+        '連接狀態監控',
+        '斷線重連機制'
+    ],
+    
+    'chat.js': [
+        '聊天界面管理',
+        '消息發送接收',
+        '聊天記錄顯示',
+        '特殊消息處理'
+    ],
+    
+    'conflict.js': [
+        '衝突檢測邏輯',
+        '衝突解決界面',
+        '版本比較功能',
+        '合併策略實施'
+    ],
+    
+    'ui.js': [
+        '通用UI組件',
+        '提示訊息管理',
+        '界面狀態控制',
+        '響應式設計支援'
+    ]
+};
+```
+
+---
+
+## 🔄 檔案架構驗證系統
+
+### 自動檢查腳本
+```powershell
+# architecture-check.ps1
+function Test-FileArchitecture {
+    Write-Host "🏗️ 開始檔案架構檢查..."
+    
+    # 1. 檢查檔案總數
+    $git_files = git ls-files
+    $file_count = $git_files.Count
+    
+    if ($file_count -ne 15) {
+        Write-Host "❌ 檔案數量錯誤: $file_count (應該是15個)" -ForegroundColor Red
+        return $false
+    }
+    Write-Host "✅ 檔案數量正確: $file_count" -ForegroundColor Green
+    
+    # 2. 檢查必需檔案存在
+    $required_files = @(
+        'server.js', 'package.json', 'package-lock.json', 'zeabur.yaml',
+        'public/index.html', 'public/teacher-dashboard.html', 'public/config.html',
+        'public/css/styles.css', 'public/favicon.ico',
+        'public/js/ai-assistant.js', 'public/js/chat.js', 'public/js/conflict.js',
+        'public/js/editor.js', 'public/js/ui.js', 'public/js/websocket.js'
+    )
+    
+    $missing_files = @()
+    foreach ($file in $required_files) {
+        if (-not (Test-Path $file)) {
+            $missing_files += $file
+        }
+    }
+    
+    if ($missing_files.Count -gt 0) {
+        Write-Host "❌ 缺少必需檔案:" -ForegroundColor Red
+        $missing_files | ForEach-Object { Write-Host "  - $_" -ForegroundColor Red }
+        return $false
+    }
+    Write-Host "✅ 所有必需檔案存在" -ForegroundColor Green
+    
+    # 3. 檢查禁止檔案
+    $forbidden_patterns = @('*.md', 'README*', '.gitignore', '.env*', 'Dockerfile')
+    $forbidden_files = @()
+    
+    foreach ($pattern in $forbidden_patterns) {
+        $matches = git ls-files | Where-Object { $_ -like $pattern }
+        if ($matches) {
+            $forbidden_files += $matches
+        }
+    }
+    
+    if ($forbidden_files.Count -gt 0) {
+        Write-Host "❌ 發現禁止檔案:" -ForegroundColor Red
+        $forbidden_files | ForEach-Object { Write-Host "  - $_" -ForegroundColor Red }
+        return $false
+    }
+    Write-Host "✅ 無禁止檔案" -ForegroundColor Green
+    
+    # 4. 檢查目錄結構
+    $forbidden_dirs = @('node_modules', 'dist', 'src', 'docs', 'test')
+    $existing_forbidden_dirs = @()
+    
+    foreach ($dir in $forbidden_dirs) {
+        if (Test-Path $dir) {
+            $existing_forbidden_dirs += $dir
+        }
+    }
+    
+    if ($existing_forbidden_dirs.Count -gt 0) {
+        Write-Host "❌ 發現禁止目錄:" -ForegroundColor Red
+        $existing_forbidden_dirs | ForEach-Object { Write-Host "  - $_" -ForegroundColor Red }
+        return $false
+    }
+    Write-Host "✅ 目錄結構正確" -ForegroundColor Green
+    
+    Write-Host "🎉 檔案架構檢查通過" -ForegroundColor Green
+    return $true
+}
+```
+
+### 架構修復工具
+```powershell
+# architecture-fix.ps1
+function Repair-FileArchitecture {
+    Write-Host "🔧 開始修復檔案架構..."
+    
+    # 1. 清理Git索引
+    Write-Host "🧹 清理Git索引..."
+    git rm --cached -r . 2>$null
+    
+    # 2. 添加核心檔案
+    Write-Host "📁 添加核心檔案..."
+    $core_files = @('server.js', 'package.json', 'package-lock.json', 'zeabur.yaml')
+    foreach ($file in $core_files) {
+        if (Test-Path $file) {
+            git add $file
+            Write-Host "  ✅ 添加: $file" -ForegroundColor Green
+        } else {
+            Write-Host "  ❌ 檔案不存在: $file" -ForegroundColor Red
+        }
+    }
+    
+    # 3. 添加前端檔案
+    Write-Host "🌐 添加前端檔案..."
+    $frontend_files = @(
+        'public/index.html', 'public/teacher-dashboard.html', 'public/config.html',
+        'public/css/styles.css', 'public/favicon.ico'
+    )
+    foreach ($file in $frontend_files) {
+        if (Test-Path $file) {
+            git add $file
+            Write-Host "  ✅ 添加: $file" -ForegroundColor Green
+        } else {
+            Write-Host "  ❌ 檔案不存在: $file" -ForegroundColor Red
+        }
+    }
+    
+    # 4. 添加JavaScript模組
+    Write-Host "⚡ 添加JavaScript模組..."
+    $js_files = @(
+        'public/js/ai-assistant.js', 'public/js/chat.js', 'public/js/conflict.js',
+        'public/js/editor.js', 'public/js/ui.js', 'public/js/websocket.js'
+    )
+    foreach ($file in $js_files) {
+        if (Test-Path $file) {
+            git add $file
+            Write-Host "  ✅ 添加: $file" -ForegroundColor Green
+        } else {
+            Write-Host "  ❌ 檔案不存在: $file" -ForegroundColor Red
+        }
+    }
+    
+    # 5. 最終檢查
+    $final_count = (git ls-files).Count
+    Write-Host "📊 最終檔案數量: $final_count"
+    
+    if ($final_count -eq 15) {
+        Write-Host "✅ 架構修復成功" -ForegroundColor Green
+    } else {
+        Write-Host "⚠️ 架構修復不完整，檔案數量: $final_count" -ForegroundColor Yellow
+    }
+}
+```
+
+---
+
+## 📊 架構維護記錄
+
+### 最新架構調整 - 2025-06-04
+
+#### 🔧 問題：檔案數量超標修復
+**現象**: GitHub倉庫檔案數量超過15個，包含多餘文檔
+**根本原因**: 缺乏嚴格的檔案控制機制
+**解決方案**: 實施完整的架構清理流程
+**修復內容**:
+- ✅ 強制清理所有.md文檔檔案
+- ✅ 移除多餘的配置檔案
+- ✅ 確保15檔案架構規範
+- ✅ 建立自動檢查機制
+
+#### 🏗️ 優化：目錄結構標準化
+**目標**: 建立清晰的檔案組織原則
+**實施內容**:
+- ✅ 定義檔案職責矩陣
+- ✅ 建立命名規範標準
+- ✅ 完善模組化原則
+- ✅ 實施檔案分層管理
+
+#### 🚫 規範：禁止檔案類型完善
+**範圍**: 全面定義不允許的檔案和目錄
+**涵蓋內容**:
+- ✅ 文檔檔案類型禁止清單
+- ✅ 配置檔案類型限制
+- ✅ 開發工具檔案排除
+- ✅ 目錄結構禁止規範
+
+---
+
+## 🎯 架構最佳實踐
+
+### 檔案創建指導原則
+1. **創建前評估** - 新檔案是否真正必要
+2. **功能整合** - 能否整合到現有檔案
+3. **架構影響** - 是否破壞15檔案限制
+4. **替代方案** - 考慮其他實現方式
+
+### 功能擴展策略
+```javascript
+// 功能擴展的正確方式
+const extensionStrategies = {
+    // ✅ 推薦：在現有檔案中添加功能
+    recommended: [
+        '在 ai-assistant.js 中添加新的AI功能',
+        '在 editor.js 中擴展編輯器功能',
+        '在 chat.js 中增強聊天特性',
+        '在 ui.js 中添加新的UI組件'
+    ],
+    
+    // ⚠️ 謹慎：需要評估的擴展方式
+    caution: [
+        '創建新的JavaScript模組 (需要替換現有檔案)',
+        '添加新的HTML頁面 (需要評估必要性)',
+        '引入新的CSS檔案 (應整合到styles.css)'
+    ],
+    
+    // ❌ 禁止：破壞架構的擴展方式
+    forbidden: [
+        '創建超過15檔案限制的新檔案',
+        '添加文檔或說明檔案',
+        '創建新的目錄結構',
+        '引入外部配置檔案'
+    ]
+};
+```
+
+### 維護檢查清單
+- [ ] 每次修改後檢查檔案數量
+- [ ] 定期運行架構驗證腳本
+- [ ] 新功能評估是否破壞架構
+- [ ] Git提交前檢查檔案清單
+- [ ] 部署前確認15檔案規範
+
+---
+
+**📝 文檔版本**: v1.0  
+**📅 最後更新**: 2025-06-04  
+**🔧 維護狀態**: 活躍維護
+
+**🎯 核心原則**: 
+- ✅ 嚴格遵守15檔案限制
+- ✅ 扁平化檔案組織結構
+- ✅ 功能模組化和職責分離
+- ✅ 雲端部署友好設計
+- ✅ 自動化檢查和修復機制
+

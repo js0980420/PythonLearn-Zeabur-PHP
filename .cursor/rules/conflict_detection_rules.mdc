@@ -1,0 +1,208 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# 衝突檢測規則 (Conflict Detection Rules)
+
+## 衝突檢測系統
+
+### 檢測機制
+1. **實時檢測**：
+   - 每次代碼變更時觸發檢測
+   - 檢測同一行的並發編輯
+   - 檢測重疊區域的修改
+
+2. **檢測範圍**：
+   - 行級衝突：同一行被多人同時編輯
+   - 區域衝突：重疊的代碼區域被修改
+   - 語法衝突：可能導致語法錯誤的修改
+
+### 衝突類型定義
+```php
+const CONFLICT_TYPES = [
+    'LINE_CONFLICT' => '行級衝突',
+    'REGION_CONFLICT' => '區域衝突', 
+    'SYNTAX_CONFLICT' => '語法衝突',
+    'LOGIC_CONFLICT' => '邏輯衝突'
+];
+```
+
+## 衝突解決選項
+
+### 四個解決選項
+當檢測到衝突時，被修改方會看到以下四個選項：
+
+1. **同意修改** (Accept Changes)
+   - 接受其他用戶的修改
+   - 放棄自己的修改
+   - 更新本地代碼狀態
+
+2. **拒絕修改** (Reject Changes)
+   - 拒絕其他用戶的修改
+   - 保持自己的修改
+   - 通知其他用戶修改被拒絕
+
+3. **分享到聊天室** (Share to Chat)
+   - 將衝突內容發送到聊天室
+   - 讓所有用戶參與討論
+   - 群體決策解決衝突
+
+4. **AI衝突分析** (AI Conflict Analysis)
+   - 調用AI助教分析衝突
+   - 獲得專業的合併建議
+   - 基於AI建議做決定
+
+### 衝突解決流程
+```
+檢測到衝突 → 暫停同步 → 顯示衝突選項 → 用戶選擇 → 執行解決方案 → 恢復同步
+```
+
+## 實現架構
+
+### 衝突檢測器類
+```php
+class ConflictDetector {
+    public function detectConflict($oldCode, $newCode, $userChanges);
+    public function analyzeConflictType($conflict);
+    public function generateConflictReport($conflict);
+    public function resolveConflict($conflict, $resolution);
+}
+```
+
+### 衝突數據結構
+```json
+{
+  "conflict_id": "unique_conflict_id",
+  "type": "LINE_CONFLICT",
+  "affected_lines": [10, 11, 12],
+  "users_involved": ["user1", "user2"],
+  "original_code": "原始代碼",
+  "conflicted_versions": {
+    "user1": "用戶1的版本",
+    "user2": "用戶2的版本"
+  },
+  "timestamp": "2024-01-01T00:00:00Z",
+  "status": "pending|resolved|escalated"
+}
+```
+
+## WebSocket消息協議
+
+### 衝突檢測消息
+```json
+{
+  "type": "conflict_detected",
+  "room_id": "room_123",
+  "conflict": {
+    "id": "conflict_456",
+    "type": "LINE_CONFLICT",
+    "affected_lines": [15, 16],
+    "conflicted_users": ["user1", "user2"],
+    "description": "第15-16行發生衝突"
+  }
+}
+```
+
+### 衝突解決消息
+```json
+{
+  "type": "conflict_resolution",
+  "room_id": "room_123",
+  "conflict_id": "conflict_456",
+  "resolution": "accept|reject|share|ai_analyze",
+  "resolved_by": "user1",
+  "result_code": "解決後的代碼"
+}
+```
+
+## 用戶界面規範
+
+### 衝突提示界面
+```html
+<div class="conflict-modal">
+  <h3>檢測到代碼衝突</h3>
+  <div class="conflict-info">
+    <p>第 {line_number} 行發生衝突</p>
+    <div class="code-diff">
+      <div class="original">原始：{original_code}</div>
+      <div class="yours">您的：{your_code}</div>
+      <div class="theirs">對方：{their_code}</div>
+    </div>
+  </div>
+  <div class="resolution-options">
+    <button onclick="resolveConflict('accept')">同意修改</button>
+    <button onclick="resolveConflict('reject')">拒絕修改</button>
+    <button onclick="resolveConflict('share')">分享到聊天室</button>
+    <button onclick="resolveConflict('ai_analyze')">AI衝突分析</button>
+  </div>
+</div>
+```
+
+### 衝突狀態指示器
+- 紅色高亮：衝突區域
+- 黃色高亮：待解決區域
+- 綠色高亮：已解決區域
+- 藍色邊框：當前用戶游標位置
+
+## 性能優化
+
+### 檢測優化
+1. **增量檢測**：
+   - 只檢測變更的代碼區域
+   - 避免全文檢測
+
+2. **批量處理**：
+   - 合併短時間內的多次變更
+   - 減少檢測頻率
+
+3. **緩存機制**：
+   - 緩存檢測結果
+   - 避免重複計算
+
+### 內存管理
+1. **衝突歷史清理**：
+   - 定期清理已解決的衝突
+   - 保留最近1小時的衝突記錄
+
+2. **用戶狀態管理**：
+   - 及時清理離線用戶的狀態
+   - 限制單個房間的衝突數量
+
+## 錯誤處理
+
+### 檢測錯誤
+1. **檢測失敗**：
+   - 記錄錯誤日誌
+   - 降級到基本同步模式
+
+2. **解決失敗**：
+   - 提供手動解決選項
+   - 通知管理員介入
+
+### 網絡錯誤
+1. **連接中斷**：
+   - 保存衝突狀態
+   - 重連後恢復衝突處理
+
+2. **消息丟失**：
+   - 重發機制
+   - 狀態同步驗證
+
+## 測試策略
+
+### 單元測試
+1. 衝突檢測算法測試
+2. 解決方案執行測試
+3. 邊界條件測試
+
+### 集成測試
+1. 多用戶衝突場景測試
+2. 網絡異常情況測試
+3. 性能壓力測試
+
+### 用戶測試
+1. 衝突解決流程測試
+2. 用戶體驗測試
+3. 錯誤處理測試
+

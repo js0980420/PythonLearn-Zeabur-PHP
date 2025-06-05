@@ -1,0 +1,161 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+<rule>
+  <meta>
+    <title>Git Version Control Standards</title>
+    <description>Git 版本控制和協作開發規範，確保代碼品質和團隊協作效率</description>
+    <created-at utc-timestamp="1738022400">2025-01-28, 08:00 AM UTC+8</created-at>
+    <last-updated-at utc-timestamp="1738022400">2025-01-28, 08:00 AM UTC+8</last-updated-at>
+    <applies-to>
+      <file-matcher glob="**/*">All files in the project</file-matcher>
+      <action-matcher action="git-commit">Triggered when making git commits</action-matcher>
+      <action-matcher action="git-push">Triggered when pushing to remote repository</action-matcher>
+      <action-matcher action="git-merge">Triggered during merge operations</action-matcher>
+    </applies-to>
+  </meta>
+  <requirements>
+    <non-negotiable priority="critical">
+      <description>絕對禁止將 .cursor/ 目錄及其內容上傳到 GitHub，這些檔案僅供本地開發使用。</description>
+      <examples>
+        <example title="Cursor Directory Exclusion">
+          <correct-example title="Proper .gitignore configuration" conditions="Setting up repository" expected-result="Cursor files excluded from version control" correctness-criteria="Includes .cursor/ in .gitignore and never commits these files"><![CDATA[# .gitignore 內容
+.cursor/
+.cursor/**/*
+*.mdc
+
+# 確保規則檔案不被追蹤
+git rm -r --cached .cursor/
+git commit -m "Remove .cursor directory from tracking"]]></correct-example>
+          <incorrect-example title="Accidentally committing cursor files" conditions="Making commits without proper .gitignore" expected-result="Clean repository without cursor files" incorrectness-criteria="Commits .cursor/ directory or .mdc files to repository"><![CDATA[git add .
+git commit -m "Update project"
+# 錯誤：包含了 .cursor/rules/*.mdc 檔案]]></incorrect-example>
+        </example>
+      </examples>
+    </non-negotiable>
+    <non-negotiable priority="critical">
+      <description>嚴格遵守 GitHub 15 檔案架構限制，不得超出指定的檔案結構。</description>
+      <examples>
+        <example title="File Structure Compliance">
+          <correct-example title="Compliant file structure" conditions="Adding new files to repository" expected-result="Repository within 15-file limit" correctness-criteria="Only includes approved files within the defined structure"><![CDATA[✅ 允許的檔案結構：
+根目錄: server.js, package.json, package-lock.json, zeabur.yaml
+public/: index.html, teacher-dashboard.html, config.html, css/styles.css, favicon.ico
+public/js/: ai-assistant.js, chat.js, conflict.js, editor.js, ui.js, websocket.js
+
+總計：15 個檔案]]></correct-example>
+          <incorrect-example title="Exceeding file limit" conditions="Adding unauthorized files" expected-result="Repository within 15-file limit" incorrectness-criteria="Adds files beyond the approved structure"><![CDATA[❌ 禁止添加：
+README.md, CHANGELOG.md, CONTRIBUTING.md
+.env, .env.example, Dockerfile
+docs/, tests/, src/ 等額外目錄]]></incorrect-example>
+        </example>
+      </examples>
+    </non-negotiable>
+    <requirement priority="high">
+      <description>使用語義化的 commit 訊息格式，包含類型、範圍和繁體中文描述。</description>
+      <examples>
+        <example title="Commit Message Format">
+          <correct-example title="Semantic commit messages" conditions="Making commits" expected-result="Clear, descriptive commit history" correctness-criteria="Uses conventional commit format with Traditional Chinese descriptions"><![CDATA[feat(ai): 新增 AI 助教代碼分析功能
+fix(websocket): 修復連線中斷問題
+perf(server): 優化 WebSocket 消息處理性能
+docs(readme): 更新部署說明文檔
+style(ui): 改善響應式設計和按鈕樣式
+refactor(backend): 重構用戶管理邏輯
+test(ai): 添加 AI 功能單元測試]]></correct-example>
+          <incorrect-example title="Poor commit messages" conditions="Making commits" expected-result="Clear commit history" incorrectness-criteria="Uses vague or non-descriptive commit messages"><![CDATA[git commit -m "update"
+git commit -m "fix bug"
+git commit -m "changes"
+git commit -m "wip"]]></incorrect-example>
+        </example>
+      </examples>
+    </requirement>
+    <requirement priority="high">
+      <description>每次 push 前必須進行本地測試，確保功能正常運作且不破壞現有功能。</description>
+      <examples>
+        <example title="Pre-push Testing">
+          <correct-example title="Complete testing workflow" conditions="Before pushing changes" expected-result="Verified working code" correctness-criteria="Tests all affected functionality and verifies no regressions"><![CDATA[# 推送前檢查清單
+1. 本地測試服務器啟動：npm start
+2. 測試核心功能：
+   - WebSocket 連線
+   - AI 助教功能
+   - 多人協作
+   - 教師監控
+3. 檢查控制台錯誤
+4. 驗證響應式設計
+5. 確認無 linting 錯誤
+
+# 測試通過後推送
+git push origin main]]></correct-example>
+          <incorrect-example title="Pushing without testing" conditions="Making changes and pushing immediately" expected-result="Verified working code" incorrectness-criteria="Pushes code without local testing or verification"><![CDATA[git add .
+git commit -m "feat: 新功能"
+git push origin main
+# 沒有本地測試，可能破壞生產環境]]></incorrect-example>
+        </example>
+      </examples>
+    </requirement>
+    <requirement priority="medium">
+      <description>使用分支策略進行功能開發，主分支保持穩定狀態。</description>
+      <examples>
+        <example title="Branch Strategy">
+          <correct-example title="Feature branch workflow" conditions="Developing new features" expected-result="Stable main branch with clean feature development" correctness-criteria="Uses feature branches and merges only tested code"><![CDATA[# 創建功能分支
+git checkout -b feature/ai-improvement
+git commit -m "feat(ai): 改善 AI 回應速度"
+
+# 測試完成後合併
+git checkout main
+git merge feature/ai-improvement
+git push origin main
+
+# 清理分支
+git branch -d feature/ai-improvement]]></correct-example>
+          <incorrect-example title="Direct main branch development" conditions="Developing features" expected-result="Stable main branch" incorrectness-criteria="Makes changes directly on main branch without testing"><![CDATA[# 直接在 main 分支開發
+git checkout main
+git commit -m "嘗試新功能"
+git push origin main
+# 可能導致主分支不穩定]]></incorrect-example>
+        </example>
+      </examples>
+    </requirement>
+    <requirement priority="medium">
+      <description>定期更新 Debug 記錄檔案，記錄重要的修復和改進過程。</description>
+      <examples>
+        <example title="Debug Documentation">
+          <correct-example title="Comprehensive debug records" conditions="After fixing issues" expected-result="Updated debug documentation" correctness-criteria="Updates corresponding _debug.mdc files with complete information"><![CDATA[# 修復後更新 Debug 記錄
+1. 更新 .cursor/debug/websocket_debug.mdc
+2. 記錄問題原因和解決方案
+3. 添加預防措施
+4. 提交 Debug 記錄更新
+
+git add .cursor/debug/websocket_debug.mdc
+git commit -m "docs(debug): 更新 WebSocket 連線問題 Debug 記錄"]]></correct-example>
+          <incorrect-example title="Missing debug documentation" conditions="After fixing issues" expected-result="Updated debug documentation" incorrectness-criteria="Fixes issues without updating debug records"><![CDATA[# 修復問題但沒有記錄
+git commit -m "fix: 修復 WebSocket 問題"
+# 沒有更新對應的 Debug 記錄檔案]]></incorrect-example>
+        </example>
+      </examples>
+    </requirement>
+  </requirements>
+  <grammar>
+    <grammar-entry title="Commit Message Format">
+      <pattern description="Conventional commit format with Traditional Chinese">^(feat|fix|docs|style|refactor|perf|test|chore)(\(.+\))?: .+$</pattern>
+      <example description="Valid commit message">feat(ai): 新增 AI 助教代碼分析功能</example>
+    </grammar-entry>
+    <grammar-entry title="Branch Naming Convention">
+      <pattern description="Feature branch naming">^(feature|bugfix|hotfix)\/[a-z0-9-]+$</pattern>
+      <example description="Valid branch name">feature/ai-improvement</example>
+    </grammar-entry>
+    <grammar-entry title="Forbidden File Patterns">
+      <pattern description="Files that should never be committed">^\.cursor\/.*|.*\.mdc$|README\.md$|\.env.*$</pattern>
+      <example description="Forbidden files">.cursor/rules/user_rules.mdc, README.md, .env</example>
+    </grammar-entry>
+  </grammar>
+  <context description="Git workflow and collaboration guidelines">
+    這些 Git 規範確保了代碼庫的整潔性和團隊協作的效率。通過嚴格的檔案結構限制和 .cursor/ 目錄排除，保持了 GitHub 倉庫的專業性。語義化的 commit 訊息和分支策略提高了版本控制的可讀性和可維護性。每次推送前的測試要求確保了代碼品質，而 Debug 記錄的維護則有助於知識積累和問題追蹤。
+  </context>
+  <references>
+    <reference as="dependency" href=".cursor/rules/rules.mdc" reason="Follows standard rule format">Base rule format definition</reference>
+    <reference as="context" href=".cursor/rules/user_rules.mdc" reason="Related development standards">Universal development standards</reference>
+    <reference as="context" href=".cursor/rules/GITHUB_RULES.mdc" reason="Related GitHub guidelines">GitHub upload and structure rules</reference>
+  </references>
+</rule>

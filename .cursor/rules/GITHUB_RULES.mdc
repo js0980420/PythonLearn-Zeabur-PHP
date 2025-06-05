@@ -1,0 +1,380 @@
+---
+description: Github上傳時使用，上傳前先本地測試沒有bug、符合Zeabur配置規範；上傳後修改對應規則、Debug，上傳紀錄記錄在records資料夾不要記在Gitrules
+globs: 
+alwaysApply: false
+---
+# 📁 GitHub 上傳規範 - 規則配置
+
+**規則類型**: always
+**檔案保護**: 唯讀，禁止刪除
+**🚫 重要：此規則檔案及整個 .cursor/ 目錄不上傳到 GitHub**
+
+## 📋 模組概述
+GitHub 上傳規範模組負責定義 PythonLearn-Zeabur 協作教學平台的嚴格架構限制和上傳標準。確保專案符合 15 檔案架構規範，避免過度複雜化，維持簡潔高效的部署結構。
+
+## 🎯 核心目標
+
+### 檔案數量限制
+- **15 個核心檔案，不多不少**
+- **所有檔案直接在根目錄**（除 `public/` 內部結構）
+- **禁止任何多餘的子資料夾結構**
+
+### 架構清理原則
+- **即時清理** - 發現違規檔案立即刪除
+- **架構驗證** - 每次上傳前檢查檔案數量
+- **版本控制** - 嚴格的 Git 操作流程
+- **🚫 規則檔案絕不上傳** - .cursor/ 目錄完全忽略
+
+---
+
+## 🌐 倉庫信息配置
+
+### 官方倉庫
+- **倉庫URL**: https://github.com/js0980420/PythonLearn-Zeabur
+- **倉庫名稱**: PythonLearn-Zeabur
+- **主分支**: main
+- **部署平台**: Zeabur
+
+### 本地開發環境
+- **本地端口**: 8080
+- **測試URL**: http://localhost:8080
+- **WebSocket**: ws://localhost:8080
+
+---
+
+## 🧪 上傳前測試要求
+
+### 必須完成的測試項目
+1. **端口可用性檢查**
+   ```bash
+   netstat -ano | findstr :8080  # 確認端口可用
+   ```
+
+2. **本地功能測試**
+   - ✅ 學生端: http://localhost:8080 - 正常加載
+   - ✅ 教師後台: http://localhost:8080/teacher - 功能正常
+   - ✅ 多人協作: 創建房間、加入房間、即時同步
+   - ✅ AI助教: 四大功能（解釋程式、檢查錯誤、改進建議、衝突協助）
+   - ✅ 代碼運行: Python 代碼執行無錯誤
+   - ✅ 檔案操作: 下載、複製、導入功能
+
+3. **Zeabur 規範檢查**
+   - ✅ package.json 依賴正確
+   - ✅ zeabur.yaml 配置有效
+   - ✅ 環境變數配置完整
+   - ✅ 15 檔案架構符合規範
+
+### 測試通過標準
+```bash
+# 所有測試都必須通過才能上傳
+✅ 本地8080端口測試 - 無 bug
+✅ 功能完整性測試 - 全部通過
+✅ Zeabur 部署規範 - 完全符合
+✅ 檔案架構檢查 - 精確15檔案
+```
+
+---
+
+## 🛡️ 檔案保護規範
+
+### 本地檔案保護
+- **禁止刪除本地檔案** - 除非用戶明確同意
+- **倉庫清理限制** - 只能清理 Git 追蹤的檔案
+- **保護核心檔案** - server.js、package.json 等核心檔案受保護
+
+### Git 操作安全規範
+```bash
+# 安全的清理操作（只影響 Git 追蹤）
+git rm --cached -r .                    # ✅ 允許：只清理 Git 索引
+git add [指定檔案]                       # ✅ 允許：選擇性添加
+
+# 禁止的危險操作
+rm -rf [檔案]                           # ❌ 禁止：刪除本地檔案
+Remove-Item -Force [檔案]               # ❌ 禁止：強制刪除
+```
+
+### 用戶同意機制
+- **本地檔案修改** - 必須用戶明確同意
+- **核心檔案變更** - 需要用戶確認
+- **批量刪除操作** - 需要用戶批准
+
+---
+
+## 🏗️ 標準檔案架構
+
+### 核心 15 檔案列表
+```
+PythonLearn-Zeabur/
+├── server.js                    # Node.js 主服務器
+├── package.json                 # 依賴配置
+├── package-lock.json            # 依賴鎖定
+├── zeabur.yaml                  # Zeabur 部署配置
+├── public/
+│   ├── index.html               # 學生端主頁
+│   ├── teacher-dashboard.html   # 教師監控後台
+│   ├── config.html              # 配置頁面
+│   ├── css/styles.css           # 主要樣式
+│   ├── favicon.ico              # 網站圖標
+│   └── js/
+│       ├── ai-assistant.js      # AI 助教功能
+│       ├── chat.js              # 聊天功能
+│       ├── conflict.js          # 衝突檢測
+│       ├── editor.js            # 代碼編輯器
+│       ├── ui.js                # UI 管理
+│       └── websocket.js         # WebSocket 管理
+```
+
+---
+
+## 🚫 禁止上傳的檔案類型
+
+### 資料夾黑名單
+```
+❌ node_modules/      ❌ 說明文件/         ❌ .git/
+❌ projects/          ❌ python-main/      ❌ src/
+❌ dist/              ❌ build/            ❌ assets/
+❌ components/        ❌ modules/          ❌ utils/
+❌ config/            ❌ lib/              ❌ scripts/
+❌ docs/              ❌ examples/         ❌ tests/
+❌ backup/            ❌ old/              ❌ temp/
+❌ archive/           ❌ .cursor/          ❌ .vscode/
+```
+
+### 檔案黑名單
+```
+❌ README.md          ❌ CHANGELOG.md      ❌ CONTRIBUTING.md
+❌ LICENSE.md         ❌ INSTALL.md        ❌ USAGE.md
+❌ API.md             ❌ DEPLOY.md         ❌ CONFIG.md
+❌ .gitignore         ❌ .env              ❌ .env.example
+❌ .cursorrules       ❌ yarn.lock         ❌ pnpm-lock.yaml
+❌ *.log              ❌ *.tmp             ❌ *.bak
+❌ .DS_Store          ❌ Thumbs.db         ❌ desktop.ini
+❌ Dockerfile         ❌ .htaccess         ❌ *.json (除必要檔案)
+❌ 協作指導*.md       ❌ ZEABUR*.md        ❌ SMART*.md
+```
+
+### 特殊規則檔案
+```
+🚫 規則檔案絕不上傳到 GitHub (嚴格規定):
+- `.cursor/` - 整個目錄被 .gitignore 忽略
+- `.cursor/rules/*.mdc` - 所有規則檔案，包含：
+  * cursor_rules.mdc - 通用規則配置
+  * AI_assistant_rules.mdc - AI助教規則
+  * editor_rules.mdc - 編輯器規則
+  * teacher.mdc - 教師監控規則
+  * GITHUB_RULES.mdc - 本檔案
+  * debug_rules.mdc - Debug 記錄
+- 這些檔案僅在本地開發環境中使用
+- GitHub 倉庫中絕不包含任何 .mdc 檔案
+- .gitignore 已配置忽略整個 .cursor/ 目錄
+```
+
+### .gitignore 配置
+```bash
+# 規則檔案（僅本地使用）
+.cursor/
+```
+
+---
+
+## 🔧 Git 操作標準流程
+
+### 上傳前檢查清單
+```bash
+# 1. 本地測試確認
+npm start                               # 確認 8080 端口正常運行
+curl http://localhost:8080             # 測試 API 回應
+
+# 2. 檔案數量檢查
+(git ls-files).Count                   # PowerShell: 必須顯示 15
+
+# 3. 檔案結構驗證
+git ls-files | grep -E "^(node_modules|說明文件)/"  # 應該無結果
+
+# 4. Zeabur 規範檢查
+Get-Content zeabur.yaml                # 確認部署配置
+Get-Content package.json               # 確認依賴配置
+```
+
+### 標準上傳流程
+```bash
+# 1. 清理 Git 索引（不刪除本地檔案）
+git rm --cached -r .
+
+# 2. 添加核心檔案
+git add server.js package.json package-lock.json zeabur.yaml
+
+# 3. 添加 public 目錄檔案
+git add public/index.html public/teacher-dashboard.html public/config.html
+git add public/css/styles.css public/favicon.ico
+
+# 4. 添加 JavaScript 檔案
+git add public/js/ai-assistant.js public/js/chat.js public/js/conflict.js
+git add public/js/editor.js public/js/ui.js public/js/websocket.js
+
+# 5. 確認檔案數量
+(git ls-files).Count  # 必須是 15
+
+# 6. 提交變更
+git commit -m "🔧 符合 15 檔案架構規範，測試通過"
+git push origin main --force
+```
+
+---
+
+## 📊 檔案驗證腳本
+
+### PowerShell 自動驗證
+```powershell
+# validate-before-upload.ps1
+Write-Host "🔍 開始上傳前檢查..."
+
+# 1. 測試本地服務器
+$response = Invoke-WebRequest -Uri "http://localhost:8080" -TimeoutSec 10
+if ($response.StatusCode -eq 200) {
+    Write-Host "✅ 本地8080端口測試通過"
+} else {
+    Write-Host "❌ 本地服務器測試失敗"
+    exit 1
+}
+
+# 2. 檢查檔案數量
+$fileCount = (git ls-files).Count
+if ($fileCount -eq 15) {
+    Write-Host "✅ 檔案數量正確: $fileCount"
+} else {
+    Write-Host "❌ 檔案數量錯誤: $fileCount (應該是15)"
+    exit 1
+}
+
+# 3. 檢查違規檔案
+$violations = git ls-files | Where-Object { 
+    $_ -match "node_modules|說明文件|\.md$" -and $_ -notmatch "package|zeabur"
+}
+if ($violations.Count -eq 0) {
+    Write-Host "✅ 無違規檔案"
+} else {
+    Write-Host "❌ 發現違規檔案:"
+    $violations | ForEach-Object { Write-Host "  - $_" }
+    exit 1
+}
+
+Write-Host "✅ 所有檢查通過，可以安全上傳"
+```
+
+---
+
+## 🎯 最佳實踐建議
+
+### 開發階段
+1. **每次修改前檢查檔案數量**
+2. **避免創建任何文檔檔案**
+3. **不要新增子資料夾**
+4. **定期執行架構驗證**
+
+### 測試階段
+1. **本地 8080 端口測試**
+2. **功能完整性驗證**
+3. **Zeabur 規範檢查**
+4. **性能測試確認**
+
+### 提交階段
+1. **提交前執行完整檢查**
+2. **確認檔案數量正確**
+3. **檢查是否有違規檔案**
+4. **使用標準提交訊息格式**
+
+### 部署階段
+1. **Zeabur 部署前最後檢查**
+2. **確保所有檔案都是必需的**
+3. **驗證部署配置正確**
+4. **監控部署狀態**
+
+---
+
+## 📊 上傳記錄與版本追蹤
+
+### 最新上傳記錄 - 2025-01-06
+**提交 ID**: 4bdd29d  
+**上傳時間**: 2025-01-06 下午  
+**檔案數量**: ✅ 15 個 (符合規範)  
+**測試狀態**: ✅ 本地 8080 端口測試通過  
+
+#### 本次上傳內容
+- **完整功能版本**: Python多人協作教學平台
+- **AI助教系統**: 四大功能完整實現
+- **衝突檢測系統**: 雙方協作衝突處理機制
+- **代碼差異對比**: 左右分欄顯示功能
+- **用戶名顯示**: 界面優化完成
+- **平台名稱統一**: 更新為"Python多人協作教學平台"
+
+#### 系統狀態評估
+```
+✅ 已完成功能:
+- AI助教四大功能 (解釋程式、檢查錯誤、改進建議、衝突協助)
+- WebSocket 即時多人協作
+- 聊天室功能
+- 教師監控後台
+- 代碼運行功能
+- 檔案管理 (下載、複製、導入)
+- 衝突檢測邏輯框架
+- 代碼差異對比界面
+- 用戶名顯示功能
+
+⚠️ 需要進一步完善:
+- 衝突檢測觸發機制 (邏輯已實現，需實際多人測試)
+- 用戶數據庫系統 (目前使用本地存儲)
+- 衝突檢測的實際觸發測試
+
+❌ 待實現功能:
+- 完整的用戶註冊/登入系統
+- 用戶數據持久化
+- 進階權限管理
+```
+
+#### 技術債務記錄
+1. **衝突檢測觸發**: 邏輯完整但需要真實多人環境測試
+2. **數據庫整合**: MySQL 配置完成，需要實際用戶數據表設計
+3. **性能優化**: WebSocket 連接池優化
+4. **錯誤處理**: 進一步完善邊緣情況處理
+
+#### 下次上傳前檢查清單
+- [ ] 實際多人衝突檢測測試
+- [ ] 用戶數據庫表設計與實現
+- [ ] 性能壓力測試
+- [ ] 邊緣情況錯誤處理測試
+- [ ] Zeabur 部署環境測試
+
+### 上傳前測試記錄
+```bash
+# 測試執行記錄 - 2025-01-06
+✅ 端口檢查: 8080 端口可用
+✅ 服務器啟動: 正常啟動，無錯誤
+✅ 檔案數量: 15 個檔案 (符合規範)
+✅ Git 狀態: 乾淨，無違規檔案
+✅ 架構驗證: 符合 15 檔案限制
+
+# 功能測試結果
+✅ 學生端載入: http://localhost:8080 正常
+✅ 教師後台: http://localhost:8080/teacher 正常
+✅ WebSocket 連接: 建立成功
+✅ AI 助教: 四大功能回應正常
+✅ 多人協作: 代碼同步正常
+⚠️ 衝突檢測: 邏輯就緒，需實際觸發測試
+```
+
+---
+
+**📝 文檔版本**: v3.1  
+**📅 最後更新**: 2025-06-04  
+**🔧 維護狀態**: 活躍維護
+
+**🎯 核心原則**: 
+- ✅ 嚴格遵守 15 檔案限制
+- ✅ 上傳前必須完成本地 8080 端口測試
+- ✅ 本地檔案保護，需用戶同意才能刪除
+- ✅ 符合 Zeabur 部署規範
+- ✅ 定期執行架構清理
+- ✅ 自動化驗證機制
+- ✅ Git 倉庫根目錄必須正確設定
+- ✅ Debug 記錄統一管理在 debug_rules.mdc

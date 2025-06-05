@@ -1,0 +1,9 @@
+{
+    "id": "room_advanced_456",
+    "name": "進階Python程式設計",
+    "creator_id": "teacher001",
+    "code": "# 進階課程：物件導向程式設計\nclass Student:\n    def __init__(self, name):\n        self.name = name",
+    "version": 3,
+    "created_at": "2025-06-05T04:30:00Z",
+    "last_activity": 1738637400
+} 

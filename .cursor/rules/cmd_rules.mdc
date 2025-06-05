@@ -1,0 +1,486 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# ⚡ CMD 指令管理規則 - 系統進程清理與優化
+
+**規則類型**: always
+**檔案保護**: 唯讀，禁止刪除
+
+## 📋 模組概述
+CMD指令管理規則負責定義系統進程管理、背景任務清理、多進程監控等操作的標準化流程。針對Node.js開發環境中常見的多進程衝突、端口占用、Git指令優化等問題提供完整的解決方案。
+
+## 🎯 核心管理原則
+
+### 系統清理策略
+1. **定期清理** - 每日清理不必要的背景進程
+2. **智能檢測** - 自動識別殭屍進程和占用資源
+3. **安全終止** - 確保數據完整性的進程終止流程
+4. **資源監控** - 實時監控系統資源使用狀況
+
+### 進程管理優先級
+- 🔴 **P0 緊急**: 端口8080被占用、數據庫連接異常
+- 🟠 **P1 重要**: Node.js多進程衝突、Git操作衝突  
+- 🟡 **P2 一般**: 資源使用過高、臨時檔案清理
+- 🟢 **P3 維護**: 日誌清理、系統優化
+
+---
+
+## 🔧 Node.js 進程管理
+
+### 進程檢查與清理
+```powershell
+# node-process-manager.ps1 - Node.js 進程管理工具
+function Get-NodeProcesses {
+    Write-Host "🔍 檢查 Node.js 進程..." -ForegroundColor Cyan
+    
+    $nodeProcesses = Get-Process -Name "node" -ErrorAction SilentlyContinue
+    if ($nodeProcesses) {
+        Write-Host "📊 發現 $($nodeProcesses.Count) 個 Node.js 進程:" -ForegroundColor Yellow
+        
+        foreach ($proc in $nodeProcesses) {
+            $cpuUsage = [math]::Round($proc.CPU, 2)
+            $memoryMB = [math]::Round($proc.WorkingSet / 1MB, 1)
+            $runtime = (Get-Date) - $proc.StartTime
+            
+            Write-Host "  🟢 PID: $($proc.Id)" -ForegroundColor Green
+            Write-Host "     📈 CPU: ${cpuUsage}s, 💾 記憶體: ${memoryMB}MB" -ForegroundColor Gray
+            Write-Host "     ⏰ 運行時間: $($runtime.ToString('hh\:mm\:ss'))" -ForegroundColor Gray
+            
+            # 檢查是否為當前專案進程
+            $cmdLine = (Get-WmiObject Win32_Process -Filter "ProcessId = $($proc.Id)").CommandLine
+            if ($cmdLine -like "*PythonLearn-Zeabur*") {
+                Write-Host "     ✅ 當前專案進程" -ForegroundColor Green
+            } else {
+                Write-Host "     ⚠️ 其他 Node.js 進程" -ForegroundColor Yellow
+            }
+            Write-Host ""
+        }
+    } else {
+        Write-Host "✅ 無 Node.js 進程運行" -ForegroundColor Green
+    }
+}
+
+function Stop-OldNodeProcesses {
+    param([int]$MaxRuntimeHours = 2)
+    
+    Write-Host "🧹 清理運行超過 $MaxRuntimeHours 小時的 Node.js 進程..." -ForegroundColor Cyan
+    
+    $nodeProcesses = Get-Process -Name "node" -ErrorAction SilentlyContinue
+    $cleanedCount = 0
+    
+    foreach ($proc in $nodeProcesses) {
+        $runtime = (Get-Date) - $proc.StartTime
+        if ($runtime.TotalHours -gt $MaxRuntimeHours) {
+            $cmdLine = (Get-WmiObject Win32_Process -Filter "ProcessId = $($proc.Id)").CommandLine
+            
+            # 排除當前專案進程
+            if ($cmdLine -notlike "*PythonLearn-Zeabur*") {
+                Write-Host "🗑️ 終止舊進程 PID: $($proc.Id) (運行 $([math]::Round($runtime.TotalHours, 1)) 小時)" -ForegroundColor Red
+                Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+                $cleanedCount++
+            }
+        }
+    }
+    
+    Write-Host "✅ 清理完成，終止了 $cleanedCount 個舊進程" -ForegroundColor Green
+}
+```
+
+### 端口占用檢查與清理
+```powershell
+# port-manager.ps1 - 端口管理工具
+function Test-Port8080 {
+    Write-Host "🔍 檢查端口 8080 占用狀況..." -ForegroundColor Cyan
+    
+    $portCheck = netstat -ano | findstr ":8080"
+    if ($portCheck) {
+        Write-Host "⚠️ 端口 8080 被占用:" -ForegroundColor Yellow
+        $portCheck | ForEach-Object { Write-Host "   $_" -ForegroundColor Gray }
+        
+        # 提取 PID 並獲取進程信息
+        $pids = $portCheck | ForEach-Object {
+            if ($_ -match '\s+(\d+)$') { $matches[1] }
+        } | Select-Object -Unique
+        
+        foreach ($pid in $pids) {
+            $process = Get-Process -Id $pid -ErrorAction SilentlyContinue
+            if ($process) {
+                Write-Host "   📋 進程: $($process.ProcessName) (PID: $pid)" -ForegroundColor Yellow
+                
+                $choice = Read-Host "是否終止此進程? (Y/N)"
+                if ($choice -eq 'Y' -or $choice -eq 'y') {
+                    Stop-Process -Id $pid -Force
+                    Write-Host "✅ 進程 $pid 已終止" -ForegroundColor Green
+                }
+            }
+        }
+    } else {
+        Write-Host "✅ 端口 8080 可用" -ForegroundColor Green
+    }
+}
+
+function Clear-AllNode8080 {
+    Write-Host "🧹 強制清理所有占用端口 8080 的 Node.js 進程..." -ForegroundColor Red
+    
+    $portCheck = netstat -ano | findstr ":8080"
+    if ($portCheck) {
+        $pids = $portCheck | ForEach-Object {
+            if ($_ -match '\s+(\d+)$') { $matches[1] }
+        } | Select-Object -Unique
+        
+        foreach ($pid in $pids) {
+            $process = Get-Process -Id $pid -ErrorAction SilentlyContinue
+            if ($process -and $process.ProcessName -eq "node") {
+                Write-Host "🗑️ 終止 Node.js 進程 PID: $pid" -ForegroundColor Red
+                Stop-Process -Id $pid -Force
+            }
+        }
+        Write-Host "✅ 端口 8080 清理完成" -ForegroundColor Green
+    } else {
+        Write-Host "✅ 端口 8080 本來就是可用的" -ForegroundColor Green
+    }
+}
+```
+
+---
+
+## 📡 Git 指令優化與管理
+
+### Git 進程檢查
+```powershell
+# git-manager.ps1 - Git 進程管理工具
+function Get-GitProcesses {
+    Write-Host "🔍 檢查 Git 相關進程..." -ForegroundColor Cyan
+    
+    $gitProcesses = @()
+    $gitProcesses += Get-Process -Name "git" -ErrorAction SilentlyContinue
+    $gitProcesses += Get-Process -Name "git-*" -ErrorAction SilentlyContinue
+    
+    if ($gitProcesses) {
+        Write-Host "📊 發現 $($gitProcesses.Count) 個 Git 進程:" -ForegroundColor Yellow
+        
+        foreach ($proc in $gitProcesses) {
+            $runtime = (Get-Date) - $proc.StartTime
+            Write-Host "  🟡 $($proc.ProcessName) PID: $($proc.Id)" -ForegroundColor Yellow
+            Write-Host "     ⏰ 運行時間: $($runtime.ToString('hh\:mm\:ss'))" -ForegroundColor Gray
+        }
+    } else {
+        Write-Host "✅ 無 Git 進程運行" -ForegroundColor Green
+    }
+}
+
+function Clear-GitLocks {
+    Write-Host "🔐 清理 Git 鎖定文件..." -ForegroundColor Cyan
+    
+    $gitDir = ".git"
+    if (Test-Path $gitDir) {
+        $lockFiles = @(
+            "$gitDir/index.lock",
+            "$gitDir/HEAD.lock",
+            "$gitDir/config.lock",
+            "$gitDir/refs/heads/*.lock"
+        )
+        
+        $removedCount = 0
+        foreach ($lockPattern in $lockFiles) {
+            $locks = Get-ChildItem $lockPattern -ErrorAction SilentlyContinue
+            foreach ($lock in $locks) {
+                Remove-Item $lock.FullName -Force
+                Write-Host "🗑️ 已移除: $($lock.Name)" -ForegroundColor Red
+                $removedCount++
+            }
+        }
+        
+        if ($removedCount -eq 0) {
+            Write-Host "✅ 無 Git 鎖定文件需要清理" -ForegroundColor Green
+        } else {
+            Write-Host "✅ 清理了 $removedCount 個 Git 鎖定文件" -ForegroundColor Green
+        }
+    } else {
+        Write-Host "⚠️ 當前目錄不是 Git 倉庫" -ForegroundColor Yellow
+    }
+}
+```
+
+### Git 操作安全檢查
+```powershell
+function Test-GitSafety {
+    Write-Host "🛡️ Git 操作安全檢查..." -ForegroundColor Cyan
+    
+    # 檢查是否有未提交的變更
+    $status = git status --porcelain 2>$null
+    if ($status) {
+        Write-Host "⚠️ 發現未提交的變更:" -ForegroundColor Yellow
+        git status --short
+        Write-Host "💡 建議先提交或暫存變更" -ForegroundColor Blue
+        return $false
+    }
+    
+    # 檢查是否在正確的分支
+    $currentBranch = git rev-parse --abbrev-ref HEAD 2>$null
+    if ($currentBranch -ne "main") {
+        Write-Host "📍 當前分支: $currentBranch" -ForegroundColor Yellow
+        $choice = Read-Host "是否切換到 main 分支? (Y/N)"
+        if ($choice -eq 'Y' -or $choice -eq 'y') {
+            git checkout main
+        }
+    }
+    
+    Write-Host "✅ Git 安全檢查通過" -ForegroundColor Green
+    return $true
+}
+```
+
+---
+
+## 🗂️ 系統資源清理
+
+### 臨時檔案清理
+```powershell
+# temp-cleaner.ps1 - 臨時檔案清理工具
+function Clear-TempFiles {
+    Write-Host "🗑️ 清理臨時檔案..." -ForegroundColor Cyan
+    
+    $tempPaths = @(
+        $env:TEMP,
+        "$env:USERPROFILE\AppData\Local\Temp",
+        ".\node_modules\.cache",
+        ".\*.log",
+        ".\*.tmp"
+    )
+    
+    $totalCleaned = 0
+    foreach ($path in $tempPaths) {
+        if (Test-Path $path) {
+            $files = Get-ChildItem $path -Force -ErrorAction SilentlyContinue
+            if ($files) {
+                $fileCount = $files.Count
+                $files | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+                $totalCleaned += $fileCount
+                Write-Host "🗑️ 清理 $path : $fileCount 個項目" -ForegroundColor Gray
+            }
+        }
+    }
+    
+    Write-Host "✅ 臨時檔案清理完成，共清理 $totalCleaned 個項目" -ForegroundColor Green
+}
+
+function Clear-NodeModulesCache {
+    Write-Host "🗑️ 清理 Node.js 快取..." -ForegroundColor Cyan
+    
+    if (Test-Path "node_modules") {
+        $cacheSize = (Get-ChildItem "node_modules" -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
+        Write-Host "📦 當前 node_modules 大小: $([math]::Round($cacheSize, 1)) MB" -ForegroundColor Yellow
+        
+        $choice = Read-Host "是否重新安裝依賴以清理快取? (Y/N)"
+        if ($choice -eq 'Y' -or $choice -eq 'y') {
+            Remove-Item "node_modules" -Recurse -Force
+            Remove-Item "package-lock.json" -Force -ErrorAction SilentlyContinue
+            npm install
+            Write-Host "✅ Node.js 依賴重新安裝完成" -ForegroundColor Green
+        }
+    } else {
+        Write-Host "✅ 無 node_modules 目錄需要清理" -ForegroundColor Green
+    }
+}
+```
+
+---
+
+## 📊 系統監控與報告
+
+### 自動監控腳本
+```powershell
+# system-monitor.ps1 - 系統監控工具
+function Get-SystemStatus {
+    Write-Host "📊 系統狀態報告" -ForegroundColor Cyan
+    Write-Host "=================" -ForegroundColor Cyan
+    
+    # CPU 使用率
+    $cpu = Get-WmiObject Win32_Processor | Measure-Object -Property LoadPercentage -Average
+    Write-Host "🖥️ CPU 使用率: $([math]::Round($cpu.Average, 1))%" -ForegroundColor Green
+    
+    # 記憶體使用率
+    $memory = Get-WmiObject Win32_OperatingSystem
+    $memoryUsage = [math]::Round((($memory.TotalVisibleMemorySize - $memory.FreePhysicalMemory) / $memory.TotalVisibleMemorySize) * 100, 1)
+    Write-Host "💾 記憶體使用率: $memoryUsage%" -ForegroundColor Green
+    
+    # 磁碟空間
+    $disk = Get-WmiObject Win32_LogicalDisk -Filter "DeviceID='C:'"
+    $diskUsage = [math]::Round((($disk.Size - $disk.FreeSpace) / $disk.Size) * 100, 1)
+    Write-Host "💿 磁碟使用率: $diskUsage%" -ForegroundColor Green
+    
+    # Node.js 進程數
+    $nodeCount = (Get-Process -Name "node" -ErrorAction SilentlyContinue).Count
+    Write-Host "🟢 Node.js 進程數: $nodeCount" -ForegroundColor Green
+    
+    # 端口 8080 狀態
+    $port8080 = netstat -ano | findstr ":8080"
+    if ($port8080) {
+        Write-Host "🔴 端口 8080: 被占用" -ForegroundColor Red
+    } else {
+        Write-Host "🟢 端口 8080: 可用" -ForegroundColor Green
+    }
+    
+    Write-Host ""
+}
+
+function Start-ContinuousMonitoring {
+    param([int]$IntervalSeconds = 30)
+    
+    Write-Host "🔄 開始連續監控 (每 $IntervalSeconds 秒更新一次)..." -ForegroundColor Cyan
+    Write-Host "💡 按 Ctrl+C 停止監控" -ForegroundColor Blue
+    
+    while ($true) {
+        Clear-Host
+        Get-SystemStatus
+        Start-Sleep -Seconds $IntervalSeconds
+    }
+}
+```
+
+---
+
+## 🔧 一鍵清理腳本
+
+### 綜合清理工具
+```powershell
+# master-cleaner.ps1 - 一鍵清理所有資源
+function Invoke-MasterCleanup {
+    Write-Host "🧹 開始系統全面清理..." -ForegroundColor Cyan
+    Write-Host "========================" -ForegroundColor Cyan
+    
+    # 1. 端口清理
+    Write-Host "🔌 步驟 1: 清理端口 8080..." -ForegroundColor Yellow
+    Clear-AllNode8080
+    
+    # 2. Node.js 進程清理
+    Write-Host "🟢 步驟 2: 清理舊 Node.js 進程..." -ForegroundColor Yellow
+    Stop-OldNodeProcesses -MaxRuntimeHours 1
+    
+    # 3. Git 清理
+    Write-Host "📡 步驟 3: 清理 Git 鎖定..." -ForegroundColor Yellow
+    Clear-GitLocks
+    
+    # 4. 臨時檔案清理
+    Write-Host "🗑️ 步驟 4: 清理臨時檔案..." -ForegroundColor Yellow
+    Clear-TempFiles
+    
+    # 5. 系統狀態檢查
+    Write-Host "📊 步驟 5: 系統狀態檢查..." -ForegroundColor Yellow
+    Get-SystemStatus
+    
+    Write-Host "✅ 系統清理完成！" -ForegroundColor Green
+    Write-Host "🚀 現在可以安全啟動 npm start" -ForegroundColor Blue
+}
+
+# 快速使用別名
+Set-Alias cleanup Invoke-MasterCleanup
+Set-Alias nodecheck Get-NodeProcesses
+Set-Alias portcheck Test-Port8080
+Set-Alias gitcheck Get-GitProcesses
+```
+
+---
+
+## 📝 使用指南與最佳實踐
+
+### 日常維護流程
+```powershell
+# 每日開發前執行
+function Start-DevDay {
+    Write-Host "🌅 開始新的開發日..." -ForegroundColor Cyan
+    
+    # 系統狀態檢查
+    Get-SystemStatus
+    
+    # 清理舊進程
+    Stop-OldNodeProcesses -MaxRuntimeHours 12
+    
+    # 確保端口可用
+    Test-Port8080
+    
+    # Git 安全檢查
+    Test-GitSafety
+    
+    Write-Host "✅ 開發環境準備完成！" -ForegroundColor Green
+}
+
+# 每日開發後執行
+function End-DevDay {
+    Write-Host "🌙 結束開發日..." -ForegroundColor Cyan
+    
+    # 保存所有工作
+    if (Test-GitSafety) {
+        git add .
+        git commit -m "🔧 每日工作保存 - $(Get-Date -Format 'yyyy-MM-dd HH:mm')"
+    }
+    
+    # 清理資源
+    Invoke-MasterCleanup
+    
+    Write-Host "✅ 開發環境清理完成！" -ForegroundColor Green
+}
+```
+
+### 緊急修復指令
+```powershell
+# 緊急情況一鍵修復
+function Invoke-EmergencyFix {
+    Write-Host "🆘 緊急修復模式..." -ForegroundColor Red
+    
+    # 強制終止所有 Node.js
+    Get-Process -Name "node" -ErrorAction SilentlyContinue | Stop-Process -Force
+    
+    # 清理所有鎖定
+    Clear-GitLocks
+    
+    # 重置到乾淨狀態
+    git reset --hard HEAD
+    git clean -fd
+    
+    # 重新安裝依賴
+    if (Test-Path "node_modules") {
+        Remove-Item "node_modules" -Recurse -Force
+    }
+    npm install
+    
+    Write-Host "✅ 緊急修復完成！" -ForegroundColor Green
+}
+```
+
+---
+
+## 🚨 故障排除記錄
+
+### 常見問題與解決方案
+1. **端口 8080 持續被占用**
+   - 執行 `Clear-AllNode8080`
+   - 檢查防火牆設置
+   - 重啟網路服務
+
+2. **Node.js 進程無法終止**
+   - 使用管理員權限運行 PowerShell
+   - 執行 `taskkill /F /IM node.exe`
+   - 檢查進程依賴關係
+
+3. **Git 操作卡住**
+   - 執行 `Clear-GitLocks`
+   - 檢查網路連接狀態
+   - 重新配置 Git 認證
+
+---
+
+**📝 文檔版本**: v1.0  
+**📅 最後更新**: 2025-06-04  
+**🔧 維護狀態**: 活躍維護
+
+**🎯 核心原則**: 
+- ✅ 定期執行系統清理，防止資源累積
+- ✅ 智能檢測進程狀態，避免誤殺重要進程
+- ✅ 提供安全的進程終止機制
+- ✅ 自動化日常維護流程
+- ✅ 緊急情況快速修復能力
+
