@@ -218,3 +218,60 @@
 [2025-06-05 05:50:46] INFO: 用戶加入房間 {"user_id":"5","room_id":3,"resource_id":226}
 [2025-06-05 05:50:58] INFO: 代碼變更 {"user_id":"5","room_id":3,"change_type":"paste","code_length":9677,"room_users":1}
 [2025-06-05 05:50:58] INFO: 代碼變更 {"user_id":"5","room_id":3,"change_type":"paste","code_length":9677,"room_users":1}
+[2025-06-05 06:14:56] INFO: 用戶離開房間 {"user_id":"5","room_id":3,"resource_id":226}
+[2025-06-05 06:14:56] INFO: WebSocket連接關閉 {"resource_id":226}
+[2025-06-05 06:15:06] INFO: WebSocket新連接 {"resource_id":237}
+[2025-06-05 06:15:06] INFO: handleJoinRoom - 收到參數 {"data_room_id":"3","data_user_id":5,"data_username":"張三","parsed_room_id":3,"parsed_user_id":"5","parsed_username":"張三","resource_id":237}
+[2025-06-05 06:15:06] INFO: 連接屬性設置完畢 {"conn_resourceId":237,"conn_roomId":3,"conn_userId":"5","conn_username":"張三"}
+[2025-06-05 06:15:06] INFO: 用戶加入房間 {"user_id":"5","room_id":3,"resource_id":237}
+[2025-06-05 06:15:14] INFO: 代碼變更 {"user_id":"5","room_id":3,"change_type":"save","code_length":56,"room_users":1}
+[2025-06-05 06:15:20] INFO: 代碼變更 {"user_id":"5","room_id":3,"change_type":"save","code_length":56,"room_users":1}
+[2025-06-05 06:24:59] INFO: 用戶離開房間 {"user_id":"5","room_id":3,"resource_id":237}
+[2025-06-05 06:24:59] INFO: WebSocket連接關閉 {"resource_id":237}
+[2025-06-05 06:25:08] INFO: WebSocket新連接 {"resource_id":248}
+[2025-06-05 06:25:08] INFO: handleJoinRoom - 收到參數 {"data_room_id":"3","data_user_id":5,"data_username":"張三","parsed_room_id":3,"parsed_user_id":"5","parsed_username":"張三","resource_id":248}
+[2025-06-05 06:25:08] INFO: 連接屬性設置完畢 {"conn_resourceId":248,"conn_roomId":3,"conn_userId":"5","conn_username":"張三"}
+[2025-06-05 06:25:08] INFO: 用戶加入房間 {"user_id":"5","room_id":3,"resource_id":248}
+[2025-06-05 06:25:30] INFO: 代碼變更 {"user_id":"5","room_id":3,"change_type":"save","code_length":56,"room_users":1}
+[2025-06-05 06:25:45] INFO: 代碼變更 {"user_id":"5","room_id":3,"change_type":"save","code_length":56,"room_users":1}
+[2025-06-05 06:37:43] INFO: 用戶離開房間 {"user_id":"5","room_id":3,"resource_id":248}
+[2025-06-05 06:37:44] INFO: WebSocket連接關閉 {"resource_id":248}
+[2025-06-05 06:37:53] INFO: WebSocket新連接 {"resource_id":259}
+[2025-06-05 06:37:53] INFO: handleJoinRoom - 收到參數 {"data_room_id":"3","data_user_id":5,"data_username":"張三","parsed_room_id":3,"parsed_user_id":"5","parsed_username":"張三","resource_id":259}
+[2025-06-05 06:37:53] INFO: 連接屬性設置完畢 {"conn_resourceId":259,"conn_roomId":3,"conn_userId":"5","conn_username":"張三"}
+[2025-06-05 06:37:53] INFO: 用戶加入房間 {"user_id":"5","room_id":3,"resource_id":259}
+[2025-06-05 06:37:57] INFO: 代碼變更 {"user_id":"5","room_id":3,"change_type":"save","code_length":56,"room_users":1}
+[2025-06-05 06:38:03] INFO: 代碼變更 {"user_id":"5","room_id":3,"change_type":"edit","code_length":57,"room_users":1}
+[2025-06-05 06:38:05] INFO: 代碼變更 {"user_id":"5","room_id":3,"change_type":"edit","code_length":60,"room_users":1}
+[2025-06-05 06:38:07] INFO: 代碼變更 {"user_id":"5","room_id":3,"change_type":"load","code_length":22,"room_users":1}
+[2025-06-05 06:38:12] INFO: 代碼變更 {"user_id":"5","room_id":3,"change_type":"edit","code_length":29,"room_users":1}
+[2025-06-05 06:38:15] INFO: 代碼變更 {"user_id":"5","room_id":3,"change_type":"load","code_length":22,"room_users":1}
+[2025-06-05 06:38:18] INFO: 代碼變更 {"user_id":"5","room_id":3,"change_type":"edit","code_length":28,"room_users":1}
+[2025-06-05 06:38:19] INFO: 代碼變更 {"user_id":"5","room_id":3,"change_type":"edit","code_length":31,"room_users":1}
+[2025-06-05 06:38:21] INFO: 代碼變更 {"user_id":"5","room_id":3,"change_type":"save","code_length":31,"room_users":1}
+[2025-06-05 06:38:27] INFO: 代碼變更 {"user_id":"5","room_id":3,"change_type":"load","code_length":22,"room_users":1}
+[2025-06-05 06:38:27] INFO: 代碼變更 {"user_id":"5","room_id":3,"change_type":"edit","code_length":15,"room_users":1}
+[2025-06-05 06:47:48] INFO: 代碼變更 {"user_id":"5","room_id":3,"change_type":"save","code_length":22,"room_users":1}
+[2025-06-05 06:47:49] INFO: 用戶離開房間 {"user_id":"5","room_id":3,"resource_id":259}
+[2025-06-05 06:47:49] INFO: WebSocket連接關閉 {"resource_id":259}
+[2025-06-05 06:47:58] INFO: WebSocket新連接 {"resource_id":280}
+[2025-06-05 06:47:58] INFO: handleJoinRoom - 收到參數 {"data_room_id":"3","data_user_id":5,"data_username":"張三","parsed_room_id":3,"parsed_user_id":"5","parsed_username":"張三","resource_id":280}
+[2025-06-05 06:47:58] INFO: 連接屬性設置完畢 {"conn_resourceId":280,"conn_roomId":3,"conn_userId":"5","conn_username":"張三"}
+[2025-06-05 06:47:58] INFO: 用戶加入房間 {"user_id":"5","room_id":3,"resource_id":280}
+[2025-06-05 06:48:03] INFO: 代碼變更 {"user_id":"5","room_id":3,"change_type":"save","code_length":56,"room_users":1}
+[2025-06-05 06:48:04] INFO: 代碼變更 {"user_id":"5","room_id":3,"change_type":"edit","code_length":62,"room_users":1}
+[2025-06-05 06:48:06] INFO: 代碼變更 {"user_id":"5","room_id":3,"change_type":"edit","code_length":65,"room_users":1}
+[2025-06-05 06:48:06] INFO: 代碼變更 {"user_id":"5","room_id":3,"change_type":"edit","code_length":65,"room_users":1}
+[2025-06-05 06:48:09] INFO: 代碼變更 {"user_id":"5","room_id":3,"change_type":"save","code_length":65,"room_users":1}
+[2025-06-05 06:49:01] INFO: 用戶離開房間 {"user_id":"5","room_id":3,"resource_id":280}
+[2025-06-05 06:49:01] INFO: WebSocket連接關閉 {"resource_id":280}
+[2025-06-05 07:01:52] INFO: WebSocket新連接 {"resource_id":294}
+[2025-06-05 07:01:53] INFO: handleJoinRoom - 收到參數 {"data_room_id":"3","data_user_id":5,"data_username":"張三","parsed_room_id":3,"parsed_user_id":"5","parsed_username":"張三","resource_id":294}
+[2025-06-05 07:01:53] INFO: 連接屬性設置完畢 {"conn_resourceId":294,"conn_roomId":3,"conn_userId":"5","conn_username":"張三"}
+[2025-06-05 07:01:53] INFO: 用戶加入房間 {"user_id":"5","room_id":3,"resource_id":294}
+[2025-06-05 07:17:09] INFO: 代碼變更 {"user_id":"5","room_id":3,"change_type":"save","code_length":56,"room_users":1}
+[2025-06-05 07:17:09] INFO: 用戶離開房間 {"user_id":"5","room_id":3,"resource_id":294}
+[2025-06-05 07:17:09] INFO: WebSocket連接關閉 {"resource_id":294}
+[2025-06-05 07:56:51] INFO: WebSocket新連接 {"resource_id":304}
+[2025-06-05 07:56:51] INFO: handleJoinRoom - 收到參數 {"data_room_id":"未提供","data_user_id":"未提供","data_username":"未提供","parsed_room_id":0,"parsed_user_id":"","parsed_username":"","resource_id":304}
+[2025-06-05 07:56:51] WARNING: 加入房間失敗: 缺少參數 {"type":"join_room","room":"test-room","userName":"學生866","parsed_room_id":0,"parsed_user_id":"","parsed_username":""}

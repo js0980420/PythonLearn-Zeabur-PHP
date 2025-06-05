@@ -4,3 +4,6 @@
 [2025-06-05 05:40:01] INFO: AI解釋代碼 {"user_id":5,"room_id":0,"code_length":83431}
 [2025-06-05 05:47:14] INFO: AI解釋代碼 {"user_id":5,"room_id":0,"code_length":192}
 [2025-06-05 05:51:07] INFO: AI解釋代碼 {"user_id":5,"room_id":3,"code_length":9676}
+[2025-06-05 06:06:40] INFO: AI檢查錯誤 {"user_id":5,"room_id":3}
+[2025-06-05 08:12:10] INFO: 使用真實AI API {"user_id":"test_user_1749111130","type":"explain"}
+[2025-06-05 08:12:14] INFO: AI解釋代碼 {"user_id":"test_user_1749111130","room_id":1,"code_length":20}

@@ -196,6 +196,20 @@ class CodeCollaborationServer implements MessageComponentInterface {
         }
         $this->rooms[$roomId][$conn->resourceId] = $conn;
         
+        // 🆕 初始化或更新房間代碼狀態，記錄用戶加入時間
+        if (!isset($this->roomCodeStates[$roomId])) {
+            $this->roomCodeStates[$roomId] = [
+                'current_code' => '',
+                'user_versions' => [],
+                'user_join_times' => [],
+                'last_update' => time()
+            ];
+        }
+        
+        // 🆕 記錄用戶加入時間
+        $this->roomCodeStates[$roomId]['user_join_times'][$userId] = time();
+        echo "記錄用戶加入時間: {$username} 於 " . date('H:i:s') . " 加入房間 {$roomId}\n";
+        
         // 獲取房間當前代碼
         $currentCode = $this->database->fetch(
             "SELECT code_content FROM code_history 
@@ -223,7 +237,8 @@ class CodeCollaborationServer implements MessageComponentInterface {
         $this->logger->info('用戶加入房間', [
             'user_id' => $userId,
             'room_id' => $roomId,
-            'resource_id' => $conn->resourceId
+            'resource_id' => $conn->resourceId,
+            'join_time' => date('Y-m-d H:i:s')
         ]);
     }
     
@@ -241,6 +256,21 @@ class CodeCollaborationServer implements MessageComponentInterface {
             // 如果房間為空，清理房間
             if (empty($this->rooms[$roomId])) {
                 unset($this->rooms[$roomId]);
+                // 🆕 同時清理房間的代碼狀態
+                if (isset($this->roomCodeStates[$roomId])) {
+                    unset($this->roomCodeStates[$roomId]);
+                    echo "清理空房間狀態: {$roomId}\n";
+                }
+            } else {
+                // 🆕 房間不為空時，只清理該用戶的相關記錄
+                if (isset($this->roomCodeStates[$roomId]['user_join_times'][$conn->userId])) {
+                    unset($this->roomCodeStates[$roomId]['user_join_times'][$conn->userId]);
+                    echo "清理用戶加入時間記錄: {$conn->username} 離開房間 {$roomId}\n";
+                }
+                if (isset($this->roomCodeStates[$roomId]['user_versions'][$conn->userId])) {
+                    unset($this->roomCodeStates[$roomId]['user_versions'][$conn->userId]);
+                    echo "清理用戶代碼版本記錄: {$conn->username} 離開房間 {$roomId}\n";
+                }
             }
         }
         
@@ -308,19 +338,44 @@ class CodeCollaborationServer implements MessageComponentInterface {
             $this->roomCodeStates[$roomId] = [
                 'current_code' => '',
                 'user_versions' => [],
+                'user_join_times' => [], // 🆕 記錄用戶加入時間
                 'last_update' => time()
             ];
         }
         
         $currentState = &$this->roomCodeStates[$roomId];
         
-        // 🚨 核心衝突檢測：2人以上在同一房間時進行檢測
+        // 🆕 檢查用戶是否在初始化期（加入房間後 10 秒內）
+        $userJoinTime = $currentState['user_join_times'][$conn->userId] ?? 0;
+        $isInInitializationPeriod = (time() - $userJoinTime) < 10; // 10秒緩衝期
+        
+        // 🆕 檢查是否為首次代碼更新（用戶版本記錄為空）
+        $isFirstCodeUpdate = !isset($currentState['user_versions'][$conn->userId]);
+        
+        // 🆕 跳過衝突檢測的條件
+        $shouldSkipConflictDetection = $isInInitializationPeriod || $isFirstCodeUpdate;
+        
+        if ($shouldSkipConflictDetection) {
+            echo "跳過衝突檢測: 用戶 {$conn->username} 在初始化期 (加入時間: " . ($userJoinTime ? date('H:i:s', $userJoinTime) : '未知') . ", 首次更新: " . ($isFirstCodeUpdate ? '是' : '否') . ")\n";
+        }
+        
+        // 🚨 核心衝突檢測：只有在非初始化期且有多個用戶時才進行檢測
         $roomUsers = $this->getRoomUsers($roomId);
-        if (count($roomUsers) >= 2) {
+        if (!$shouldSkipConflictDetection && count($roomUsers) >= 2) {
             
             // 檢測與其他在線用戶的衝突（移除時間窗口限制）
             foreach ($currentState['user_versions'] as $otherUserId => $otherUserData) {
                 if ($otherUserId !== $conn->userId) {
+                    
+                    // 🆕 檢查對方用戶是否也在初始化期
+                    $otherUserJoinTime = $currentState['user_join_times'][$otherUserId] ?? 0;
+                    $otherUserInInitPeriod = (time() - $otherUserJoinTime) < 10;
+                    
+                    // 如果對方也在初始化期，跳過與該用戶的衝突檢測
+                    if ($otherUserInInitPeriod) {
+                        echo "跳過與用戶 {$otherUserId} 的衝突檢測: 對方在初始化期\n";
+                        continue;
+                    }
                     
                     // 🔥 最優先：檢測同一行不同修改衝突
                     $lineConflict = $this->detectSameLineConflict(
@@ -332,6 +387,7 @@ class CodeCollaborationServer implements MessageComponentInterface {
                     );
                     
                     if ($lineConflict) {
+                        echo "檢測到同行衝突: 用戶 {$conn->username} vs 用戶 {$otherUserId}\n";
                         $this->handleConflictDetected($conn, $roomId, $lineConflict, $otherUserId, $otherUserData['code'], $code);
                         return; // 立即停止，等待衝突解決
                     }
@@ -347,6 +403,7 @@ class CodeCollaborationServer implements MessageComponentInterface {
                     );
                     
                     if ($removalConflict) {
+                        echo "檢測到移除衝突: 用戶 {$conn->username} vs 用戶 {$otherUserId}\n";
                         $this->handleConflictDetected($conn, $roomId, $removalConflict, $otherUserId, $otherUserData['code'], $code);
                         return; // 立即停止，等待衝突解決
                     }
@@ -394,7 +451,8 @@ class CodeCollaborationServer implements MessageComponentInterface {
             'room_id' => $roomId,
             'change_type' => $changeType,
             'code_length' => strlen($code),
-            'room_users' => count($roomUsers)
+            'room_users' => count($roomUsers),
+            'skipped_conflict_detection' => $shouldSkipConflictDetection
         ]);
     }
     
