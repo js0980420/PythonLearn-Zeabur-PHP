@@ -103,6 +103,16 @@ class MockDatabase {
             return null;
         }
         
+        if (strpos($sql, 'SELECT * FROM code_history WHERE id') !== false) {
+            $historyId = $params['history_id'] ?? 0;
+            foreach ($this->data['code_history'] as $record) {
+                if ($record['id'] == $historyId) {
+                    return $record;
+                }
+            }
+            return null;
+        }
+        
         return null;
     }
     
@@ -140,6 +150,28 @@ class MockDatabase {
         if (strpos($sql, 'SELECT ar.*, u.username') !== false) {
             // 返回AI請求歷史
             return array_slice($this->data['ai_requests'], -20); // 最近20條
+        }
+        
+        if (strpos($sql, 'SELECT * FROM code_history WHERE room_id') !== false) {
+            // 返回歷史記錄
+            $roomId = $params['room_id'] ?? '';
+            $limit = $params['limit'] ?? 20;
+            
+            $history = [];
+            foreach ($this->data['code_history'] as $record) {
+                if ($record['room_id'] == $roomId) {
+                    $history[] = $record;
+                }
+            }
+            
+            // 按保存時間降序排列
+            usort($history, function($a, $b) {
+                $timeA = strtotime($a['saved_at'] ?? $a['created_at']);
+                $timeB = strtotime($b['saved_at'] ?? $b['created_at']);
+                return $timeB - $timeA;
+            });
+            
+            return array_slice($history, 0, $limit);
         }
         
         return [];

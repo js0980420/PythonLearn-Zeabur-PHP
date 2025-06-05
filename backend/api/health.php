@@ -1,4 +1,10 @@
 <?php
+
+/**
+ * 健康檢查 API
+ * 用於檢查系統各組件的運行狀態
+ */
+
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, OPTIONS');
@@ -26,24 +32,74 @@ function checkHealth() {
     
     // 檢查數據庫連接
     try {
-        require_once __DIR__ . '/../classes/MockDatabase.php';
-        $db = App\MockDatabase::getInstance();
-        $health['services']['database'] = 'connected';
+        require_once __DIR__ . '/../classes/Database.php';
+        $database = Database::getInstance();
+        $dbType = $database->getDatabaseType();
+        
+        // 測試查詢
+        $testQuery = $database->fetch("SELECT 1 as test");
+        
+        $health['services']['database'] = [
+            'status' => 'connected',
+            'type' => $dbType,
+            'message' => $dbType === 'mysql' ? 'XAMPP MySQL 已連接' : 'SQLite 降級模式'
+        ];
+        
     } catch (Exception $e) {
-        $health['services']['database'] = 'error: ' . $e->getMessage();
+        $health['services']['database'] = [
+            'status' => 'error',
+            'message' => $e->getMessage()
+        ];
         $health['status'] = 'degraded';
     }
     
-    // 檢查 WebSocket 服務器
-    $websocketStatus = checkWebSocketServer();
-    $health['services']['websocket'] = $websocketStatus;
-    if ($websocketStatus !== 'running') {
+    // 檢查 WebSocket 端口
+    $websocketPort = 8080;
+    $websocketStatus = @fsockopen('localhost', $websocketPort, $errno, $errstr, 1);
+    
+    if ($websocketStatus) {
+        $health['services']['websocket'] = [
+            'status' => 'running',
+            'port' => $websocketPort,
+            'message' => 'WebSocket 服務器正在運行'
+        ];
+        fclose($websocketStatus);
+    } else {
+        $health['services']['websocket'] = [
+            'status' => 'stopped',
+            'port' => $websocketPort,
+            'message' => 'WebSocket 服務器未運行'
+        ];
         $health['status'] = 'degraded';
     }
     
-    // 檢查 AI 服務
-    $aiStatus = checkAIService();
-    $health['services']['ai_assistant'] = $aiStatus;
+    // 檢查 AI 助教配置
+    $aiConfig = null;
+    $aiConfigPaths = [
+        __DIR__ . '/../../ai_config.json',
+        __DIR__ . '/../../config/ai.json'
+    ];
+    
+    foreach ($aiConfigPaths as $path) {
+        if (file_exists($path)) {
+            $aiConfig = json_decode(file_get_contents($path), true);
+            break;
+        }
+    }
+    
+    $openaiKey = $_ENV['OPENAI_API_KEY'] ?? ($aiConfig['openai_api_key'] ?? null);
+    
+    if ($openaiKey && strlen($openaiKey) > 10) {
+        $health['services']['ai_assistant'] = [
+            'status' => 'enabled',
+            'message' => 'AI 助教功能已啟用'
+        ];
+    } else {
+        $health['services']['ai_assistant'] = [
+            'status' => 'disabled',
+            'message' => 'AI 助教功能未配置（需要 OpenAI API 金鑰）'
+        ];
+    }
     
     // 性能指標
     $health['performance'] = [
@@ -60,36 +116,44 @@ function checkHealth() {
         'temp_dir' => is_writable(sys_get_temp_dir()) ? 'writable' : 'readonly'
     ];
     
+    // 系統資源檢查
+    $health['system'] = [
+        'php_version' => PHP_VERSION,
+        'memory_usage' => round(memory_get_usage(true) / 1024 / 1024, 2) . ' MB',
+        'memory_peak' => round(memory_get_peak_usage(true) / 1024 / 1024, 2) . ' MB',
+        'disk_free' => round(disk_free_space('.') / 1024 / 1024, 2) . ' MB'
+    ];
+    
+    // 檢查必要檔案
+    $requiredFiles = [
+        'index.html',
+        'teacher-dashboard.html',
+        'js/websocket.js',
+        'js/ai-assistant.js',
+        'backend/classes/Database.php'
+    ];
+    
+    $missingFiles = [];
+    foreach ($requiredFiles as $file) {
+        if (!file_exists(__DIR__ . '/../../' . $file)) {
+            $missingFiles[] = $file;
+        }
+    }
+    
+    if (!empty($missingFiles)) {
+        $health['services']['files'] = [
+            'status' => 'missing',
+            'missing_files' => $missingFiles
+        ];
+        $health['status'] = 'degraded';
+    } else {
+        $health['services']['files'] = [
+            'status' => 'complete',
+            'message' => '所有必要檔案存在'
+        ];
+    }
+    
     return $health;
-}
-
-function checkWebSocketServer() {
-    // 嘗試連接到 WebSocket 端口
-    $host = 'localhost';
-    $port = 8080;
-    
-    $connection = @fsockopen($host, $port, $errno, $errstr, 5);
-    if ($connection) {
-        fclose($connection);
-        return 'running';
-    } else {
-        return 'stopped (port not listening)';
-    }
-}
-
-function checkAIService() {
-    // 檢查 OpenAI API 密鑰配置
-    $apiKey = $_ENV['OPENAI_API_KEY'] ?? null;
-    
-    if (!$apiKey) {
-        return 'disabled (no API key)';
-    }
-    
-    if (strpos($apiKey, 'sk-') === 0) {
-        return 'enabled';
-    } else {
-        return 'misconfigured (invalid API key format)';
-    }
 }
 
 function getServerUptime() {

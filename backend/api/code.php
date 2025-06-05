@@ -57,10 +57,16 @@ function handleSaveCode($database, $logger, $input) {
     $code = $input['code'] ?? '';
     $userId = $input['user_id'] ?? $_SESSION['user_id'] ?? 'anonymous';
     $username = $input['username'] ?? $_SESSION['username'] ?? 'Anonymous';
+    $saveName = $input['saveName'] ?? $input['save_name'] ?? null;
     
     if (empty($roomId)) {
         echo APIResponse::error('房間ID不能為空', 'E001');
         return;
+    }
+    
+    // 如果沒有提供保存名稱，生成默認名稱
+    if (empty($saveName)) {
+        $saveName = '保存 ' . date('Y-m-d H:i:s');
     }
     
     // 保存代碼到歷史記錄
@@ -69,6 +75,7 @@ function handleSaveCode($database, $logger, $input) {
         'user_id' => $userId,
         'username' => $username,
         'code_content' => $code,
+        'save_name' => $saveName,
         'saved_at' => date('Y-m-d H:i:s'),
         'version' => time()
     ]);

@@ -79,7 +79,8 @@ function handleGetHistory($database, $logger, $input) {
             'code_preview' => substr($codeContent, 0, 100) . (strlen($codeContent) > 100 ? '...' : ''),
             'code_length' => strlen($codeContent),
             'saved_at' => $record['saved_at'] ?? $record['created_at'],
-            'description' => $record['description'] ?? '自動保存'
+            'save_name' => $record['save_name'] ?? $record['description'] ?? '自動保存',
+            'description' => $record['save_name'] ?? $record['description'] ?? '自動保存'
         ];
     }
     
@@ -124,7 +125,8 @@ function handleLoadVersion($database, $logger, $input) {
         'user_id' => $version['user_id'],
         'username' => $version['username'] ?? $version['user_id'],
         'saved_at' => $version['saved_at'] ?? $version['created_at'],
-        'description' => $version['description'] ?? '自動保存'
+        'save_name' => $version['save_name'] ?? $version['description'] ?? '自動保存',
+        'description' => $version['save_name'] ?? $version['description'] ?? '自動保存'
     ], '版本載入成功');
 }
 
