@@ -881,7 +881,7 @@ class ConflictResolverManager {
         
         // 模擬衝突數據
         const testData = {
-            userCode: Editor ? Editor.getCode() : 'print("我的測試代碼")',
+            userCode: window.Editor ? window.Editor.getCode() : 'print("我的測試代碼")',
             serverCode: '# 其他同學的代碼\nprint("歡迎使用")\n\n# 計算乘積\ndef calculate_product(x, y):\n    return x * y\n\nresult = calculate_product(5, 3)\nprint(f"乘積: {result}")',
             userVersion: Math.floor(Math.random() * 10),
             serverVersion: Math.floor(Math.random() * 10) + 5,

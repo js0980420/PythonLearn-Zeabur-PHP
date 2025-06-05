@@ -46,12 +46,12 @@ class SaveLoadManager {
     // 保存當前代碼
     saveCode() {
         console.log("💾 開始保存代碼");
-        if (!this.checkInitialized() || !window.editor) {
+        if (!this.checkInitialized() || !window.Editor) {
             this.showMessage("編輯器未準備好或未加入房間，無法保存。", "error");
             return;
         }
         
-        const code = Editor.getCode();
+        const code = window.Editor.getCode();
         if (!code || code.trim() === '') {
             this.showMessage('程式碼內容為空，無法保存', 'warning');
             return;
@@ -117,7 +117,7 @@ class SaveLoadManager {
     // 執行保存
     executeSave() {
         const title = document.getElementById('saveTitle').value.trim();
-        const code = Editor.getCode();
+        const code = window.Editor.getCode();
 
         const saveData = {
             type: 'save_code',
@@ -552,8 +552,8 @@ class SaveLoadManager {
     handleLoadSuccess(message) {
         console.log('✅ 程式碼載入成功:', message);
         this.showMessage(message.message || `程式碼已成功載入 (版本 ${message.version || '未知'})`, 'success');
-        if (window.editor && message.code !== undefined) {
-            window.editor.setValue(message.code);
+        if (window.Editor && message.code !== undefined) {
+            window.Editor.setCode(message.code);
         }
         if (this.modal) this.modal.hide();
     }

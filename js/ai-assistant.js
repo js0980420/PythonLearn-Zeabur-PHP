@@ -58,10 +58,10 @@ class AIAssistantManager {
 
         // 獲取當前代碼 - 添加詳細調試
         console.log('🔍 [AI Debug] 開始獲取編輯器代碼...');
-        console.log('🔍 [AI Debug] Editor對象:', Editor);
-        console.log('🔍 [AI Debug] Editor.editor:', Editor ? Editor.editor : 'Editor未定義');
+        console.log('🔍 [AI Debug] window.Editor對象:', window.Editor);
+        console.log('🔍 [AI Debug] window.Editor.editor:', window.Editor ? window.Editor.editor : 'window.Editor未定義');
         
-        const code = Editor.getCode();
+        const code = window.Editor ? window.Editor.getCode() : '';
         console.log('🔍 [AI Debug] 獲取到的代碼:', code);
         console.log('🔍 [AI Debug] 代碼長度:', code ? code.length : 'code為null/undefined');
         console.log('🔍 [AI Debug] 代碼類型:', typeof code);
@@ -543,14 +543,14 @@ class AIAssistantManager {
 
     // 顯示代碼審查建議
     showCodeReviewSuggestions() {
-        const code = Editor.getCode();
+        const code = window.Editor ? window.Editor.getCode() : '';
         const suggestions = this.analyzeCode(code);
         this.showResponse(suggestions);
     }
 
     // 顯示改進建議
     showImprovementTips() {
-        const code = Editor.getCode();
+        const code = window.Editor ? window.Editor.getCode() : '';
         const tips = this.generateImprovementTips(code);
         this.showResponse(tips);
     }

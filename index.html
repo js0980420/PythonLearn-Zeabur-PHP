@@ -453,7 +453,7 @@
                 conflictUser: '測試用戶',
                 userVersion: 1,
                 serverVersion: 2,
-                userCode: Editor.getCode() || '# 測試程式碼\nprint("Hello, World!")',
+                userCode: window.Editor ? window.Editor.getCode() : '# 測試程式碼\nprint("Hello, World!")',
                 serverCode: '# 模擬的服務器代碼\nprint("Hello, Python!")\nprint("這是衝突測試")'
             };
             
