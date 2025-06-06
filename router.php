@@ -19,9 +19,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-// 🌐 靜態檔案處理
-if ($uri !== '/' && file_exists(__DIR__ . '/public' . $uri)) {
-    return false; // 讓PHP內建伺服器處理靜態檔案
+// 🌐 靜態檔案處理 - 優先處理
+$publicFile = __DIR__ . '/public' . $uri;
+if (file_exists($publicFile) && is_file($publicFile)) {
+    // 設置正確的 MIME 類型
+    $ext = pathinfo($publicFile, PATHINFO_EXTENSION);
+    $mimeTypes = [
+        'js' => 'application/javascript',
+        'css' => 'text/css',
+        'html' => 'text/html',
+        'json' => 'application/json',
+        'png' => 'image/png',
+        'jpg' => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'gif' => 'image/gif',
+        'ico' => 'image/x-icon',
+        'svg' => 'image/svg+xml'
+    ];
+    
+    if (isset($mimeTypes[$ext])) {
+        header('Content-Type: ' . $mimeTypes[$ext]);
+    }
+    
+    readfile($publicFile);
+    exit();
 }
 
 // 🏥 健康檢查端點
@@ -80,30 +101,28 @@ if (preg_match('/^\/backend\/api\/(.+)\.php$/', $uri, $matches)) {
 
 // 🏠 根路徑處理
 if ($uri === '/' || $uri === '/index.html') {
-    require_once __DIR__ . '/public/index.html';
+    header('Content-Type: text/html');
+    readfile(__DIR__ . '/public/index.html');
     exit();
 }
 
 // 📊 教師面板
 if ($uri === '/teacher-dashboard.html') {
-    require_once __DIR__ . '/public/teacher-dashboard.html';
+    header('Content-Type: text/html');
+    readfile(__DIR__ . '/public/teacher-dashboard.html');
     exit();
 }
 
 // ⚙️ 配置頁面
 if ($uri === '/config.html') {
-    require_once __DIR__ . '/public/config.html';
+    header('Content-Type: text/html');
+    readfile(__DIR__ . '/public/config.html');
     exit();
-}
-
-// 🎯 公開檔案處理
-$publicFile = __DIR__ . '/public' . $uri;
-if (file_exists($publicFile)) {
-    return false; // 讓PHP內建伺服器處理
 }
 
 // 🚫 404 處理
 http_response_code(404);
+header('Content-Type: application/json');
 echo json_encode([
     'error' => 'Page not found',
     'uri' => $uri,

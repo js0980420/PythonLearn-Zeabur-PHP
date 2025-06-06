@@ -27,18 +27,11 @@ class WebSocketManager {
         const hostname = window.location.hostname;
         const port = window.location.port;
 
-        // 統一使用 /ws 路徑，由 Caddy 反向代理處理
+        // 根據環境決定 WebSocket URL
         if (hostname === 'localhost' || hostname === '127.0.0.1') {
-            // 本地開發環境
-            if (port === '3000') {
-                // 使用 Caddy 本地開發配置
-                wsUrl = `ws://${hostname}:3000/ws`;
-                console.log('🏠 本地開發環境 (Caddy)，WebSocket 連接: ' + wsUrl);
-            } else {
-                // 直接連接到 WebSocket 服務器 (舊方式，兼容性)
-                wsUrl = `ws://${hostname}:8081`;
-                console.log('🏠 本地開發環境 (直連)，WebSocket 連接: ' + wsUrl);
-            }
+            // 本地開發環境 - 直接連接到 WebSocket 服務器
+            wsUrl = `ws://${hostname}:8081`;
+            console.log('🏠 本地開發環境 (直連)，WebSocket 連接: ' + wsUrl);
         } else {
             // 生產環境 - Zeabur 使用 Caddy 反向代理
             wsUrl = `${protocol}//${hostname}/ws`;
@@ -168,9 +161,13 @@ class WebSocketManager {
             case 'ai_response':
                 this.handleAIResponse(message);
                 break;
-            case 'code_execution_result':
-                this.handleCodeExecutionResult(message);
-                break;
+                            case 'code_execution_result':
+                    this.handleCodeExecutionResult(message);
+                    break;
+                    
+                case 'history_loaded':
+                    this.handleHistoryLoaded(message);
+                    break;
             case 'conflict_notification':
                 this.handleConflictNotification(message);
                 break;
@@ -410,6 +407,90 @@ class WebSocketManager {
         }
     }
 
+    // 處理歷史記錄載入結果
+    handleHistoryLoaded(message) {
+        console.log('📜 收到歷史記錄:', message);
+        
+        if (message.success && message.history) {
+            console.log(`✅ 載入了 ${message.history.length} 條歷史記錄`);
+            
+            // 嘗試調用編輯器的歷史處理方法
+            if (window.Editor && typeof window.Editor.handleHistoryLoaded === 'function') {
+                console.log('🔄 調用編輯器處理歷史記錄...');
+                window.Editor.handleHistoryLoaded(message.history);
+            } else {
+                console.warn('⚠️ 編輯器歷史處理方法未找到，使用降級處理');
+                this.displayHistoryFallback(message.history);
+            }
+        } else {
+            console.error('❌ 歷史記錄載入失敗:', message.error || '未知錯誤');
+            
+            if (window.UI && typeof window.UI.showToast === 'function') {
+                window.UI.showToast('歷史記錄', '載入歷史記錄失敗', 'error');
+            } else {
+                alert('載入歷史記錄失敗: ' + (message.error || '未知錯誤'));
+            }
+        }
+    }
+
+    // 降級處理：顯示歷史記錄
+    displayHistoryFallback(history) {
+        console.log('📋 使用降級方式顯示歷史記錄');
+        
+        // 嘗試找到歷史記錄容器
+        let historyContainer = document.getElementById('historyList') || 
+                              document.getElementById('history-list') ||
+                              document.getElementById('codeHistory');
+        
+        if (!historyContainer) {
+            // 如果沒有找到容器，創建一個簡單的顯示
+            console.log('📋 創建臨時歷史記錄顯示');
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = `
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-history"></i> 歷史記錄 (${history.length} 條)</h6>
+                    <ul class="list-unstyled">
+                        ${history.map(record => `
+                            <li class="mb-2">
+                                <strong>${record.username}</strong> - ${new Date(record.saved_at).toLocaleString()}
+                                <br><small class="text-muted">${record.code_preview}</small>
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
+            `;
+            
+            // 嘗試添加到主要內容區域
+            const mainContent = document.querySelector('.container') || 
+                               document.querySelector('.main-content') || 
+                               document.body;
+            mainContent.appendChild(tempDiv);
+            
+            // 5秒後自動移除
+            setTimeout(() => {
+                if (tempDiv.parentNode) {
+                    tempDiv.parentNode.removeChild(tempDiv);
+                }
+            }, 5000);
+        } else {
+            // 如果找到容器，更新內容
+            historyContainer.innerHTML = history.map(record => `
+                <div class="history-item mb-2 p-2 border rounded">
+                    <div class="d-flex justify-content-between">
+                        <strong>${record.username}</strong>
+                        <small class="text-muted">${new Date(record.saved_at).toLocaleString()}</small>
+                    </div>
+                    <div class="code-preview mt-1">
+                        <small class="text-muted">${record.code_preview}</small>
+                    </div>
+                    <div class="text-end">
+                        <small class="badge bg-secondary">${record.code_length} 字符</small>
+                    </div>
+                </div>
+            `).join('');
+        }
+    }
+
     // 🆕 處理衝突通知 - 讓主改方看到衝突處理狀態
     handleConflictNotification(message) {
         console.log('🚨 收到衝突通知:', message);
@@ -543,6 +624,79 @@ class WebSocketManager {
         
         this.currentRoom = null;
         console.log('👋 已離開房間');
+    }
+
+    // 初始化方法（為了與其他模組保持一致）
+    initialize() {
+        console.log('🔧 WebSocket管理器初始化中...');
+        
+        // 設置全域引用
+        window.wsManager = this;
+        
+        console.log('✅ WebSocket管理器初始化完成');
+        return true;
+    }
+
+    // 保存代碼
+    saveCode(code) {
+        if (!this.isConnected()) {
+            console.warn('⚠️ WebSocket 未連接，無法保存代碼');
+            return;
+        }
+
+        console.log('💾 發送保存代碼請求...');
+        this.sendMessage({
+            type: 'save_code',
+            room_id: this.currentRoom,
+            user_id: this.currentUser,
+            code: code
+        });
+    }
+
+    // 載入代碼
+    loadCode() {
+        if (!this.isConnected()) {
+            console.warn('⚠️ WebSocket 未連接，無法載入代碼');
+            return;
+        }
+
+        console.log('📥 發送載入代碼請求...');
+        this.sendMessage({
+            type: 'load_code',
+            room_id: this.currentRoom,
+            user_id: this.currentUser
+        });
+    }
+
+    // 執行代碼
+    runCode(code) {
+        if (!this.isConnected()) {
+            console.warn('⚠️ WebSocket 未連接，無法執行代碼');
+            return;
+        }
+
+        console.log('▶️ 發送執行代碼請求...');
+        this.sendMessage({
+            type: 'run_code',
+            room_id: this.currentRoom,
+            user_id: this.currentUser,
+            code: code
+        });
+    }
+
+    // 獲取歷史記錄
+    getHistory() {
+        if (!this.isConnected()) {
+            console.warn('⚠️ WebSocket 未連接，無法獲取歷史記錄');
+            return;
+        }
+
+        console.log('📜 發送獲取歷史記錄請求...');
+        this.sendMessage({
+            type: 'get_history',
+            room_id: this.currentRoom,
+            user_id: this.currentUser
+        });
     }
 }
 

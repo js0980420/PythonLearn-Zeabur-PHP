@@ -12,20 +12,13 @@
         
         console.log('🔍 檢測當前環境:', hostname);
         
+        // 環境檢測（WebSocket URL 由 websocket.js 自行決定）
         if (hostname === 'localhost' || hostname === '127.0.0.1') {
-            // 本地開發環境
-            window.WSS_URL = 'ws://localhost:8080';
-            console.log('🏠 本地開發環境 - WebSocket URL:', window.WSS_URL);
+            console.log('🏠 本地開發環境檢測');
         } else if (hostname.includes('zeabur.app') || hostname.includes('python-learn')) {
-            // Zeabur 環境
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            window.WSS_URL = `${protocol}//${hostname}/ws`;
-            console.log('☁️ Zeabur 雲端環境 - WebSocket URL:', window.WSS_URL);
+            console.log('☁️ Zeabur 雲端環境檢測');
         } else {
-            // 自定義域名或其他環境
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            window.WSS_URL = `${protocol}//${hostname}/ws`;
-            console.log('🌐 自定義域名環境 - WebSocket URL:', window.WSS_URL);
+            console.log('🌐 自定義域名環境檢測');
         }
         
         // 設置環境標識
@@ -33,8 +26,7 @@
             isLocal: hostname === 'localhost' || hostname === '127.0.0.1',
             isZeabur: hostname.includes('zeabur.app'),
             hostname: hostname,
-            protocol: window.location.protocol,
-            wsUrl: window.WSS_URL
+            protocol: window.location.protocol
         };
         
         console.log('🔧 環境配置完成:', window.ENVIRONMENT);
