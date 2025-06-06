@@ -1,158 +1,130 @@
 @echo off
-chcp 65001 >nul
+chcp 65001 > nul
 setlocal EnableDelayedExpansion
 
-echo ⚡ 快速Git上傳腳本 - PythonLearn-Zeabur-PHP ⚡
-echo =====================================================
+:: 獲取當前日期時間用於日誌
+FOR /F "usebackq tokens=1-4 delims=: " %%i IN (`echo %time%`) DO SET "CurrentTime=%%i_%%j_%%k_%%l"
+SET "LogFile=github_upload_record_%DATE:~10,4%%DATE:~4,2%%DATE:~7,2%_%CurrentTime%.log"
 
-REM 設置顏色
-set "GREEN=[32m"
-set "RED=[31m"
-set "YELLOW=[33m"
-set "BLUE=[34m"
-set "NC=[0m"
+ECHO 🚀 正在準備智慧型 Git 上傳...
+ECHO.
 
-echo %BLUE%[1/6]%NC% 檢查Git狀態...
-git status --porcelain >nul 2>&1
-if errorlevel 1 (
-    echo %RED%❌ Git未初始化或不在Git倉庫中%NC%
-    pause
-    exit /b 1
+:: 1. 檢查是否有未提交的變更
+ECHO 🔍 檢查檔案狀態...
+git status --porcelain > NUL
+IF %ERRORLEVEL% NEQ 0 (
+    ECHO ❌ 無法執行 Git status。請確保您在 Git 倉庫中。
+    GOTO :END
 )
 
-echo %BLUE%[2/6]%NC% 檢查是否有變更...
-for /f %%i in ('git status --porcelain') do set CHANGES=%%i
-if "!CHANGES!"=="" (
-    echo %YELLOW%ℹ️  沒有檔案變更，無需上傳%NC%
-    echo.
-    echo 當前狀態:
-    git status --short
-    pause
-    exit /b 0
-)
-
-echo %GREEN%✅ 檢測到檔案變更%NC%
-echo.
-echo 變更檔案:
-git status --short
-
-echo.
-echo %BLUE%[3/6]%NC% 添加所有變更到暫存區...
-git add .
-if errorlevel 1 (
-    echo %RED%❌ 添加檔案失敗%NC%
-    pause
-    exit /b 1
-)
-echo %GREEN%✅ 檔案添加完成%NC%
-
-echo.
-echo %BLUE%[4/6]%NC% 檢查暫存區狀態...
-git diff --cached --stat
-if errorlevel 1 (
-    echo %YELLOW%⚠️  暫存區為空%NC%
-    pause
-    exit /b 1
-)
-
-REM 自動生成提交訊息
-echo.
-echo %BLUE%[5/6]%NC% 生成提交訊息...
-
-REM 檢查變更類型
-set "COMMIT_TYPE=更新"
-set "COMMIT_SCOPE="
-
-REM 檢查是否有新檔案
-for /f %%i in ('git diff --cached --name-status ^| findstr "^A"') do set NEW_FILES=1
-if defined NEW_FILES set "COMMIT_TYPE=新增"
-
-REM 檢查是否有刪除檔案
-for /f %%i in ('git diff --cached --name-status ^| findstr "^D"') do set DELETED_FILES=1
-if defined DELETED_FILES set "COMMIT_TYPE=刪除"
-
-REM 檢查特定檔案類型
-git diff --cached --name-only | findstr "zeabur.yaml" >nul && set "COMMIT_SCOPE=Zeabur配置"
-git diff --cached --name-only | findstr "router.php" >nul && set "COMMIT_SCOPE=路由配置"
-git diff --cached --name-only | findstr "websocket" >nul && set "COMMIT_SCOPE=WebSocket服務"
-git diff --cached --name-only | findstr ".js$" >nul && set "COMMIT_SCOPE=前端功能"
-git diff --cached --name-only | findstr ".bat$" >nul && set "COMMIT_SCOPE=腳本工具"
-
-REM 生成最終提交訊息
-set "COMMIT_MSG=🔧 %COMMIT_TYPE%"
-if defined COMMIT_SCOPE set "COMMIT_MSG=!COMMIT_MSG!: !COMMIT_SCOPE!"
-
-REM 添加時間戳
-for /f "tokens=1-3 delims=/ " %%a in ('date /t') do set COMMIT_DATE=%%c-%%a-%%b
-for /f "tokens=1-2 delims=: " %%a in ('time /t') do set COMMIT_TIME=%%a:%%b
-set "COMMIT_MSG=!COMMIT_MSG! - !COMMIT_DATE! !COMMIT_TIME!"
-
-echo 提交訊息: !COMMIT_MSG!
-
-echo.
-set /p CUSTOM_MSG="是否使用自定義提交訊息? (直接按Enter使用自動生成的訊息): "
-if not "!CUSTOM_MSG!"=="" set "COMMIT_MSG=!CUSTOM_MSG!"
-
-echo.
-echo %BLUE%[6/6]%NC% 提交並推送到GitHub...
-git commit -m "!COMMIT_MSG!"
-if errorlevel 1 (
-    echo %RED%❌ 提交失敗%NC%
-    pause
-    exit /b 1
-)
-
-echo %GREEN%✅ 提交完成%NC%
-echo.
-echo 推送到遠端倉庫...
-git push origin main
-if errorlevel 1 (
-    echo %RED%❌ 推送失敗，嘗試其他分支...%NC%
-    git push origin master
-    if errorlevel 1 (
-        echo %RED%❌ 推送失敗%NC%
-        echo.
-        echo 可能的原因:
-        echo - 網路連接問題
-        echo - 需要身份驗證
-        echo - 分支名稱不正確
-        echo.
-        echo 手動推送指令:
-        echo git push origin main
-        echo 或
-        echo git push origin master
-        pause
-        exit /b 1
+FOR /F "usebackq tokens=*" %%a IN (`git status --porcelain`) DO (
+    IF NOT "%%a"=="" (
+        SET "HasChanges=true"
     )
 )
 
-echo.
-echo %GREEN%🎉 Git上傳完成！%NC%
-echo =====================================================
-echo.
-echo 📊 上傳摘要:
-echo 提交訊息: !COMMIT_MSG!
-echo 推送時間: !COMMIT_DATE! !COMMIT_TIME!
-echo.
-echo 🌐 Zeabur部署:
-echo 專案會自動部署到: https://python-learn.zeabur.app
-echo 部署通常需要2-5分鐘完成
-echo.
-echo 📋 檢查清單:
-echo - ✅ 代碼已提交到GitHub
-echo - ⏳ Zeabur自動部署中...
-echo - 🔄 建議等待5分鐘後測試WebSocket連接
-echo.
+IF NOT DEFINED HasChanges (
+    ECHO ✅ 沒有偵測到任何變更，無需提交。
+    GOTO :END
+)
 
-REM 顯示最後幾次提交
-echo 📜 最近提交記錄:
-git log --oneline -5
+ECHO ----------------------------------------------------
+ECHO ℹ️ 以下是將要提交的變更:
+git status --short
+ECHO ----------------------------------------------------
+ECHO.
 
-echo.
-echo %YELLOW%💡 提示:%NC%
-echo 1. 如需查看部署狀態，訪問 Zeabur 控制台
-echo 2. WebSocket連接問題可通過健康檢查端點確認: /health
-echo 3. 如遇問題，運行 system-cleanup.bat 清理本地環境
-echo.
+:: 2. 添加所有變更
+ECHO ➕ 正在添加所有變更...
+git add -A
+IF %ERRORLEVEL% NEQ 0 (
+    ECHO ❌ Git add 失敗。
+    GOTO :END
+)
+ECHO ✅ 所有變更已暫存。
+ECHO.
 
-pause 
+:: 3. 提示用戶輸入提交訊息 (預設值)
+SET "CommitMessage="
+ECHO 💡 請輸入本次提交的簡短描述 (例如: 修正WebSocket連線, 新增AI功能):
+SET /P "CommitMessage=>> "
+
+IF "%CommitMessage%"=="" (
+    ECHO ⚠️ 未輸入描述。將使用預設訊息。
+    SET "CommitMessage=chore: 自動提交 - %DATE% %TIME%"
+) ELSE (
+    :: 嘗試根據描述生成語義化前綴
+    ECHO 正在根據您的描述生成語義化提交訊息...
+    CALL :GENERATE_SEMANTIC_MESSAGE "!CommitMessage!"
+    SET "CommitMessage=!SemanticMessage!"
+)
+
+ECHO ----------------------------------------------------
+ECHO ✅ 最終提交訊息: !CommitMessage!
+ECHO ----------------------------------------------------
+ECHO.
+
+:: 4. 提交變更
+ECHO 💾 正在提交變更...
+git commit -m "!CommitMessage!"
+IF %ERRORLEVEL% NEQ 0 (
+    ECHO ❌ Git commit 失敗。請檢查是否有衝突或錯誤。
+    GOTO :END
+)
+ECHO ✅ 變更已提交。
+ECHO.
+
+:: 5. 推送到遠端倉庫
+ECHO ⬆️ 正在推送到 remote 'origin' 的 'main' 分支...
+git push origin main
+IF %ERRORLEVEL% NEQ 0 (
+    ECHO ❌ Git push 失敗。請檢查您的網路連線或權限。
+    GOTO :END
+)
+ECHO ✅ 推送成功！
+ECHO.
+
+ECHO ----------------------------------------------------
+ECHO 🎉 GitHub 上傳完成！
+ECHO ----------------------------------------------------
+
+:: 記錄上傳歷史 (可選)
+ECHO 正在記錄本次上傳到 %LogFile%...
+ECHO ---------------------------------------------------- >> %LogFile%
+ECHO 上傳時間: %DATE% %TIME% >> %LogFile%
+ECHO 提交訊息: !CommitMessage! >> %LogFile%
+ECHO ---------------------------------------------------- >> %LogFile%
+ECHO. >> %LogFile%
+git log -1 >> %LogFile%
+ECHO. >> %LogFile%
+ECHO. >> %LogFile%
+ECHO ✅ 上傳記錄已更新。
+
+GOTO :END
+
+:GENERATE_SEMANTIC_MESSAGE
+SET "InputDesc=%~1"
+SET "SemanticMessage="
+
+:: 簡化判斷邏輯，通常是新功能(feat)或修正(fix)
+IF "!InputDesc:新增=!" NEQ "!InputDesc!" (
+    SET "SemanticMessage=feat: !InputDesc!"
+) ELSE IF "!InputDesc:修復=!" NEQ "!InputDesc!" (
+    SET "SemanticMessage=fix: !InputDesc!"
+) ELSE IF "!InputDesc:優化=!" NEQ "!InputDesc!" (
+    SET "SemanticMessage=perf: !InputDesc!"
+) ELSE IF "!InputDesc:更新=!" NEQ "!InputDesc!" (
+    SET "SemanticMessage=docs: !InputDesc!"
+) ELSE IF "!InputDesc:重構=!" NEQ "!InputDesc!" (
+    SET "SemanticMessage=refactor: !InputDesc!"
+) ELSE IF "!InputDesc:測試=!" NEQ "!InputDesc!" (
+    SET "SemanticMessage=test: !InputDesc!"
+) ELSE (
+    SET "SemanticMessage=chore: !InputDesc!"
+)
+GOTO :EOF
+
+:END
+ECHO 按任意鍵結束...
+PAUSE > NUL
+ENDLOCAL 
