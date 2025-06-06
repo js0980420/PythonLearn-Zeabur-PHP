@@ -43,8 +43,10 @@ services:
     
     # 端口配置
     ports:
-      - 8080  # HTTP 服務
-      - 8081  # WebSocket 服務
+      - port: 8080
+        name: http  # HTTP 服務
+      - port: 8081
+        name: ws    # WebSocket 服務
     
     # 健康檢查
     healthcheck:

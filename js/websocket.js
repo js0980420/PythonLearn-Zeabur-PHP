@@ -23,29 +23,21 @@ class WebSocketManager {
         this.currentUser = userName;
         
         let wsUrl;
-        
-        // 檢查是否有環境變數指定的 WSS_URL
-        if (window.WSS_URL) {
-            wsUrl = window.WSS_URL;
-            console.log('🌐 使用環境變數配置的 WebSocket URL:', wsUrl);
-        } else if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-            // 本地開發時 WebSocket 服務器運行在 8081 端口
-            wsUrl = `ws://${window.location.hostname}:8081`;
-            console.log('🏠 本地開發環境，WebSocket端口: 8081');
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        // Zeabur WSS 在 443 端口上，所以不需要指定端口。本地開發則使用 8081。
+        const wsPort = window.location.protocol === 'https:' ? '' : ':8081'; 
+        const hostname = window.location.hostname;
+
+        if (hostname === 'localhost' || hostname === '127.0.0.1') {
+            wsUrl = `ws://${hostname}:8081`;
+            console.log('🏠 本地開發環境，WebSocket 連接: ' + wsUrl);
         } else {
-            // 雲端環境（如 Zeabur）
-            console.log('☁️ 檢測到雲端環境');
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            
-            // 嘗試多種 WebSocket 連接方式
-            const possibleUrls = [
-                `${protocol}//${window.location.host}/ws`,  // Nginx 代理路徑
-                `${protocol}//${window.location.host}:8081`, // 直接連接 WebSocket 端口
-                `${protocol}//${window.location.host}`       // 根路徑
-            ];
-            
-            wsUrl = possibleUrls[0]; // 優先使用代理路徑
-            console.log('🔗 雲端 WebSocket 連接選項:', possibleUrls);
+            // Zeabur 或其他生產環境
+            // 對於 Zeabur，如果 WebSocket 服務與 Web 服務在同一個 Service 下，
+            // 通常會直接使用主域名，Zeabur 的反向代理會處理 wss 流量。
+            // 我們不再需要指定 /ws 路徑或特定端口。
+            wsUrl = `${protocol}//${hostname}${wsPort}`;
+            console.log('☁️ 雲端環境，WebSocket 連接: ' + wsUrl);
         }
         
         console.log(`🔌 嘗試連接到 WebSocket: ${wsUrl}`);
