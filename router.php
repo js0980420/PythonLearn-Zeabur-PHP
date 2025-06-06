@@ -195,9 +195,9 @@ if ($uri === '/health' || $uri === '/api/health') {
     
     // 檢查關鍵文件
     $requiredFiles = [
-        'index.html',
-        'js/websocket.js',
-        'js/ai-assistant.js',
+        'public/index.html',
+        'public/js/websocket.js',
+        'public/js/ai-assistant.js',
         'backend/api/ai.php',
         'websocket/server.php'
     ];
@@ -250,7 +250,7 @@ if (strpos(realpath($filePath) ?: '', realpath(__DIR__)) !== 0) {
 
 // 處理根目錄請求
 if ($requestPath === '/') {
-    $filePath = __DIR__ . '/index.html';
+    $filePath = __DIR__ . '/public/index.html';
 }
 
 // 檢查文件是否存在
