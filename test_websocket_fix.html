@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket 協議修復測試</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .info { background-color: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+        .warning { background-color: #fff3cd; border: 1px solid #ffeaa7; color: #856404; }
+        .log { height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; margin: 10px 0; background: #f8f9fa; font-family: monospace; font-size: 12px; }
+        button { margin: 5px; padding: 8px 16px; }
+        input { margin: 5px; padding: 5px; }
+        .user-list { background: #e9ecef; padding: 10px; margin: 10px 0; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 WebSocket 協議修復測試</h1>
+        
+        <div class="status" id="connectionStatus">
+            ⏳ 準備連接...
+        </div>
+        
+        <div>
+            <label>房間名稱: <input type="text" id="roomName" value="test_room_1" /></label>
+            <label>用戶名稱: <input type="text" id="userName" value="測試用戶1" /></label>
+            <button onclick="connect()">連接</button>
+            <button onclick="disconnect()">斷開</button>
+        </div>
+        
+        <div>
+            <h3>📋 測試操作</h3>
+            <button onclick="testJoinRoom()">測試加入房間</button>
+            <button onclick="testCodeChange()">測試代碼變更</button>
+            <button onclick="testSaveCode()">測試保存代碼</button>
+            <button onclick="testLoadCode()">測試載入代碼</button>
+            <button onclick="testHeartbeat()">測試心跳</button>
+            <button onclick="testAIRequest()">測試AI請求</button>
+        </div>
+        
+        <div class="user-list" id="userList">
+            <strong>在線用戶:</strong> <span id="onlineUsers">無</span>
+        </div>
+        
+        <div>
+            <h3>📝 實時日誌</h3>
+            <div class="log" id="logContainer"></div>
+            <button onclick="clearLog()">清空日誌</button>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let currentRoom = null;
+        let currentUser = null;
+        
+        // 記錄函數
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logContainer = document.getElementById('logContainer');
+            const logItem = document.createElement('div');
+            logItem.style.color = type === 'error' ? 'red' : type === 'success' ? 'green' : type === 'warning' ? 'orange' : 'black';
+            logItem.innerHTML = `[${timestamp}] ${message}`;
+            logContainer.appendChild(logItem);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            console.log(`[${timestamp}] ${message}`);
+        }
+        
+        // 更新連接狀態
+        function updateStatus(message, type = 'info') {
+            const statusEl = document.getElementById('connectionStatus');
+            statusEl.className = `status ${type}`;
+            statusEl.innerHTML = message;
+        }
+        
+        // 連接WebSocket
+        function connect() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                log('❌ 已經連接，請先斷開', 'warning');
+                return;
+            }
+            
+            currentRoom = document.getElementById('roomName').value;
+            currentUser = document.getElementById('userName').value;
+            
+            if (!currentRoom || !currentUser) {
+                log('❌ 請輸入房間名稱和用戶名稱', 'error');
+                return;
+            }
+            
+            log('🔌 正在連接 WebSocket...', 'info');
+            updateStatus('⏳ 正在連接...', 'warning');
+            
+            try {
+                ws = new WebSocket('ws://localhost:8080');
+                
+                ws.onopen = function(event) {
+                    log('✅ WebSocket 連接成功', 'success');
+                    updateStatus('✅ 已連接', 'success');
+                    
+                    // 自動加入房間
+                    testJoinRoom();
+                };
+                
+                ws.onmessage = function(event) {
+                    try {
+                        const message = JSON.parse(event.data);
+                        handleMessage(message);
+                    } catch (error) {
+                        log(`❌ 解析消息失敗: ${error.message}`, 'error');
+                        log(`原始數據: ${event.data}`, 'error');
+                    }
+                };
+                
+                ws.onclose = function(event) {
+                    log(`🔌 WebSocket 連接關閉: ${event.code} - ${event.reason}`, 'warning');
+                    updateStatus('❌ 連接已關閉', 'error');
+                };
+                
+                ws.onerror = function(error) {
+                    log(`❌ WebSocket 錯誤: ${error}`, 'error');
+                    updateStatus('❌ 連接錯誤', 'error');
+                };
+                
+            } catch (error) {
+                log(`❌ 建立連接失敗: ${error.message}`, 'error');
+                updateStatus('❌ 連接失敗', 'error');
+            }
+        }
+        
+        // 斷開連接
+        function disconnect() {
+            if (ws) {
+                ws.close(1000, '用戶主動斷開');
+                ws = null;
+                log('👋 已斷開連接', 'info');
+                updateStatus('❌ 已斷開', 'info');
+            }
+        }
+        
+        // 發送消息
+        function sendMessage(message) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('❌ WebSocket 未連接', 'error');
+                return false;
+            }
+            
+            try {
+                ws.send(JSON.stringify(message));
+                log(`📤 發送消息: ${message.type}`, 'info');
+                log(`📤 消息內容: ${JSON.stringify(message, null, 2)}`, 'info');
+                return true;
+            } catch (error) {
+                log(`❌ 發送消息失敗: ${error.message}`, 'error');
+                return false;
+            }
+        }
+        
+        // 處理收到的消息
+        function handleMessage(message) {
+            log(`📨 收到消息: ${message.type}`, 'success');
+            log(`📨 消息內容: ${JSON.stringify(message, null, 2)}`, 'success');
+            
+            switch (message.type) {
+                case 'room_joined':
+                    updateStatus(`✅ 已加入房間: ${message.room_id}`, 'success');
+                    updateUserList(message.users);
+                    break;
+                
+                case 'join_room_error':
+                    log(`❌ 加入房間失敗: ${message.message}`, 'error');
+                    break;
+                
+                case 'user_joined':
+                    log(`👤 用戶加入: ${message.username}`, 'info');
+                    updateUserList(message.users);
+                    break;
+                
+                case 'user_left':
+                    log(`👋 用戶離開: ${message.user_id}`, 'info');
+                    updateUserList(message.users);
+                    break;
+                
+                case 'code_change':
+                    log(`📝 代碼變更: ${message.username}`, 'info');
+                    break;
+                
+                case 'code_saved':
+                    log(`💾 代碼保存成功: ${message.save_name}`, 'success');
+                    break;
+                
+                case 'code_loaded':
+                    log(`📂 代碼載入成功`, 'success');
+                    break;
+                
+                case 'pong':
+                    log(`💓 收到心跳回應`, 'success');
+                    break;
+                
+                case 'ai_response':
+                    log(`🤖 AI 回應: ${message.success ? '成功' : '失敗'}`, message.success ? 'success' : 'error');
+                    break;
+                
+                case 'error':
+                    log(`❌ 服務器錯誤: ${message.message}`, 'error');
+                    break;
+                
+                default:
+                    log(`⚠️ 未知消息類型: ${message.type}`, 'warning');
+            }
+        }
+        
+        // 更新用戶列表
+        function updateUserList(users) {
+            const onlineUsersEl = document.getElementById('onlineUsers');
+            if (!users || users.length === 0) {
+                onlineUsersEl.textContent = '無';
+                return;
+            }
+            
+            const userNames = users.map(user => user.userName || user.username || user.name || '匿名用戶');
+            onlineUsersEl.textContent = userNames.join(', ');
+            log(`👥 用戶列表更新: ${userNames.join(', ')}`, 'info');
+        }
+        
+        // 測試函數
+        function testJoinRoom() {
+            sendMessage({
+                type: 'join_room',
+                room_id: currentRoom,
+                user_id: currentUser,
+                username: currentUser
+            });
+        }
+        
+        function testCodeChange() {
+            sendMessage({
+                type: 'code_change',
+                room_id: currentRoom,
+                user_id: currentUser,
+                username: currentUser,
+                code: `# 測試代碼變更 ${new Date().toLocaleTimeString()}\nprint("Hello from ${currentUser}!")`,
+                timestamp: Date.now()
+            });
+        }
+        
+        function testSaveCode() {
+            sendMessage({
+                type: 'save_code',
+                room_id: currentRoom,
+                user_id: currentUser,
+                code: `# 測試保存 ${new Date().toLocaleTimeString()}\nprint("Saved by ${currentUser}")`,
+                save_name: `測試保存_${new Date().toLocaleTimeString()}`
+            });
+        }
+        
+        function testLoadCode() {
+            sendMessage({
+                type: 'load_code',
+                room_id: currentRoom,
+                user_id: currentUser,
+                current_version: 1
+            });
+        }
+        
+        function testHeartbeat() {
+            sendMessage({
+                type: 'ping'
+            });
+        }
+        
+        function testAIRequest() {
+            sendMessage({
+                type: 'ai_request',
+                room_id: currentRoom,
+                user_id: currentUser,
+                action: 'analyze',
+                code: 'print("Hello, AI!")',
+                message: '請幫我分析這段代碼'
+            });
+        }
+        
+        // 清空日誌
+        function clearLog() {
+            document.getElementById('logContainer').innerHTML = '';
+        }
+        
+        // 頁面載入時的初始化
+        window.onload = function() {
+            log('🚀 測試頁面已載入', 'info');
+            log('📋 請點擊「連接」開始測試', 'info');
+        };
+    </script>
+</body>
+</html> 

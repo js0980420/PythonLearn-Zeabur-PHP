@@ -32,11 +32,9 @@ class WebSocketManager {
             wsUrl = `ws://${hostname}:8081`;
             console.log('🏠 本地開發環境，WebSocket 連接: ' + wsUrl);
         } else {
-            // Zeabur 或其他生產環境
-            // 對於 Zeabur，如果 WebSocket 服務與 Web 服務在同一個 Service 下，
-            // 通常會直接使用主域名，Zeabur 的反向代理會處理 wss 流量。
-            // 我們不再需要指定 /ws 路徑或特定端口。
-            wsUrl = `${protocol}//${hostname}${wsPort}`;
+            // Zeabur 雲端環境 - 使用整合式WebSocket代理
+            // router.php 會自動代理 /ws 路徑到內部WebSocket服務器
+            wsUrl = `${protocol}//${hostname}/ws`;
             console.log('☁️ 雲端環境，WebSocket 連接: ' + wsUrl);
         }
         
