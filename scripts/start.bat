@@ -39,111 +39,133 @@ if !ERRORLEVEL! neq 0 (
 echo SUCCESS: PHP environment OK
 
 echo [3/5] Checking dependencies...
-if not exist "vendor\autoload.php" (
-    echo WARNING: Vendor dependencies not found
-    echo 正在安裝 Composer 依賴...
+if not exist "vendor" (
+    echo WARNING: Vendor directory not found, installing dependencies...
     composer install
-    if !ERRORLEVEL! neq 0 (
-        echo ERROR: Failed to install dependencies
-        pause
-        exit /b 1
-    )
 )
 echo SUCCESS: Dependencies found
 
 echo [4/5] Starting services...
 
-REM 啟動Web服務器
-echo Starting Web Server...
-start "Web Server" cmd /c "php -S localhost:8080 router.php"
+echo.
+echo 選擇啟動模式:
+echo [1] Caddy 代理模式 (推薦，模擬生產環境)
+echo [2] 傳統直連模式 (向後兼容)
+echo.
+set /p MODE="請選擇模式 (1-2): "
 
-REM 等待Web服務器啟動
-timeout /t 2 >nul
-
-REM 啟動WebSocket服務器
-echo Starting WebSocket Server...
-start "WebSocket Server" cmd /c "php websocket\server.php"
-
-REM 等待服務器啟動
-timeout /t 3 >nul
+if "%MODE%"=="1" (
+    echo.
+    echo 🚀 啟動 Caddy 代理模式...
+    echo.
+    
+    REM 檢查 Caddy 是否安裝
+    caddy version > nul 2>&1
+    if errorlevel 1 (
+        echo ❌ 錯誤: Caddy 未安裝
+        echo.
+        echo 請先安裝 Caddy:
+        echo 1. 下載: https://caddyserver.com/download
+        echo 2. 或使用 Chocolatey: choco install caddy
+        echo 3. 或使用 Scoop: scoop install caddy
+        pause
+        exit /b 1
+    )
+    
+    echo Starting WebSocket Server...
+    start "WebSocket Server" cmd /c "php websocket/server.php"
+    timeout /t 2 > nul
+    
+    echo Starting PHP Server...
+    start "PHP Server" cmd /c "php -S localhost:8080 router.php"
+    timeout /t 2 > nul
+    
+    echo Starting Caddy Proxy...
+    start "Caddy Proxy" cmd /c "caddy run --config Caddyfile"
+    timeout /t 3 > nul
+    
+    set "MAIN_URL=http://localhost:3000"
+    set "WS_INFO=透過 Caddy 代理 (localhost:3000/ws)"
+    
+) else (
+    echo.
+    echo 🔧 啟動傳統直連模式...
+    echo.
+    
+    echo Starting WebSocket Server...
+    start "WebSocket Server" cmd /c "php websocket/server.php"
+    timeout /t 2 > nul
+    
+    echo Starting PHP Server...
+    start "PHP Server" cmd /c "php -S localhost:8080 router.php"
+    timeout /t 2 > nul
+    
+    set "MAIN_URL=http://localhost:8080"
+    set "WS_INFO=直連 WebSocket (localhost:8081)"
+)
 
 echo [5/5] Verifying services...
+timeout /t 3 > nul
 
-REM 檢查Web服務器
-call :check_service "localhost" "8080" "Web Server"
-if !ERRORLEVEL! neq 0 (
-    echo ERROR: Web Server failed to start
-    pause
-    exit /b 1
+REM 檢查服務狀態
+curl -s "http://localhost:8080/health" > nul 2>&1
+if errorlevel 1 (
+    echo WARNING: PHP Server may not be ready yet
+) else (
+    echo SUCCESS: PHP Server running on port 8080
 )
-echo SUCCESS: Web Server running on port 8080
 
-REM 檢查WebSocket服務器
-call :check_service "localhost" "8081" "WebSocket Server"
-if !ERRORLEVEL! neq 0 (
-    echo ERROR: WebSocket Server failed to start
-    pause
-    exit /b 1
+netstat -an | findstr ":8081" > nul
+if errorlevel 1 (
+    echo WARNING: WebSocket Server may not be ready yet
+) else (
+    echo SUCCESS: WebSocket Server running on port 8081
 )
-echo SUCCESS: WebSocket Server running on port 8081
+
+if "%MODE%"=="1" (
+    curl -s "http://localhost:3000" > nul 2>&1
+    if errorlevel 1 (
+        echo WARNING: Caddy Proxy may not be ready yet
+    ) else (
+        echo SUCCESS: Caddy Proxy running on port 3000
+    )
+)
 
 echo ================================================================
 echo                   Services Started Successfully
 echo ================================================================
 
 echo Access URLs:
-echo   Student Interface:     http://localhost:8080
-echo   Main Page:            http://localhost:8080/index.html
-echo   Teacher Dashboard:    http://localhost:8080/teacher-dashboard.html
-echo   Health Check:         http://localhost:8080/health
+echo   Student Interface:     !MAIN_URL!
+echo   Main Page:            !MAIN_URL!/index.html
+echo   Teacher Dashboard:    !MAIN_URL!/teacher-dashboard.html
+echo   Health Check:         !MAIN_URL!/health
 
 echo System Info:
-echo   WebSocket Port:       8081
+echo   WebSocket:            !WS_INFO!
 echo   Web Server Port:      8080
 echo   Working Directory:    %CD%
+
+if "%MODE%"=="1" (
+    echo   Caddy Proxy Port:     3000
+    echo   Architecture:         Caddy Reverse Proxy
+) else (
+    echo   Architecture:         Direct Connection
+)
 
 echo Tips:
 echo   - Multiple users can collaborate in real-time
 echo   - Use teacher dashboard for monitoring
 echo   - Check console for WebSocket connection status
 
-echo Choose an option:
-echo [1] Open Student Interface in Browser
-echo [2] Open Teacher Dashboard in Browser
-echo [3] Show System Status
-echo [4] Run System Cleanup
-echo [5] Stop All Servers
-echo [0] Exit
-
-set /p choice="Enter option (0-5): "
-
-if "%choice%"=="1" (
-    start http://localhost:8080
-    goto :menu_loop
-) else if "%choice%"=="2" (
-    start http://localhost:8080/teacher-dashboard.html
-    goto :menu_loop
-) else if "%choice%"=="3" (
-    call :show_status
-    goto :menu_loop
-) else if "%choice%"=="4" (
-    call scripts\system-cleanup.bat
-    goto :menu_loop
-) else if "%choice%"=="5" (
-    call :stop_servers
-    echo Servers stopped.
-    pause
-    exit /b 0
-) else if "%choice%"=="0" (
-    echo Exiting...
-    exit /b 0
+if "%MODE%"=="1" (
+    echo   - This mode simulates production environment
+    echo   - WebSocket connects via /ws path
 ) else (
-    echo Invalid option. Please try again.
-    goto :menu_loop
+    echo   - This mode is for backward compatibility
+    echo   - WebSocket connects directly to port 8081
 )
 
-:menu_loop
-echo.
 echo Choose an option:
 echo [1] Open Student Interface in Browser
 echo [2] Open Teacher Dashboard in Browser
@@ -152,31 +174,37 @@ echo [4] Run System Cleanup
 echo [5] Stop All Servers
 echo [0] Exit
 
+:menu
 set /p choice="Enter option (0-5): "
 
 if "%choice%"=="1" (
-    start http://localhost:8080
-    goto :menu_loop
+    start "" "!MAIN_URL!"
+    goto menu
 ) else if "%choice%"=="2" (
-    start http://localhost:8080/teacher-dashboard.html
-    goto :menu_loop
+    start "" "!MAIN_URL!/teacher-dashboard.html"
+    goto menu
 ) else if "%choice%"=="3" (
-    call :show_status
-    goto :menu_loop
+    echo.
+    echo ========== System Status ==========
+    curl -s "http://localhost:8080/health"
+    echo.
+    echo ===================================
+    goto menu
 ) else if "%choice%"=="4" (
-    call scripts\system-cleanup.bat
-    goto :menu_loop
+    start "" "scripts\system-cleanup.bat"
+    goto menu
 ) else if "%choice%"=="5" (
-    call :stop_servers
-    echo Servers stopped.
+    echo Stopping all servers...
+    taskkill /f /im php.exe > nul 2>&1
+    taskkill /f /im caddy.exe > nul 2>&1
+    echo All servers stopped.
     pause
-    exit /b 0
+    exit /b
 ) else if "%choice%"=="0" (
-    echo Exiting...
-    exit /b 0
+    exit /b
 ) else (
     echo Invalid option. Please try again.
-    goto :menu_loop
+    goto menu
 )
 
 :check_ports
@@ -190,46 +218,4 @@ if !ERRORLEVEL! equ 0 (
     echo ERROR: Port 8081 is already in use
     exit /b 1
 )
-exit /b 0
-
-:check_service
-set "host=%~1"
-set "port=%~2"
-set "service_name=%~3"
-
-for /L %%i in (1,1,10) do (
-    powershell -Command "try { $connection = New-Object System.Net.Sockets.TcpClient; $connection.Connect('%host%', %port%); $connection.Close(); exit 0 } catch { exit 1 }" >nul 2>&1
-    if !ERRORLEVEL! equ 0 (
-        exit /b 0
-    )
-    timeout /t 1 >nul
-)
-exit /b 1
-
-:show_status
-echo.
-echo ============ System Status ============
-echo Web Server (8080):
-curl -s http://localhost:8080/health 2>nul | findstr "status" || echo "Not responding"
-
-echo.
-echo WebSocket Server (8081):
-netstat -ano | findstr ":8081" || echo "Not running"
-
-echo.
-echo Active PHP Processes:
-tasklist | findstr "php.exe" || echo "No PHP processes found"
-
-echo.
-echo Port Usage:
-netstat -ano | findstr ":808"
-echo ======================================
-pause
-exit /b 0
-
-:stop_servers
-echo Stopping all servers...
-taskkill /F /IM php.exe >nul 2>&1
-timeout /t 2 >nul
-echo All PHP processes terminated.
 exit /b 0 

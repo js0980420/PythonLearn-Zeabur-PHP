@@ -24,18 +24,25 @@ class WebSocketManager {
         
         let wsUrl;
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        // Zeabur WSS 在 443 端口上，所以不需要指定端口。本地開發則使用 8081。
-        const wsPort = window.location.protocol === 'https:' ? '' : ':8081'; 
         const hostname = window.location.hostname;
+        const port = window.location.port;
 
+        // 統一使用 /ws 路徑，由 Caddy 反向代理處理
         if (hostname === 'localhost' || hostname === '127.0.0.1') {
-            wsUrl = `ws://${hostname}:8081`;
-            console.log('🏠 本地開發環境，WebSocket 連接: ' + wsUrl);
+            // 本地開發環境
+            if (port === '3000') {
+                // 使用 Caddy 本地開發配置
+                wsUrl = `ws://${hostname}:3000/ws`;
+                console.log('🏠 本地開發環境 (Caddy)，WebSocket 連接: ' + wsUrl);
+            } else {
+                // 直接連接到 WebSocket 服務器 (舊方式，兼容性)
+                wsUrl = `ws://${hostname}:8081`;
+                console.log('🏠 本地開發環境 (直連)，WebSocket 連接: ' + wsUrl);
+            }
         } else {
-            // Zeabur 雲端環境 - 使用整合式WebSocket代理
-            // router.php 會自動代理 /ws 路徑到內部WebSocket服務器
+            // 生產環境 - Zeabur 使用 Caddy 反向代理
             wsUrl = `${protocol}//${hostname}/ws`;
-            console.log('☁️ 雲端環境，WebSocket 連接: ' + wsUrl);
+            console.log('☁️ 生產環境 (Caddy 代理)，WebSocket 連接: ' + wsUrl);
         }
         
         console.log(`🔌 嘗試連接到 WebSocket: ${wsUrl}`);
