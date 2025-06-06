@@ -166,9 +166,35 @@
                             <div>
                                 <!-- 第一組：保存、載入、運行 -->
                                 <div class="btn-group me-2" role="group">
-                                    <button class="btn btn-outline-primary btn-sm" onclick="globalSaveCode()">
+                                    <!-- 保存按鈕組 -->
+                                    <button class="btn btn-outline-primary btn-sm" onclick="globalSaveCode(true)">
                                         <i class="fas fa-save"></i> 保存
                                     </button>
+                                    <button class="btn btn-outline-primary btn-sm dropdown-toggle dropdown-toggle-split" type="button" data-bs-toggle="dropdown" id="saveDropdownBtn">
+                                        <span class="visually-hidden">Toggle Dropdown</span>
+                                    </button>
+                                    <ul class="dropdown-menu" id="saveCodeOptions">
+                                        <li><h6 class="dropdown-header">保存選項</h6></li>
+                                        <li><a class="dropdown-item" href="#" onclick="globalSaveCode(true)">
+                                            <i class="fas fa-save text-primary"></i> 保存到最新
+                                        </a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><h6 class="dropdown-header">保存槽位</h6></li>
+                                        <li><a class="dropdown-item" href="#" onclick="globalSaveToSlot(1)">
+                                            <i class="fas fa-folder text-info"></i> 保存到槽位 1
+                                        </a></li>
+                                        <li><a class="dropdown-item" href="#" onclick="globalSaveToSlot(2)">
+                                            <i class="fas fa-folder text-info"></i> 保存到槽位 2
+                                        </a></li>
+                                        <li><a class="dropdown-item" href="#" onclick="globalSaveToSlot(3)">
+                                            <i class="fas fa-folder text-info"></i> 保存到槽位 3
+                                        </a></li>
+                                        <li><a class="dropdown-item" href="#" onclick="globalSaveToSlot(4)">
+                                            <i class="fas fa-folder text-info"></i> 保存到槽位 4
+                                        </a></li>
+                                    </ul>
+                                    
+                                    <!-- 載入按鈕組 -->
                                     <button class="btn btn-outline-secondary btn-sm" type="button" onclick="globalLoadCode('latest')">
                                         <i class="fas fa-sync-alt"></i> 載入
                                     </button>
@@ -184,6 +210,7 @@
                                         <li><h6 class="dropdown-header">歷史版本</h6></li>
                                         <li id="historyEmptyMessage"><span class="dropdown-item-text text-muted">無歷史版本</span></li>
                                     </ul>
+                                    
                                     <button class="btn btn-outline-success btn-sm" onclick="globalRunCode()">
                                         <i class="fas fa-play"></i> 運行
                                     </button>
@@ -249,7 +276,7 @@
                                     <small class="text-muted">分享到聊天室?</small>
                                     <div>
                                         <button class="btn btn-success btn-sm" onclick="globalShareAIResponse()"><i class="fas fa-share"></i> 分享</button>
-                                        <button class="btn btn-secondary btn-sm" onclick="globalHideShareOptions()"><i class="fas fa-times"></i> 取消</button>
+                                        <button class="btn btn-secondary btn-sm" onclick="globalHideAIShareOptions()"><i class="fas fa-times"></i> 取消</button>
                                     </div>
                                 </div>
                             </div>
@@ -353,11 +380,40 @@
     
     <!-- 模組化JS檔案 (確保路徑相對於public目錄是正確的) -->
     <script src="js/websocket.js"></script>
+    <script src="js/save-load.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/editor.js"></script>
     <script src="js/chat.js"></script>
     <script src="js/ai-assistant.js"></script>
     <script src="js/conflict.js"></script>
+    
+    <!-- 歷史記錄顯示修復腳本 -->
+    <script>
+        // 確保歷史記錄能正確顯示的修復腳本
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🔧 歷史記錄修復腳本啟動');
+            
+            // 等待其他模組載入完成
+            setTimeout(function() {
+                // 強制請求一次歷史記錄
+                if (window.wsManager && window.wsManager.isConnected()) {
+                    console.log('📜 通過 WebSocket 請求歷史記錄');
+                    window.wsManager.getHistory();
+                } else {
+                    console.log('📜 通過 HTTP API 請求歷史記錄');
+                    fetch('/api/history?room_id=test-room')
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success && data.history && window.SaveLoadManager) {
+                                console.log('✅ 獲取到歷史數據，更新下拉選單');
+                                window.SaveLoadManager.updateHistoryDropdown(data.history);
+                            }
+                        })
+                        .catch(error => console.error('❌ 歷史記錄請求失敗:', error));
+                }
+            }, 3000);
+        });
+    </script>
     
     <script>
         // 全域事件處理函數 (避免HTML中的onclick直接調用模組內部方法導致可能的初始化順序問題)

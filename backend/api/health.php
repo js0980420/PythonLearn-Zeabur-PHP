@@ -33,17 +33,30 @@ function checkHealth() {
     // 檢查數據庫連接
     try {
         require_once __DIR__ . '/../classes/Database.php';
-        $database = Database::getInstance();
-        $dbType = $database->getDatabaseType();
+        $database = \App\Database::getInstance();
+        $dbStatus = $database->getStatus();
         
-        // 測試查詢
-        $testQuery = $database->fetch("SELECT 1 as test");
-        
-        $health['services']['database'] = [
-            'status' => 'connected',
-            'type' => $dbType,
-            'message' => $dbType === 'mysql' ? 'XAMPP MySQL 已連接' : 'SQLite 降級模式'
-        ];
+        // 測試連接
+        if ($database->isConnected()) {
+            $health['services']['database'] = [
+                'status' => 'connected',
+                'mode' => $dbStatus['mode'],
+                'environment' => $dbStatus['environment'],
+                'message' => $dbStatus['mode'] === 'MySQL' ? 'MySQL 數據庫已連接' : '本地存儲模式已啟用'
+            ];
+            
+            // 如果是本地模式，顯示統計信息
+            if ($dbStatus['mode'] === 'localStorage') {
+                $stats = $database->getLocalStorageStats();
+                $health['services']['database']['local_stats'] = $stats;
+            }
+        } else {
+            $health['services']['database'] = [
+                'status' => 'disconnected',
+                'message' => '數據庫連接失敗'
+            ];
+            $health['status'] = 'degraded';
+        }
         
     } catch (Exception $e) {
         $health['services']['database'] = [
@@ -54,7 +67,7 @@ function checkHealth() {
     }
     
     // 檢查 WebSocket 端口
-    $websocketPort = 8080;
+    $websocketPort = 8081;
     $websocketStatus = @fsockopen('localhost', $websocketPort, $errno, $errstr, 1);
     
     if ($websocketStatus) {
@@ -68,7 +81,8 @@ function checkHealth() {
         $health['services']['websocket'] = [
             'status' => 'stopped',
             'port' => $websocketPort,
-            'message' => 'WebSocket 服務器未運行'
+            'message' => 'WebSocket 服務器未運行',
+            'note' => 'WebSocket 服務器應在端口 8081 運行'
         ];
         $health['status'] = 'degraded';
     }
@@ -126,10 +140,10 @@ function checkHealth() {
     
     // 檢查必要檔案
     $requiredFiles = [
-        'index.html',
-        'teacher-dashboard.html',
-        'js/websocket.js',
-        'js/ai-assistant.js',
+        'public/index.html',
+        'public/teacher-dashboard.html',
+        'public/js/websocket.js',
+        'public/js/ai-assistant.js',
         'backend/classes/Database.php'
     ];
     

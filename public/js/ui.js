@@ -473,3 +473,212 @@ function runCode() {
 function clearOutput() {
     Editor.clearOutput();
 }
+
+// 新增缺失的全域函數
+function globalSaveToSlot(slotId) {
+    console.log(`🎯 globalSaveToSlot 被調用，槽位: ${slotId}`);
+    if (window.SaveLoadManager) {
+        window.SaveLoadManager.selectSlot(slotId);
+    } else {
+        console.error('SaveLoadManager not ready');
+    }
+}
+
+function globalLoadCode(loadType) {
+    console.log(`🎯 globalLoadCode 被調用，類型: ${loadType}`);
+    if (window.Editor && typeof window.Editor.loadCode === 'function') {
+        window.Editor.loadCode(loadType);
+    } else {
+        console.error('Editor not ready or loadCode method missing');
+    }
+}
+
+function globalRunCode() {
+    console.log('🎯 globalRunCode 被調用');
+    if (window.Editor && typeof window.Editor.runCode === 'function') {
+        window.Editor.runCode();
+    } else {
+        console.error('Editor not ready or runCode method missing');
+    }
+}
+
+function globalCopyCode() {
+    console.log('🎯 globalCopyCode 被調用');
+    if (window.Editor && typeof window.Editor.copyCode === 'function') {
+        window.Editor.copyCode();
+    } else {
+        console.error('Editor not ready or copyCode method missing');
+    }
+}
+
+function globalDownloadCode() {
+    console.log('🎯 globalDownloadCode 被調用');
+    if (window.Editor && typeof window.Editor.downloadCode === 'function') {
+        window.Editor.downloadCode();
+    } else {
+        console.error('Editor not ready or downloadCode method missing');
+    }
+}
+
+function globalImportCode() {
+    console.log('🎯 globalImportCode 被調用');
+    if (window.Editor && typeof window.Editor.importCode === 'function') {
+        window.Editor.importCode();
+    } else {
+        console.error('Editor not ready or importCode method missing');
+    }
+}
+
+function globalAskAI(action) {
+    console.log(`🎯 globalAskAI 被調用，動作: ${action}`);
+    if (window.AIAssistant && typeof window.AIAssistant.requestAnalysis === 'function') {
+        window.AIAssistant.requestAnalysis(action);
+    } else {
+        console.error('AIAssistant not ready or requestAnalysis method missing');
+    }
+}
+
+function globalSendChat() {
+    console.log('🎯 globalSendChat 被調用');
+    // 修復：檢查 window.Chat 而不是 window.ChatManager
+    if (window.Chat && typeof window.Chat.sendMessage === 'function') {
+        window.Chat.sendMessage();
+    } else {
+        console.error('Chat not ready or sendMessage method missing');
+        console.log('🔍 window.Chat存在:', !!window.Chat);
+        console.log('🔍 sendMessage方法存在:', !!(window.Chat && window.Chat.sendMessage));
+    }
+}
+
+function globalTestConflictAnalysis() {
+    console.log('🎯 globalTestConflictAnalysis 被調用');
+    if (window.ConflictResolver) {
+        window.ConflictResolver.testConflictAnalysis();
+    } else {
+        console.error('❌ ConflictResolver 未定義');
+    }
+}
+
+function globalAskAIForConflictHelp() {
+    console.log('🎯 globalAskAIForConflictHelp 被調用');
+    if (window.ConflictResolver) {
+        window.ConflictResolver.requestAIAnalysis();
+    } else {
+        console.error('❌ ConflictResolver 未定義');
+    }
+}
+
+function globalShowConflictHistory() {
+    console.log('🎯 globalShowConflictHistory 被調用');
+    if (window.ConflictResolver) {
+        window.ConflictResolver.showConflictHistory();
+    } else {
+        console.error('❌ ConflictResolver 未定義');
+    }
+}
+
+function globalShareAIResponse() {
+    console.log('🎯 globalShareAIResponse 被調用');
+    if (window.AIAssistant && typeof window.AIAssistant.shareResponse === 'function') {
+        window.AIAssistant.shareResponse();
+    } else {
+        console.error('AIAssistant not ready or shareResponse method missing');
+    }
+}
+
+function globalHideAIShareOptions() {
+    console.log('🎯 globalHideAIShareOptions 被調用');
+    if (window.AI && typeof window.AI.hideShareOptions === 'function') {
+        window.AI.hideShareOptions();
+    } else {
+        console.error('AI not ready or hideShareOptions method missing');
+        // 隱藏分享選項元素
+        const shareOptions = document.querySelector('.share-options');
+        if (shareOptions) {
+            shareOptions.style.display = 'none';
+        }
+    }
+}
+
+function globalClearOutput() {
+    console.log('🎯 globalClearOutput 被調用');
+    if (window.Editor && typeof window.Editor.clearOutput === 'function') {
+        window.Editor.clearOutput();
+    } else {
+        console.error('Editor not ready or clearOutput method missing');
+    }
+}
+
+function globalHandleFileImport(event) {
+    console.log('🎯 globalHandleFileImport 被調用');
+    if (window.Editor && typeof window.Editor.handleFileImport === 'function') {
+        window.Editor.handleFileImport(event);
+    } else {
+        console.error('Editor not ready or handleFileImport method missing');
+    }
+}
+
+function globalShowTutorial() {
+    console.log('🎯 globalShowTutorial 被調用');
+    if (window.UI && typeof window.UI.showTutorial === 'function') {
+        window.UI.showTutorial();
+    } else {
+        console.error('UI not ready or showTutorial method missing');
+        // 提供簡單的教學提示
+        alert('教學功能正在開發中！\n\n基本操作：\n1. 在左側編輯器輸入Python程式碼\n2. 點擊"運行"按鈕執行程式\n3. 使用右側AI助教獲得程式協助\n4. 透過聊天室與其他同學協作');
+    }
+}
+
+function globalResolveConflict(action) {
+    console.log(`🎯 globalResolveConflict 被調用，動作: ${action}`);
+    if (window.ConflictResolver && typeof window.ConflictResolver.resolveConflict === 'function') {
+        window.ConflictResolver.resolveConflict(action);
+    } else {
+        console.error('ConflictResolver not ready or resolveConflict method missing');
+    }
+}
+
+function globalSwitchToAI() {
+    console.log('🎯 globalSwitchToAI 被調用');
+    if (window.UI && typeof window.UI.switchToAI === 'function') {
+        window.UI.switchToAI();
+    } else {
+        console.error('UI not ready or switchToAI method missing');
+    }
+}
+
+function globalSwitchToChat() {
+    console.log('🎯 globalSwitchToChat 被調用');
+    if (window.UI && typeof window.UI.switchToChat === 'function') {
+        window.UI.switchToChat();
+    } else {
+        console.error('UI not ready or switchToChat method missing');
+    }
+}
+
+function globalJoinRoom() {
+    console.log('🎯 globalJoinRoom 被調用');
+    if (window.UI && typeof window.UI.joinRoom === 'function') {
+        window.UI.joinRoom();
+    } else {
+        console.error('UI not ready or joinRoom method missing');
+    }
+}
+
+function globalLeaveRoom() {
+    console.log('🎯 globalLeaveRoom 被調用');
+    if (window.UI && typeof window.UI.leaveRoom === 'function') {
+        window.UI.leaveRoom();
+    } else {
+        console.error('UI not ready or leaveRoom method missing');
+    }
+}
+
+function globalSaveCode() {
+    console.log('🎯 globalSaveCode 被調用');
+    if (window.Editor && typeof window.Editor.saveCode === 'function') {
+        window.Editor.saveCode();
+    } else {
+        console.error('Editor not ready or saveCode method missing');
+    }
+}

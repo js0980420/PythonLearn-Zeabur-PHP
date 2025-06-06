@@ -1,16 +1,14 @@
 <?php
-// 關閉錯誤顯示，避免破壞JSON響應
-ini_set('display_errors', 0);
+// 禁用錯誤顯示
 error_reporting(0);
+ini_set('display_errors', 0);
 
-require_once __DIR__ . '/../../vendor/autoload.php';
-require_once __DIR__ . '/../utils/response.php';
-require_once __DIR__ . '/../classes/MockDatabase.php';
-require_once __DIR__ . '/../classes/AIAssistant.php';
-require_once __DIR__ . '/../classes/Logger.php';
+require_once '../classes/APIResponse.php';
+require_once '../classes/Database.php';
+require_once '../classes/AIAssistant.php';
 
-use App\MockDatabase as Database;
-use App\Logger;
+use App\APIResponse;
+use App\Database;
 use App\AIAssistant;
 
 // 設置CORS頭
@@ -18,9 +16,7 @@ APIResponse::setCORSHeaders();
 
 // 初始化
 $database = Database::getInstance();
-$database->addTestData(); // 添加測試數據
-$logger = new Logger('ai.log');
-$aiAssistant = new AIAssistant();
+$aiAssistant = new AIAssistant($database);
 
 try {
     // 啟動session，但如果失敗則使用測試用戶
@@ -41,27 +37,27 @@ try {
     
     switch ($action) {
         case 'explain':
-            handleExplainCode($aiAssistant, $database, $logger, $input);
+            handleExplainCode($aiAssistant, $database, $input);
             break;
             
         case 'check_errors':
-            handleCheckErrors($aiAssistant, $database, $logger, $input);
+            handleCheckErrors($aiAssistant, $database, $input);
             break;
             
         case 'suggest_improvements':
-            handleSuggestImprovements($aiAssistant, $database, $logger, $input);
+            handleSuggestImprovements($aiAssistant, $database, $input);
             break;
             
         case 'conflict':
-            handleConflictAnalysis($aiAssistant, $database, $logger, $input);
+            handleConflictAnalysis($aiAssistant, $database, $input);
             break;
             
         case 'question':
-            handleQuestion($aiAssistant, $database, $logger, $input);
+            handleQuestion($aiAssistant, $database, $input);
             break;
             
         case 'history':
-            handleAIHistory($database, $logger, $input);
+            handleAIHistory($database, $input);
             break;
             
         default:
@@ -69,11 +65,10 @@ try {
     }
     
 } catch (Exception $e) {
-    $logger->error('AI API錯誤', ['error' => $e->getMessage()]);
     echo APIResponse::error('系統錯誤', 'E010', 500);
 }
 
-function handleExplainCode($aiAssistant, $database, $logger, $input) {
+function handleExplainCode($aiAssistant, $database, $input) {
     $code = $input['code'] ?? '';
     $roomId = intval($input['room_id'] ?? 0);
     $userId = $_SESSION['user_id'];
@@ -95,21 +90,14 @@ function handleExplainCode($aiAssistant, $database, $logger, $input) {
             'response_data' => json_encode($result)
         ]);
         
-        $logger->info('AI解釋代碼', [
-            'user_id' => $userId,
-            'room_id' => $roomId,
-            'code_length' => strlen($code)
-        ]);
-        
         echo APIResponse::success($result, 'AI解釋完成');
         
     } catch (Exception $e) {
-        $logger->error('AI解釋代碼失敗', ['error' => $e->getMessage()]);
         echo APIResponse::error('AI服務暫時不可用', 'E020', 503);
     }
 }
 
-function handleCheckErrors($aiAssistant, $database, $logger, $input) {
+function handleCheckErrors($aiAssistant, $database, $input) {
     $code = $input['code'] ?? '';
     $roomId = intval($input['room_id'] ?? 0);
     $userId = $_SESSION['user_id'];
@@ -132,20 +120,14 @@ function handleCheckErrors($aiAssistant, $database, $logger, $input) {
             'response_data' => json_encode($result)
         ]);
         
-        $logger->info('AI檢查錯誤', [
-            'user_id' => $userId,
-            'room_id' => $roomId,
-        ]);
-        
         echo APIResponse::success($result, 'AI檢查完成');
         
     } catch (Exception $e) {
-        $logger->error('AI檢查錯誤失敗', ['error' => $e->getMessage()]);
         echo APIResponse::error('AI服務暫時不可用', 'E020', 503);
     }
 }
 
-function handleSuggestImprovements($aiAssistant, $database, $logger, $input) {
+function handleSuggestImprovements($aiAssistant, $database, $input) {
     $code = $input['code'] ?? '';
     $roomId = intval($input['room_id'] ?? 0);
     $userId = $_SESSION['user_id'];
@@ -168,20 +150,14 @@ function handleSuggestImprovements($aiAssistant, $database, $logger, $input) {
             'response_data' => json_encode($result)
         ]);
         
-        $logger->info('AI改進代碼', [
-            'user_id' => $userId,
-            'room_id' => $roomId,
-        ]);
-        
         echo APIResponse::success($result, 'AI改進完成');
         
     } catch (Exception $e) {
-        $logger->error('AI改進代碼失敗', ['error' => $e->getMessage()]);
         echo APIResponse::error('AI服務暫時不可用', 'E020', 503);
     }
 }
 
-function handleConflictAnalysis($aiAssistant, $database, $logger, $input) {
+function handleConflictAnalysis($aiAssistant, $database, $input) {
     $originalCode = $input['original_code'] ?? '';
     $conflictCode = $input['conflict_code'] ?? '';
     $roomId = intval($input['room_id'] ?? 0);
@@ -207,20 +183,14 @@ function handleConflictAnalysis($aiAssistant, $database, $logger, $input) {
             'response_data' => json_encode($result)
         ]);
         
-        $logger->info('AI衝突分析', [
-            'user_id' => $userId,
-            'room_id' => $roomId
-        ]);
-        
         echo APIResponse::success($result, 'AI衝突分析完成');
         
     } catch (Exception $e) {
-        $logger->error('AI衝突分析失敗', ['error' => $e->getMessage()]);
         echo APIResponse::error('AI服務暫時不可用', 'E020', 503);
     }
 }
 
-function handleQuestion($aiAssistant, $database, $logger, $input) {
+function handleQuestion($aiAssistant, $database, $input) {
     $question = $input['question'] ?? '';
     $context = $input['context'] ?? '';
     $roomId = intval($input['room_id'] ?? 0);
@@ -244,21 +214,14 @@ function handleQuestion($aiAssistant, $database, $logger, $input) {
             'response_data' => json_encode($result)
         ]);
         
-        $logger->info('AI回答問題', [
-            'user_id' => $userId,
-            'room_id' => $roomId,
-            'question_length' => strlen($question)
-        ]);
-        
         echo APIResponse::success($result, 'AI回答完成');
         
     } catch (Exception $e) {
-        $logger->error('AI回答問題失敗', ['error' => $e->getMessage()]);
         echo APIResponse::error('AI服務暫時不可用', 'E020', 503);
     }
 }
 
-function handleAIHistory($database, $logger, $input) {
+function handleAIHistory($database, $input) {
     $roomId = intval($input['room_id'] ?? $_GET['room_id'] ?? 0);
     $limit = intval($input['limit'] ?? $_GET['limit'] ?? 20);
     $offset = intval($input['offset'] ?? $_GET['offset'] ?? 0);

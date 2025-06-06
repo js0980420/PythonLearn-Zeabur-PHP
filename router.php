@@ -1,138 +1,220 @@
 <?php
-// Zeabur 路由器 - 純 HTTP 請求處理 (WebSocket 由 Caddy 代理)
+/**
+ * PHP 內建服務器路由器
+ * 處理靜態檔案和API請求路由
+ */
 
-// 設置錯誤報告
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+$uri = $_SERVER['REQUEST_URI'];
+$path = parse_url($uri, PHP_URL_PATH);
 
-// 設置響應頭
+// 移除查詢參數
+$cleanPath = strtok($path, '?');
+
+// 設定正確的CORS頭部
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
 
-// 獲取請求URI
-$uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-
-// 處理 OPTIONS 請求
+// 處理預檢請求
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit();
 }
 
-// 🌐 靜態檔案處理 - 優先處理
-$publicFile = __DIR__ . '/public' . $uri;
-if (file_exists($publicFile) && is_file($publicFile)) {
-    // 設置正確的 MIME 類型
-    $ext = pathinfo($publicFile, PATHINFO_EXTENSION);
-    $mimeTypes = [
-        'js' => 'application/javascript',
-        'css' => 'text/css',
-        'html' => 'text/html',
-        'json' => 'application/json',
-        'png' => 'image/png',
-        'jpg' => 'image/jpeg',
-        'jpeg' => 'image/jpeg',
-        'gif' => 'image/gif',
-        'ico' => 'image/x-icon',
-        'svg' => 'image/svg+xml'
-    ];
+// API 路由處理
+if (strpos($cleanPath, '/api/') === 0) {
+    // 移除 /api 前綴
+    $apiPath = substr($cleanPath, 4);
     
-    if (isset($mimeTypes[$ext])) {
-        header('Content-Type: ' . $mimeTypes[$ext]);
+    // 根據路徑路由到相應的API檔案
+    switch (true) {
+        case strpos($apiPath, '/auth') === 0:
+            require_once __DIR__ . '/backend/api/auth.php';
+            break;
+            
+        case strpos($apiPath, '/rooms') === 0:
+            require_once __DIR__ . '/backend/api/rooms.php';
+            break;
+            
+        case strpos($apiPath, '/code') === 0:
+            require_once __DIR__ . '/backend/api/code.php';
+            break;
+            
+        case strpos($apiPath, '/history') === 0:
+            require_once __DIR__ . '/backend/api/history.php';
+            break;
+            
+        case strpos($apiPath, '/ai') === 0:
+            require_once __DIR__ . '/backend/api/ai.php';
+            break;
+            
+        case strpos($apiPath, '/teacher') === 0:
+            require_once __DIR__ . '/backend/api/teacher.php';
+            break;
+            
+        case strpos($apiPath, '/health') === 0:
+        case $apiPath === '/health':
+            require_once __DIR__ . '/backend/api/health.php';
+            break;
+            
+        default:
+            http_response_code(404);
+            echo json_encode([
+                'success' => false,
+                'message' => "API端點不存在: $apiPath",
+                'timestamp' => date('c'),
+                'available_endpoints' => [
+                    '/api/auth',
+                    '/api/rooms', 
+                    '/api/code',
+                    '/api/history',
+                    '/api/ai',
+                    '/api/teacher',
+                    '/api/health'
+                ]
+            ]);
+            break;
+    }
+    return;
+}
+
+// 專門處理根目錄的健康檢查
+if ($cleanPath === '/health') {
+    require_once __DIR__ . '/backend/api/health.php';
+    return;
+}
+
+// 靜態檔案處理
+$publicDir = __DIR__ . '/public';
+$filePath = $publicDir . $cleanPath;
+
+// 根目錄重定向到 index.html
+if ($cleanPath === '/') {
+    $filePath = $publicDir . '/index.html';
+}
+
+// 檢查檔案是否存在
+if (file_exists($filePath) && is_file($filePath)) {
+    // 設定適當的Content-Type
+    $ext = pathinfo($filePath, PATHINFO_EXTENSION);
+    
+    switch ($ext) {
+        case 'html':
+            header('Content-Type: text/html; charset=utf-8');
+            break;
+        case 'css':
+            header('Content-Type: text/css');
+            break;
+        case 'js':
+            header('Content-Type: application/javascript');
+            break;
+        case 'json':
+            header('Content-Type: application/json');
+            break;
+        case 'png':
+            header('Content-Type: image/png');
+            break;
+        case 'jpg':
+        case 'jpeg':
+            header('Content-Type: image/jpeg');
+            break;
+        case 'gif':
+            header('Content-Type: image/gif');
+            break;
+        case 'ico':
+            header('Content-Type: image/x-icon');
+            break;
+        default:
+            header('Content-Type: text/plain');
+            break;
     }
     
-    readfile($publicFile);
-    exit();
+    // 讀取並輸出檔案內容
+    readfile($filePath);
+    return;
 }
 
-// 🏥 健康檢查端點
-if ($uri === '/health') {
-    header('Content-Type: application/json');
-    
-    // 檢查WebSocket服務器狀態 (透過連接測試)
-    $wsPort = $_ENV['WEBSOCKET_PORT'] ?? 8081;
-    $wsHost = $_ENV['WEBSOCKET_HOST'] ?? '127.0.0.1';
-    
-    $wsStatus = 'unknown';
-    $connection = @fsockopen($wsHost, $wsPort, $errno, $errstr, 1);
-    if ($connection) {
-        $wsStatus = 'running';
-        fclose($connection);
-    } else {
-        $wsStatus = 'stopped';
-    }
-    
-    $health = [
-        'status' => 'healthy',  // PHP 服務總是健康的
-        'timestamp' => date('c'),
-        'architecture' => 'caddy-proxy',
-        'services' => [
-            'web_server' => 'running',
-            'websocket_server' => $wsStatus,
-            'reverse_proxy' => 'caddy'
-        ],
-        'websocket_config' => [
-            'host' => $wsHost,
-            'port' => $wsPort,
-            'enabled' => $_ENV['WEBSOCKET_ENABLED'] ?? 'true',
-            'proxy_path' => '/ws'
-        ],
-        'environment' => $_ENV['ENVIRONMENT'] ?? 'local',
-        'php_version' => PHP_VERSION,
-        'zeabur_domain' => $_ENV['ZEABUR_DOMAIN'] ?? null
-    ];
-    
-    echo json_encode($health, JSON_PRETTY_PRINT);
-    exit();
-}
-
-// 📁 API路由處理
-if (preg_match('/^\/backend\/api\/(.+)\.php$/', $uri, $matches)) {
-    $apiFile = __DIR__ . '/backend/api/' . $matches[1] . '.php';
-    if (file_exists($apiFile)) {
-        require_once $apiFile;
-        exit();
-    } else {
-        http_response_code(404);
-        echo json_encode(['error' => 'API endpoint not found']);
-        exit();
-    }
-}
-
-// 🏠 根路徑處理
-if ($uri === '/' || $uri === '/index.html') {
-    header('Content-Type: text/html');
-    readfile(__DIR__ . '/public/index.html');
-    exit();
-}
-
-// 📊 教師面板
-if ($uri === '/teacher-dashboard.html') {
-    header('Content-Type: text/html');
-    readfile(__DIR__ . '/public/teacher-dashboard.html');
-    exit();
-}
-
-// ⚙️ 配置頁面
-if ($uri === '/config.html') {
-    header('Content-Type: text/html');
-    readfile(__DIR__ . '/public/config.html');
-    exit();
-}
-
-// 🚫 404 處理
+// 檔案不存在，返回404
 http_response_code(404);
-header('Content-Type: application/json');
-echo json_encode([
-    'error' => 'Page not found',
-    'uri' => $uri,
-    'available_endpoints' => [
-        '/' => 'Student interface',
-        '/teacher-dashboard.html' => 'Teacher dashboard',
-        '/config.html' => 'Configuration page',
-        '/health' => 'Health check',
-        '/backend/api/' => 'API endpoints',
-        '/ws' => 'WebSocket (handled by Caddy)'
-    ]
-]);
-?> 
+?>
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 - 檔案不存在</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .error-container {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 3rem;
+            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        h1 {
+            font-size: 6rem;
+            margin: 0;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        h2 {
+            font-size: 2rem;
+            margin: 1rem 0;
+            font-weight: 300;
+        }
+        p {
+            font-size: 1.1rem;
+            margin: 1rem 0;
+            opacity: 0.8;
+        }
+        .code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            display: inline-block;
+            margin: 1rem 0;
+        }
+        .home-link {
+            display: inline-block;
+            margin-top: 2rem;
+            padding: 1rem 2rem;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            color: white;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: bold;
+            transition: transform 0.3s ease;
+        }
+        .home-link:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <h1>404</h1>
+        <h2>檔案不存在</h2>
+        <p>抱歉，您請求的檔案無法找到。</p>
+        <div class="code"><?= htmlspecialchars($cleanPath) ?></div>
+        <br>
+        <a href="/" class="home-link">🏠 返回首頁</a>
+    </div>
+</body>
+</html> 

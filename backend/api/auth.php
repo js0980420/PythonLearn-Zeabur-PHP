@@ -1,23 +1,19 @@
 <?php
-// 關閉錯誤顯示，避免破壞JSON響應
-ini_set('display_errors', 0);
+// 禁用錯誤顯示
 error_reporting(0);
+ini_set('display_errors', 0);
 
-require_once __DIR__ . '/../../vendor/autoload.php';
-require_once __DIR__ . '/../utils/response.php';
-require_once __DIR__ . '/../classes/MockDatabase.php';
-require_once __DIR__ . '/../classes/Logger.php';
+require_once '../classes/APIResponse.php';
+require_once '../classes/Database.php';
 
-use App\MockDatabase as Database;
-use App\Logger;
+use App\APIResponse;
+use App\Database;
 
 // 設置CORS頭
 APIResponse::setCORSHeaders();
 
 // 初始化
 $database = Database::getInstance();
-$database->addTestData(); // 添加測試數據
-$logger = new Logger('auth.log');
 
 try {
     $method = $_SERVER['REQUEST_METHOD'];
@@ -26,15 +22,15 @@ try {
     
     switch ($action) {
         case 'login':
-            handleLogin($database, $logger, $input);
+            handleLogin($database, $input);
             break;
             
         case 'logout':
-            handleLogout($database, $logger, $input);
+            handleLogout($database, $input);
             break;
             
         case 'current':
-            handleCurrentUser($database, $logger);
+            handleCurrentUser($database);
             break;
             
         default:
@@ -42,11 +38,10 @@ try {
     }
     
 } catch (Exception $e) {
-    $logger->error('認證API錯誤', ['error' => $e->getMessage()]);
     echo APIResponse::error('系統錯誤', 'E010', 500);
 }
 
-function handleLogin($database, $logger, $input) {
+function handleLogin($database, $input) {
     // 驗證必要參數
     if (empty($input['username'])) {
         echo APIResponse::error('用戶名不能為空', 'E001');
@@ -81,10 +76,13 @@ function handleLogin($database, $logger, $input) {
             'user_type' => $userType,
             'created_at' => date('Y-m-d H:i:s')
         ];
-        
-        $logger->info('新用戶註冊', ['user_id' => $userId, 'username' => $username]);
     } else {
-        $logger->info('用戶登入', ['user_id' => $user['id'], 'username' => $username]);
+        // 用戶已存在，更新登入時間
+        $database->update('users', [
+            'last_login' => date('Y-m-d H:i:s')
+        ], [
+            'id' => $user['id']
+        ]);
     }
     
     // 設置會話
@@ -101,14 +99,11 @@ function handleLogin($database, $logger, $input) {
     ], '登入成功');
 }
 
-function handleLogout($database, $logger, $input) {
+function handleLogout($database, $input) {
     session_start();
     
     if (isset($_SESSION['user_id'])) {
-        $logger->info('用戶登出', [
-            'user_id' => $_SESSION['user_id'],
-            'username' => $_SESSION['username']
-        ]);
+        // 記錄登出日誌
     }
     
     session_destroy();
@@ -116,7 +111,7 @@ function handleLogout($database, $logger, $input) {
     echo APIResponse::success(null, '登出成功');
 }
 
-function handleCurrentUser($database, $logger) {
+function handleCurrentUser($database) {
     session_start();
     
     if (!isset($_SESSION['user_id'])) {

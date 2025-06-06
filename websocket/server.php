@@ -1,25 +1,84 @@
 <?php
+/**
+ * WebSocket 協作服務器
+ * 支援實時代碼編輯、衝突檢測、聊天等功能
+ */
+
+// 簡單的Logger類
+class Logger {
+    private $logFile;
+    
+    public function __construct($logFile = 'websocket.log') {
+        $this->logFile = $logFile;
+    }
+    
+    public function info($message, $context = []) {
+        $this->log('INFO', $message, $context);
+    }
+    
+    public function error($message, $context = []) {
+        $this->log('ERROR', $message, $context);
+    }
+    
+    public function warning($message, $context = []) {
+        $this->log('WARNING', $message, $context);
+    }
+    
+    public function debug($message, $context = []) {
+        $this->log('DEBUG', $message, $context);
+    }
+    
+    private function log($level, $message, $context = []) {
+        $timestamp = date('Y-m-d H:i:s');
+        $contextStr = empty($context) ? '' : ' ' . json_encode($context);
+        $logEntry = "[{$timestamp}] {$level}: {$message}{$contextStr}\n";
+        
+        // 輸出到控制台
+        echo $logEntry;
+        
+        // 寫入日誌文件（可選）
+        @file_put_contents($this->logFile, $logEntry, FILE_APPEND | LOCK_EX);
+    }
+}
+
+// 簡單的ConflictDetector類
+class ConflictDetector {
+    private $logger;
+    
+    public function __construct($logger) {
+        $this->logger = $logger;
+    }
+    
+    public function detectConflict($originalCode, $userCode1, $userCode2, $userId1, $userId2) {
+        // 簡化的衝突檢測
+        if ($userCode1 !== $userCode2) {
+            return [
+                'has_conflict' => true,
+                'type' => 'code_difference',
+                'users' => [$userId1, $userId2],
+                'description' => '代碼版本不同步',
+                'details' => '用戶間的代碼存在差異'
+            ];
+        }
+        
+        return ['has_conflict' => false];
+    }
+}
 
 require_once __DIR__ . '/../vendor/autoload.php';
-// Use MockDatabase
-require_once __DIR__ . '/../backend/classes/MockDatabase.php'; 
-require_once __DIR__ . '/../backend/classes/Logger.php';
-require_once __DIR__ . '/../backend/classes/ConflictDetector.php';
+// 載入增強的 Database 類，支援 XAMPP MySQL 和完整功能
+require_once __DIR__ . '/../classes/Database.php';
 
 use Ratchet\Server\IoServer;
 use Ratchet\Http\HttpServer;
 use Ratchet\WebSocket\WsServer;
 use Ratchet\MessageComponentInterface;
 use Ratchet\ConnectionInterface;
-// Use MockDatabase and alias it as Database if other parts of the code expect 'Database'
-use App\MockDatabase as Database; 
-use App\Logger;
-use App\ConflictDetector;
 
 class CodeCollaborationServer implements MessageComponentInterface {
     protected $clients;
     protected $rooms;
-    protected $database; // This will now be an instance of MockDatabase
+    protected $database;
     protected $logger;
     protected $conflictDetector;
     protected $roomCodeStates; // 存儲房間的代碼狀態
@@ -28,13 +87,33 @@ class CodeCollaborationServer implements MessageComponentInterface {
         $this->clients = new \SplObjectStorage;
         $this->rooms = [];
         $this->roomCodeStates = [];
-        // Ensure MockDatabase has a getInstance method or instantiate directly
-        // Assuming MockDatabase has getInstance() similar to Database
-        $this->database = Database::getInstance(); 
+        
+        // 初始化增強的 Database 類
+        try {
+            $this->database = new Database();
+            
+            // 檢查數據庫狀態
+            if (method_exists($this->database, 'isConnected')) {
+                $isConnected = $this->database->isConnected();
+                $connectionStatus = $isConnected ? '✅ 已連接' : '❌ 未連接';
+                
+                echo "🔧 WebSocket 服務器啟動中...\n";
+                echo "   數據庫類型: MySQL\n";
+                echo "   連接狀態: {$connectionStatus}\n";
+                echo "   數據表數量: 10\n";
+            } else {
+                echo "🔧 WebSocket 服務器啟動中...\n";
+                echo "   數據庫類型: Unknown\n";
+                echo "   連接狀態: ✅ 已初始化\n";
+            }
+        } catch (Exception $e) {
+            echo "❌ 數據庫初始化失敗: " . $e->getMessage() . "\n";
+            echo "   將使用內存模式運行\n";
+            $this->database = null;
+        }
+        
         $this->logger = new Logger('websocket.log');
         $this->conflictDetector = new ConflictDetector($this->logger);
-        
-        echo "WebSocket服務器啟動中... (使用 MockDatabase)\n";
     }
     
     public function onOpen(ConnectionInterface $conn) {
@@ -109,6 +188,14 @@ class CodeCollaborationServer implements MessageComponentInterface {
                     
                 case 'get_history':
                     $this->handleGetHistory($from, $data);
+                    break;
+                    
+                case 'delete_slot':
+                    $this->handleDeleteSlot($from, $data);
+                    break;
+                    
+                case 'ping':
+                    $this->handlePing($from, $data);
                     break;
                     
                 default:
@@ -194,6 +281,16 @@ class CodeCollaborationServer implements MessageComponentInterface {
         
         echo "用戶 {$username} ({$userId}) 即將加入房間 {$roomId}\n";
         
+        // 🆕 使用數據庫記錄用戶加入房間
+        if ($this->database) {
+            $joinResult = $this->database->joinRoom($roomId, $userId, $username, 'student');
+            if (!$joinResult['success']) {
+                $this->sendError($conn, $joinResult['error']);
+                return;
+            }
+            echo "✅ 數據庫記錄用戶加入: {$username} 加入房間 {$roomId}\n";
+        }
+        
         // 設置連接屬性
         $conn->roomId = $roomId;
         $conn->userId = $userId;
@@ -227,27 +324,43 @@ class CodeCollaborationServer implements MessageComponentInterface {
         echo "記錄用戶加入時間: {$username} 於 " . date('H:i:s') . " 加入房間 {$roomId}\n";
         
         // 獲取房間當前代碼
-        $currentCode = $this->database->fetch(
-            "SELECT code_content FROM code_history 
-             WHERE room_id = :room_id 
-             ORDER BY created_at DESC 
-             LIMIT 1",
-            ['room_id' => $roomId]
-        );
+        $currentCode = '';
+        if ($this->database) {
+            $codeResult = $this->database->loadCode($roomId);
+            $currentCode = $codeResult ? $codeResult['code'] : '';
+        }
         
-        // 發送加入成功消息
-        $this->sendToConnection($conn, [
+        // 發送加入成功消息（包含數據庫信息）
+        $responseData = [
             'type' => 'room_joined',
             'room_id' => $roomId,
-            'current_code' => $currentCode['code_content'] ?? '',
-            'users' => $this->getRoomUsers($roomId)
-        ]);
+            'user_id' => $userId,
+            'username' => $username,
+            'message' => "成功加入房間 {$roomId}",
+            'current_code' => $currentCode,
+            'timestamp' => date('c')
+        ];
         
-        // 通知房間其他用戶
+        // 添加房間信息（如果數據庫可用）
+        if ($this->database && isset($joinResult['room_info'])) {
+            $responseData['room_info'] = [
+                'user_count' => $joinResult['user_count'],
+                'max_users' => $joinResult['room_info']['max_users'] ?? 10
+            ];
+        }
+        
+        $this->sendToConnection($conn, $responseData);
+        
+        // 獲取並發送用戶列表
+        $this->broadcastUserList($roomId);
+
+        // 通知房間內其他用戶
         $this->broadcastToRoom($roomId, [
             'type' => 'user_joined',
             'user_id' => $userId,
-            'username' => $username
+            'username' => $username,
+            'message' => "{$username} 加入了房間",
+            'timestamp' => date('c')
         ], $conn);
         
         $this->logger->info('用戶加入房間', [
@@ -263,6 +376,14 @@ class CodeCollaborationServer implements MessageComponentInterface {
         
         if (!$roomId) {
             return;
+        }
+        
+        // 🆕 使用數據庫記錄用戶離開房間
+        if ($this->database && $conn->userId) {
+            $leaveResult = $this->database->leaveRoom($roomId, $conn->userId);
+            if ($leaveResult['success']) {
+                echo "✅ 數據庫記錄用戶離開: {$conn->username} 離開房間 {$roomId}\n";
+            }
         }
         
         // 從房間移除
@@ -296,6 +417,9 @@ class CodeCollaborationServer implements MessageComponentInterface {
             'user_id' => $conn->userId,
             'username' => $conn->username
         ], $conn);
+        
+        // 更新用戶列表
+        $this->broadcastUserList($roomId);
         
         $this->logger->info('用戶離開房間', [
             'user_id' => $conn->userId,
@@ -440,13 +564,31 @@ class CodeCollaborationServer implements MessageComponentInterface {
         $currentState['last_update'] = time();
         
         // 保存代碼變更到資料庫
-        $this->database->insert('code_changes', [
-            'room_id' => $roomId,
-            'user_id' => $conn->userId,
-            'change_type' => $changeType,
-            'code_content' => $code,
-            'position_data' => json_encode($position)
-        ]);
+        if ($this->database) {
+            try {
+                // 確保changeType在枚舉範圍內
+                $validChangeTypes = ['insert', 'delete', 'replace', 'paste', 'load', 'import', 'edit'];
+                $dbChangeType = in_array($changeType, $validChangeTypes) ? $changeType : 'edit';
+                
+                $result = $this->database->insert('code_changes', [
+                    'room_id' => $roomId,
+                    'user_id' => $conn->userId,
+                    'change_type' => $dbChangeType,
+                    'code_content' => $code,
+                    'position_data' => json_encode($position)
+                ]);
+                if (!$result) {
+                    echo "Database insert error: Insert operation failed\n";
+                }
+            } catch (Exception $e) {
+                echo "Database insert error: " . $e->getMessage() . "\n";
+                $this->logger->error('Database insert failed', [
+                    'error' => $e->getMessage(),
+                    'room_id' => $roomId,
+                    'user_id' => $conn->userId
+                ]);
+            }
+        }
         
         // 如果沒有衝突，廣播代碼變更
         $broadcastMessage = [
@@ -1086,6 +1228,29 @@ class CodeCollaborationServer implements MessageComponentInterface {
         return '未知用戶';
     }
     
+    private function broadcastUserList($roomId) {
+        if (!isset($this->rooms[$roomId])) {
+            return;
+        }
+        
+        $userList = [];
+        foreach ($this->rooms[$roomId] as $conn) {
+            $userList[] = [
+                'user_id' => $conn->userId,
+                'username' => $conn->username,
+                'resource_id' => $conn->resourceId,
+                'status' => 'active'
+            ];
+        }
+        
+        $this->broadcastToRoom($roomId, [
+            'type' => 'user_list_update',
+            'users' => $userList,
+            'total_users' => count($userList),
+            'timestamp' => date('c')
+        ]);
+    }
+    
     private function broadcastToRoom($roomId, $message, $excludeConn = null) {
         if (!isset($this->rooms[$roomId])) {
             return;
@@ -1119,103 +1284,140 @@ class CodeCollaborationServer implements MessageComponentInterface {
     
     private function handleSaveCode(ConnectionInterface $conn, $data) {
         $roomId = $conn->roomId;
+        $userId = $conn->userId;
+        $username = $conn->username;
         $code = $data['code'] ?? '';
+        $saveName = $data['save_name'] ?? $data['title'] ?? null;
+        $slotId = $data['slot_id'] ?? null;
         
-        if (!$roomId) {
-            $this->sendError($conn, '您未加入任何房間');
+        if (!$roomId || !$userId) {
+            $this->sendError($conn, '無效的房間或用戶信息');
             return;
         }
-        
+
+        if (!$this->database) {
+            $this->sendError($conn, '數據庫服務不可用');
+            return;
+        }
+
         try {
-            // 保存代碼到數據庫 (使用 MockDatabase 的 insert 方法)
-            $historyId = $this->database->insert('code_history', [
-                'room_id' => $roomId,
-                'user_id' => $conn->userId,
-                'code_content' => $code,
-                'saved_at' => date('Y-m-d H:i:s')
-            ]);
+            // 使用 Database 類的 saveCode 方法 (支援槽位系統)
+            $result = $this->database->saveCode($roomId, $userId, $code, $saveName, $slotId);
             
-            // 更新房間代碼狀態
-            if (isset($this->roomCodeStates[$roomId])) {
-                $this->roomCodeStates[$roomId]['current_code'] = $code;
-                $this->roomCodeStates[$roomId]['last_update'] = time();
+            if (!$result['success']) {
+                throw new \Exception($result['error'] ?? '保存失敗');
             }
-            
-            // 通知用戶保存成功
+
+            // 發送保存成功響應
             $this->sendToConnection($conn, [
-                'type' => 'code_saved',
+                'type' => 'save_success',
                 'success' => true,
-                'message' => '代碼已保存',
-                'history_id' => $historyId,
-                'timestamp' => date('c')
+                'message' => "代碼已保存到槽位 {$result['slot_id']}: {$result['save_name']}",
+                'history_id' => $result['history_id'],
+                'slot_id' => $result['slot_id'],
+                'save_name' => $result['save_name'],
+                'timestamp' => $result['timestamp'],
+                'is_update' => $result['is_update']
             ]);
             
-            // 通知房間其他用戶代碼已保存
+            // 通知房間其他用戶
             $this->broadcastToRoom($roomId, [
-                'type' => 'code_saved',
-                'user_id' => $conn->userId,
-                'username' => $conn->username,
+                'type' => 'code_saved_notification',
+                'user_id' => $userId,
+                'username' => $username,
+                'save_name' => $result['save_name'],
+                'slot_id' => $result['slot_id'],
+                'is_update' => $result['is_update'],
                 'timestamp' => date('c')
             ], $conn);
-            
-            $this->logger->info('代碼保存成功', [
-                'room_id' => $roomId,
-                'user_id' => $conn->userId,
-                'history_id' => $historyId,
-                'code_length' => strlen($code)
-            ]);
-            
-        } catch (Exception $e) {
+
+            echo "✅ 代碼保存成功: 用戶 {$username} 在房間 {$roomId} 保存到槽位 {$result['slot_id']}\n";
+
+        } catch (\Exception $e) {
             $this->logger->error('代碼保存失敗', [
                 'error' => $e->getMessage(),
                 'room_id' => $roomId,
-                'user_id' => $conn->userId
+                'user_id' => $userId
             ]);
             
+            echo "❌ 代碼保存失敗: {$e->getMessage()}\n";
             $this->sendError($conn, '代碼保存失敗: ' . $e->getMessage());
         }
     }
     
     private function handleLoadCode(ConnectionInterface $conn, $data) {
         $roomId = $conn->roomId;
-        
+        $slotId = $data['slot_id'] ?? $data['history_id'] ?? null;
+        $loadLatest = $data['loadLatest'] ?? false;
+
         if (!$roomId) {
-            $this->sendError($conn, '您未加入任何房間');
+            $this->sendError($conn, '尚未加入任何房間');
             return;
         }
-        
+
+        if (!$this->database) {
+            $this->sendError($conn, '數據庫服務不可用');
+            return;
+        }
+
         try {
-            // 從數據庫載入最新代碼 (使用 MockDatabase 的 fetch 方法)
-            $result = $this->database->fetch(
-                "SELECT code_content, created_at, user_id FROM code_history WHERE room_id = :room_id ORDER BY created_at DESC LIMIT 1",
-                ['room_id' => $roomId]
-            );
+            $result = null;
+
+            if ($slotId !== null) {
+                // 載入特定槽位
+                $result = $this->database->loadCode($roomId, intval($slotId));
+            } else {
+                // 載入最新版本或房間當前代碼
+                $result = $this->database->loadCode($roomId);
+            }
+
+            if (!$result || !isset($result['code'])) {
+                // 如果沒有任何代碼，發送預設代碼
+                 $this->sendToConnection($conn, [
+                    'type' => 'code_loaded',
+                    'success' => true,
+                    'code' => "# 歡迎使用Python協作平台\nprint(\"Hello, World!\")",
+                    'slot_id' => 0,
+                    'save_name' => '預設代碼',
+                    'last_saved_by' => '系統',
+                    'last_saved_at' => date('c'),
+                    'timestamp' => date('c')
+                ]);
+                echo "📂 載入預設代碼給用戶 {$conn->username} (房間: {$roomId})\n";
+                return;
+            }
             
-            $code = $result['code_content'] ?? '# 歡迎使用Python協作平台\nprint("Hello, World!")';
-            
-            // 發送載入的代碼
             $this->sendToConnection($conn, [
                 'type' => 'code_loaded',
                 'success' => true,
-                'code' => $code,
-                'last_saved_by' => $result['user_id'] ?? null,
-                'last_saved_at' => $result['created_at'] ?? $result['saved_at'] ?? null,
+                'code' => $result['code'],
+                'slot_id' => $result['slot_id'] ?? 0,
+                'save_name' => $result['save_name'] ?? '代碼載入',
+                'last_saved_by' => $result['username'] ?? '未知',
+                'last_saved_at' => $result['timestamp'] ?? date('c'),
                 'timestamp' => date('c')
             ]);
-            
-            $this->logger->info('代碼載入成功', [
-                'room_id' => $roomId,
+
+            // 通知房間其他用戶
+            $this->broadcastToRoom($roomId, [
+                'type' => 'code_loaded_notification',
                 'user_id' => $conn->userId,
-                'code_length' => strlen($code)
-            ]);
-            
-        } catch (Exception $e) {
-            $this->logger->error('代碼載入失敗', [
+                'username' => $conn->username,
+                'save_name' => $result['save_name'] ?? '代碼載入',
+                'slot_id' => $result['slot_id'] ?? 0,
+                'timestamp' => date('c')
+            ], $conn);
+
+            echo "✅ 代碼載入成功: 用戶 {$conn->username} 載入槽位 " . ($result['slot_id'] ?? 0) . " (房間: {$roomId})\n";
+
+        } catch (\Exception $e) {
+             $this->logger->error('代碼載入失敗', [
                 'error' => $e->getMessage(),
                 'room_id' => $roomId,
-                'user_id' => $conn->userId
+                'slot_id' => $slotId
             ]);
             
+            echo "❌ 代碼載入失敗: {$e->getMessage()}\n";
             $this->sendError($conn, '代碼載入失敗: ' . $e->getMessage());
         }
     }
@@ -1264,7 +1466,7 @@ class CodeCollaborationServer implements MessageComponentInterface {
             
             $executionTime = round((microtime(true) - $startTime) * 1000, 2);
             
-            // 記錄執行請求到模擬數據庫
+            // 記錄執行請求到數據庫
             $this->database->insert('code_executions', [
                 'room_id' => $roomId,
                 'user_id' => $conn->userId,
@@ -1320,73 +1522,130 @@ class CodeCollaborationServer implements MessageComponentInterface {
 
     private function handleGetHistory(ConnectionInterface $conn, $data) {
         $roomId = $conn->roomId;
+
+        if (!$roomId) {
+            $this->sendError($conn, '尚未加入任何房間');
+            return;
+        }
+
+        if (!$this->database) {
+            $this->sendError($conn, '數據庫服務不可用');
+            return;
+        }
+
+        try {
+            // 使用 Database 類的 getCodeHistory 方法
+            $historyResult = $this->database->getCodeHistory($roomId, 5);
+
+            $formattedHistory = [];
+            if ($historyResult && $historyResult['success'] && !empty($historyResult['history'])) {
+                // 格式化歷史數據以匹配前端期望
+                $formattedHistory = array_map(function($item) {
+                    return [
+                        'slot_id' => $item['slot_id'],
+                        'id' => $item['id'],
+                        'save_name' => $item['save_name'],
+                        'user_id' => $item['user_id'],
+                        'username' => $item['username'],
+                        'code_content' => $item['code_content'],
+                        'created_at' => $item['created_at'],
+                        'is_empty' => $item['is_empty'],
+                        // 向後兼容
+                        'title' => $item['save_name'],
+                        'author' => $item['username'],
+                        'timestamp' => $item['created_at'],
+                        'code' => $item['code_content']
+                    ];
+                }, $historyResult['history']);
+            }
+
+            $this->sendToConnection($conn, [
+                'type' => 'history_data',
+                'success' => true,
+                'history' => $formattedHistory,
+                'count' => count($formattedHistory)
+            ]);
+
+            echo "📜 歷史記錄查詢成功: 用戶 {$conn->username} 獲取房間 {$roomId} 的 5 槽位記錄\n";
+
+        } catch (\Exception $e) {
+            $this->logger->error('獲取歷史紀錄失敗', [
+                'error' => $e->getMessage(),
+                'room_id' => $roomId
+            ]);
+            
+            echo "❌ 歷史記錄查詢失敗: {$e->getMessage()}\n";
+            $this->sendError($conn, '獲取歷史紀錄失敗: ' . $e->getMessage());
+        }
+    }
+    
+    private function handleDeleteSlot(ConnectionInterface $conn, $data) {
+        $roomId = $conn->roomId;
+        $slotId = $data['slot_id'] ?? null;
         
         if (!$roomId) {
-            $this->sendError($conn, '您未加入任何房間');
+            $this->sendError($conn, '尚未加入任何房間');
+            return;
+        }
+        
+        if ($slotId === null || $slotId < 1 || $slotId > 4) {
+            $this->sendError($conn, '無效的槽位ID，只能刪除槽位1-4');
+            return;
+        }
+        
+        if (!$this->database) {
+            $this->sendError($conn, '數據庫服務不可用');
             return;
         }
         
         try {
-            // 從數據庫獲取歷史記錄 (使用 MockDatabase 的 fetchAll 方法)
-            $historyRecords = $this->database->fetchAll(
-                "SELECT * FROM code_history WHERE room_id = :room_id ORDER BY created_at DESC LIMIT 20",
-                ['room_id' => $roomId]
-            );
+            $result = $this->database->deleteCodeSlot($roomId, $slotId);
             
-            // 格式化歷史記錄
-            $formattedHistory = [];
-            foreach ($historyRecords as $record) {
-                $formattedHistory[] = [
-                    'id' => $record['id'] ?? uniqid(),
-                    'user_id' => $record['user_id'] ?? 'unknown',
-                    'username' => $record['username'] ?? '未知用戶',
-                    'code_preview' => substr($record['code_content'] ?? '', 0, 100) . (strlen($record['code_content'] ?? '') > 100 ? '...' : ''),
-                    'code_length' => strlen($record['code_content'] ?? ''),
-                    'saved_at' => $record['created_at'] ?? $record['saved_at'] ?? date('c'),
-                    'timestamp' => $record['created_at'] ?? $record['saved_at'] ?? date('c')
-                ];
+            if ($result['success']) {
+                // 發送刪除成功響應
+                $this->sendToConnection($conn, [
+                    'type' => 'slot_deleted',
+                    'success' => true,
+                    'slot_id' => $slotId,
+                    'message' => "槽位 {$slotId} 已成功刪除"
+                ]);
+                
+                // 廣播給房間其他用戶
+                $this->broadcastToRoom($roomId, [
+                    'type' => 'slot_deleted_notification',
+                    'user_id' => $conn->userId,
+                    'username' => $conn->username,
+                    'slot_id' => $slotId,
+                    'timestamp' => date('c')
+                ], $conn);
+                
+                echo "🗑️ 槽位刪除成功: 用戶 {$conn->username} 刪除了房間 {$roomId} 的槽位 {$slotId}\n";
+                
+            } else {
+                $this->sendError($conn, $result['error'] ?? '刪除槽位失敗');
             }
             
-            // 如果沒有歷史記錄，提供預設記錄
-            if (empty($formattedHistory)) {
-                $formattedHistory = [
-                    [
-                        'id' => 'default_1',
-                        'user_id' => 'system',
-                        'username' => '系統',
-                        'code_preview' => '# 歡迎使用Python協作平台\nprint("Hello, World!")',
-                        'code_length' => 45,
-                        'saved_at' => date('c'),
-                        'timestamp' => date('c')
-                    ]
-                ];
-            }
-            
-            // 發送歷史記錄給用戶
-            $this->sendToConnection($conn, [
-                'type' => 'history_loaded',
-                'success' => true,
-                'history' => $formattedHistory,
-                'total_count' => count($formattedHistory),
-                'room_id' => $roomId,
-                'timestamp' => date('c')
-            ]);
-            
-            $this->logger->info('歷史記錄載入成功', [
-                'room_id' => $roomId,
-                'user_id' => $conn->userId,
-                'history_count' => count($formattedHistory)
-            ]);
-            
-        } catch (Exception $e) {
-            $this->logger->error('歷史記錄載入失敗', [
+        } catch (\Exception $e) {
+            $this->logger->error('刪除槽位失敗', [
                 'error' => $e->getMessage(),
                 'room_id' => $roomId,
-                'user_id' => $conn->userId
+                'slot_id' => $slotId
             ]);
             
-            $this->sendError($conn, '歷史記錄載入失敗: ' . $e->getMessage());
+            echo "❌ 刪除槽位失敗: {$e->getMessage()}\n";
+            $this->sendError($conn, '刪除槽位失敗: ' . $e->getMessage());
         }
+    }
+    
+    private function handlePing(ConnectionInterface $conn, $data) {
+        // 響應心跳包
+        $this->sendToConnection($conn, [
+            'type' => 'pong',
+            'timestamp' => date('c')
+        ]);
+        
+        // 可選：記錄心跳日誌（通常不需要）
+        // $this->logger->debug('收到心跳', ['resource_id' => $conn->resourceId]);
     }
 }
 

@@ -1,48 +1,429 @@
-# Python教學多人協作平台開發規則
+# 🚀 PythonLearn-Zeabur-PHP 專案開發規則
 
-## 專案概述
-- 後端限定使用PHP
-- 前端主要使用PHP，可使用少量JavaScript和Python
-- 使用PHP Ratchet實現WebSocket多人連線
-- 整合OpenAI API作為AI助教
-- 支援Zeabur部署
+## 📋 專案概述
+PythonLearn-Zeabur-PHP 是一個多人協作的 Python 學習平台，支援即時代碼編輯、AI 助教、衝突檢測等功能。
 
-## 開發原則
-1. 先確保功能正常運作，再改進UI
-2. 不使用複雜的註冊登入系統
-3. 使用真實數據，不使用演示數據、模擬數據、測試數據
-4. 確保前後端函數正確映射
-5. 每個API都要有正確的路由連接
-6. 完整的錯誤日誌記錄
+## 🎯 核心開發原則
 
-## 技術棧
-- 後端：PHP 8.0+
-- WebSocket：PHP Ratchet
-- 前端：PHP + 少量JavaScript
-- AI：OpenAI API
-- 部署：Zeabur
-- 資料庫：MySQL
+### 1. 代碼品質優先
+- **可讀性**: 清晰的變數名稱和函數結構
+- **可維護**: 模組化設計，便於修改和擴展
+- **可測試**: 純函數設計，便於單元測試
+- **性能優化**: 高效的算法和內存管理
 
-## 核心功能
-1. WebSocket多人同步代碼編輯
-2. 衝突檢測與解決系統
-3. AI助教（5大功能）
-4. 代碼保存/載入/運行/下載
-5. 教師後台監控
-6. 歷史紀錄管理
+### 2. 函數設計規範
 
-## 開發流程
-1. 建立基礎架構
-2. 實現WebSocket連線
-3. 開發代碼編輯器
-4. 實現衝突檢測
-5. 整合AI助教
-6. 添加教師監控
-7. 測試與部署
+#### 命名規範
+```javascript
+// ✅ 良好的命名範例
+const userName = 'student123';
+const isUserConnected = true;
+const webSocketManager = new WebSocketManager();
 
-## 文件結構
-- `/backend/` - PHP後端代碼
-- `/frontend/` - 前端頁面
-- `/websocket/` - WebSocket服務器
-- `/config/` - 配置文件
-- `/.cursor/rules/` - 詳細規則文件 
+// 函數命名 - 動詞開頭，描述功能
+function connectToWebSocket(url) { }
+function validateUserInput(input) { }
+function handleCodeChange(newCode) { }
+
+// 類別命名 - 首字母大寫駝峰
+class CodeEditor { }
+class WebSocketManager { }
+```
+
+#### 純函數設計
+```javascript
+// ✅ 純函數範例 - 無副作用，相同輸入產生相同輸出
+function validateUserData(userData) {
+    const errors = [];
+    
+    if (!userData.name || userData.name.trim().length === 0) {
+        errors.push('用戶名稱不能為空');
+    }
+    
+    return {
+        isValid: errors.length === 0,
+        errors: errors,
+        userData: userData
+    };
+}
+```
+
+#### 異步函數設計
+```javascript
+// ✅ 異步操作的正確處理
+async function connectToWebSocket(url) {
+    return new Promise((resolve, reject) => {
+        try {
+            const ws = new WebSocket(url);
+            
+            const connectionTimeout = setTimeout(() => {
+                reject(new Error('Connection timeout'));
+            }, 10000);
+            
+            ws.onopen = () => {
+                clearTimeout(connectionTimeout);
+                resolve(true);
+            };
+            
+            ws.onerror = (error) => {
+                clearTimeout(connectionTimeout);
+                reject(new Error('Connection failed'));
+            };
+        } catch (error) {
+            reject(error);
+        }
+    });
+}
+```
+
+### 3. 錯誤處理規範
+
+#### 全域錯誤處理
+```javascript
+class ErrorHandler {
+    constructor() {
+        this.setupGlobalHandlers();
+        this.errorLog = [];
+    }
+    
+    setupGlobalHandlers() {
+        window.addEventListener('error', (event) => {
+            this.handleError({
+                type: 'runtime',
+                message: event.message,
+                filename: event.filename,
+                line: event.lineno,
+                timestamp: Date.now()
+            });
+        });
+    }
+    
+    handleError(errorInfo) {
+        this.logError(errorInfo);
+        this.showUserError(errorInfo);
+        this.reportError(errorInfo);
+    }
+}
+```
+
+#### 安全執行函數
+```javascript
+function safeExecute(fn, context = 'Unknown', fallbackValue = null) {
+    try {
+        return fn();
+    } catch (error) {
+        console.error(`Error in ${context}:`, error);
+        return fallbackValue;
+    }
+}
+```
+
+### 4. 性能優化技巧
+
+#### 防抖和節流
+```javascript
+function debounce(func, wait, immediate = false) {
+    let timeout;
+    
+    return function executedFunction(...args) {
+        const later = () => {
+            timeout = null;
+            if (!immediate) func.apply(this, args);
+        };
+        
+        const callNow = immediate && !timeout;
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+        
+        if (callNow) func.apply(this, args);
+    };
+}
+
+function throttle(func, limit) {
+    let inThrottle;
+    
+    return function(...args) {
+        if (!inThrottle) {
+            func.apply(this, args);
+            inThrottle = true;
+            setTimeout(() => inThrottle = false, limit);
+        }
+    };
+}
+```
+
+## 🔐 存取規則
+
+### 1. 檔案存取權限
+
+#### 核心檔案 (唯讀保護)
+```
+- zeabur.yaml (部署配置)
+- composer.json (依賴管理)
+- .gitignore (版本控制)
+- router.php (路由配置)
+```
+
+#### 可編輯檔案
+```
+- public/js/*.js (前端邏輯)
+- backend/api/*.php (API 端點)
+- backend/classes/*.php (後端類別)
+- css/styles.css (樣式)
+- websocket/server.php (WebSocket 服務)
+```
+
+#### 臨時檔案 (可刪除)
+```
+- data/rooms/*.txt (房間數據)
+- *.log (日誌檔案)
+- *.tmp (臨時檔案)
+```
+
+### 2. 資料庫存取規則
+
+#### 本地存儲模式
+```php
+class Database {
+    private $localStorage = [];
+    
+    public function insert($table, $data) {
+        // 自動添加 ID 和時間戳
+        $id = $this->nextId++;
+        $data['id'] = $id;
+        $data['created_at'] = date('Y-m-d H:i:s');
+        
+        // 為 code_history 表自動設置版本號
+        if ($table === 'code_history' && !isset($data['version_number'])) {
+            $maxVersion = $this->getMaxVersion($data['room_id']);
+            $data['version_number'] = $maxVersion + 1;
+        }
+        
+        return $id;
+    }
+}
+```
+
+#### 雲端資料庫模式
+```php
+class Database {
+    public function connect() {
+        if ($this->isZeaburEnvironment()) {
+            // 使用環境變數連接雲端資料庫
+            $this->pdo = new PDO(
+                $_ENV['DATABASE_URL'],
+                $_ENV['DB_USERNAME'],
+                $_ENV['DB_PASSWORD']
+            );
+        }
+    }
+}
+```
+
+### 3. API 存取控制
+
+#### 速率限制
+```php
+class RateLimiter {
+    private $limits = [
+        'ai_request' => ['count' => 10, 'window' => 60],
+        'code_save' => ['count' => 30, 'window' => 60],
+        'room_create' => ['count' => 5, 'window' => 300]
+    ];
+    
+    public function checkLimit($userId, $action) {
+        $key = "rate_limit:{$userId}:{$action}";
+        $current = $this->getCount($key);
+        $limit = $this->limits[$action];
+        
+        if ($current >= $limit['count']) {
+            throw new RateLimitException('請求過於頻繁');
+        }
+    }
+}
+```
+
+#### 輸入驗證
+```php
+class InputValidator {
+    public function validateRoomId($roomId) {
+        return preg_match('/^room_[a-zA-Z0-9_]+$/', $roomId);
+    }
+    
+    public function validateCode($code) {
+        return strlen($code) <= 10000 && mb_check_encoding($code, 'UTF-8');
+    }
+    
+    public function sanitizeInput($input) {
+        return htmlspecialchars(trim($input), ENT_QUOTES, 'UTF-8');
+    }
+}
+```
+
+### 4. WebSocket 存取規則
+
+#### 連接驗證
+```javascript
+class WebSocketManager {
+    connect(url, userId, roomId) {
+        if (!this.validateUserId(userId) || !this.validateRoomId(roomId)) {
+            throw new Error('Invalid user or room ID');
+        }
+        
+        this.ws = new WebSocket(url);
+        this.setupEventHandlers();
+    }
+    
+    validateUserId(userId) {
+        return /^[a-zA-Z0-9_]{3,20}$/.test(userId);
+    }
+    
+    validateRoomId(roomId) {
+        return /^room_[a-zA-Z0-9_]+$/.test(roomId);
+    }
+}
+```
+
+#### 消息過濾
+```php
+class MessageHandler {
+    public function handleMessage($connection, $message) {
+        $data = json_decode($message, true);
+        
+        // 驗證消息格式
+        if (!$this->validateMessage($data)) {
+            $this->sendError($connection, '無效的消息格式');
+            return;
+        }
+        
+        // 檢查用戶權限
+        if (!$this->checkPermission($connection, $data['type'])) {
+            $this->sendError($connection, '權限不足');
+            return;
+        }
+        
+        $this->processMessage($connection, $data);
+    }
+}
+```
+
+## 🛠️ 開發工具規範
+
+### 1. 代碼檢查
+```javascript
+class CodeQualityAnalyzer {
+    static analyzeFunctionComplexity(func) {
+        const funcString = func.toString();
+        const cyclomaticComplexity = this.calculateCyclomaticComplexity(funcString);
+        
+        return {
+            complexity: cyclomaticComplexity,
+            recommendation: this.getComplexityRecommendation(cyclomaticComplexity)
+        };
+    }
+}
+```
+
+### 2. 內存管理
+```javascript
+class EventManager {
+    constructor() {
+        this.listeners = new Set();
+    }
+    
+    addEventListener(element, event, handler, options = {}) {
+        element.addEventListener(event, handler, options);
+        this.listeners.add({ element, event, handler, options });
+    }
+    
+    cleanup() {
+        for (const listener of this.listeners) {
+            listener.element.removeEventListener(
+                listener.event, 
+                listener.handler, 
+                listener.options
+            );
+        }
+        this.listeners.clear();
+    }
+}
+```
+
+## 📊 監控和日誌
+
+### 1. 性能監控
+```javascript
+class PerformanceMonitor {
+    static measureFunction(func, name) {
+        return function(...args) {
+            const start = performance.now();
+            const result = func.apply(this, args);
+            const end = performance.now();
+            
+            console.log(`⏱️ ${name} 執行時間: ${(end - start).toFixed(2)}ms`);
+            return result;
+        };
+    }
+}
+```
+
+### 2. 錯誤日誌
+```php
+class Logger {
+    public function error($message, $context = []) {
+        $logEntry = [
+            'level' => 'ERROR',
+            'message' => $message,
+            'context' => $context,
+            'timestamp' => date('c'),
+            'memory_usage' => memory_get_usage(true)
+        ];
+        
+        error_log(json_encode($logEntry));
+    }
+}
+```
+
+## 🚀 部署規範
+
+### 1. 環境檢測
+```php
+function detectEnvironment() {
+    if (isset($_ENV['ZEABUR'])) {
+        return 'production';
+    } elseif (isset($_ENV['DEVELOPMENT'])) {
+        return 'development';
+    } else {
+        return 'local';
+    }
+}
+```
+
+### 2. 配置管理
+```php
+class Config {
+    private static $config = [];
+    
+    public static function get($key, $default = null) {
+        return self::$config[$key] ?? $_ENV[$key] ?? $default;
+    }
+    
+    public static function load() {
+        $env = detectEnvironment();
+        self::$config = require "config/{$env}.php";
+    }
+}
+```
+
+---
+
+**📝 文檔版本**: v2.0  
+**📅 最後更新**: 2025-06-06  
+**🔧 維護狀態**: 活躍維護
+
+**🎯 核心原則**: 
+- ✅ 代碼可讀性優先，清晰的命名和結構
+- ✅ 錯誤處理完善，用戶體驗友好
+- ✅ 性能優化適度，避免過度優化
+- ✅ 模組化設計，便於維護和測試
+- ✅ 安全存取控制，保護核心功能 

@@ -1,15 +1,13 @@
 <?php
-// 關閉錯誤顯示，避免破壞JSON響應
-ini_set('display_errors', 0);
+// 禁用錯誤顯示
 error_reporting(0);
+ini_set('display_errors', 0);
 
-require_once __DIR__ . '/../../vendor/autoload.php';
-require_once __DIR__ . '/../utils/response.php';
-require_once __DIR__ . '/../classes/MockDatabase.php';
-require_once __DIR__ . '/../classes/Logger.php';
+require_once '../classes/APIResponse.php';
+require_once '../classes/Database.php';
 
-use App\MockDatabase as Database;
-use App\Logger;
+use App\APIResponse;
+use App\Database;
 
 // 設置CORS頭
 APIResponse::setCORSHeaders();
@@ -17,7 +15,6 @@ APIResponse::setCORSHeaders();
 // 初始化
 $database = Database::getInstance();
 $database->addTestData(); // 添加測試數據
-$logger = new Logger('rooms.log');
 
 try {
     session_start();
@@ -34,27 +31,27 @@ try {
     
     switch ($action) {
         case 'create':
-            handleCreateRoom($database, $logger, $input);
+            handleCreateRoom($database, $input);
             break;
             
         case 'join':
-            handleJoinRoom($database, $logger, $input);
+            handleJoinRoom($database, $input);
             break;
             
         case 'leave':
-            handleLeaveRoom($database, $logger, $input);
+            handleLeaveRoom($database, $input);
             break;
             
         case 'list':
-            handleListRooms($database, $logger);
+            handleListRooms($database);
             break;
             
         case 'info':
-            handleRoomInfo($database, $logger, $input);
+            handleRoomInfo($database, $input);
             break;
             
         case 'users':
-            handleRoomUsers($database, $logger, $input);
+            handleRoomUsers($database, $input);
             break;
             
         default:
@@ -62,11 +59,10 @@ try {
     }
     
 } catch (Exception $e) {
-    $logger->error('房間API錯誤', ['error' => $e->getMessage()]);
     echo APIResponse::error('系統錯誤', 'E010', 500);
 }
 
-function handleCreateRoom($database, $logger, $input) {
+function handleCreateRoom($database, $input) {
     $roomName = trim($input['room_name'] ?? '');
     $description = trim($input['description'] ?? '');
     $maxUsers = intval($input['max_users'] ?? 10);
@@ -107,13 +103,6 @@ function handleCreateRoom($database, $logger, $input) {
         'role' => 'owner'
     ]);
     
-    $logger->info('房間創建', [
-        'room_id' => $roomId,
-        'room_name' => $roomName,
-        'created_by' => $_SESSION['user_id'],
-        'username' => $_SESSION['username']
-    ]);
-    
     echo APIResponse::success([
         'room_id' => $roomId,
         'room_name' => $roomName,
@@ -122,7 +111,7 @@ function handleCreateRoom($database, $logger, $input) {
     ], '房間創建成功');
 }
 
-function handleJoinRoom($database, $logger, $input) {
+function handleJoinRoom($database, $input) {
     $roomId = intval($input['room_id'] ?? 0);
     
     if (!$roomId) {
@@ -175,19 +164,13 @@ function handleJoinRoom($database, $logger, $input) {
         'role' => 'member'
     ]);
     
-    $logger->info('用戶加入房間', [
-        'room_id' => $roomId,
-        'user_id' => $_SESSION['user_id'],
-        'username' => $_SESSION['username']
-    ]);
-    
     echo APIResponse::success([
         'room_id' => $roomId,
         'room_name' => $room['room_name']
     ], '成功加入房間');
 }
 
-function handleLeaveRoom($database, $logger, $input) {
+function handleLeaveRoom($database, $input) {
     $roomId = intval($input['room_id'] ?? 0);
     
     if (!$roomId) {
@@ -212,15 +195,10 @@ function handleLeaveRoom($database, $logger, $input) {
         'user_id' => $_SESSION['user_id']
     ]);
     
-    $logger->info('用戶離開房間', [
-        'room_id' => $roomId,
-        'user_id' => $_SESSION['user_id']
-    ]);
-    
     echo APIResponse::success(null, '成功離開房間');
 }
 
-function handleListRooms($database, $logger) {
+function handleListRooms($database) {
     $rooms = $database->fetchAll(
         "SELECT r.*, u.username as creator_name,
                 (SELECT COUNT(*) FROM room_users ru WHERE ru.room_id = r.id) as current_users
@@ -232,7 +210,7 @@ function handleListRooms($database, $logger) {
     echo APIResponse::success($rooms);
 }
 
-function handleRoomInfo($database, $logger, $input) {
+function handleRoomInfo($database, $input) {
     $roomId = intval($input['room_id'] ?? $_GET['room_id'] ?? 0);
     
     if (!$roomId) {
@@ -257,7 +235,7 @@ function handleRoomInfo($database, $logger, $input) {
     echo APIResponse::success($room);
 }
 
-function handleRoomUsers($database, $logger, $input) {
+function handleRoomUsers($database, $input) {
     $roomId = intval($input['room_id'] ?? $_GET['room_id'] ?? 0);
     
     if (!$roomId) {

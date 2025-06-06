@@ -1,0 +1,52 @@
+WebSocket服務器啟動在 0.0.0.0:8081
+環境: 本地
+
+Deprecated: Ratchet\Server\IoServer::__construct(): Implicitly marking parameter $loop as nullable is deprecated, the explicit nullable type must be used instead in C:\Users\js098\Project\PythonLearn-Zeabur-PHP\vendor\cboden\ratchet\src\Ratchet\Server\IoServer.php on line 36
+
+Deprecated: Ratchet\WebSocket\WsServer::onOpen(): Implicitly marking parameter $request as nullable is deprecated, the explicit nullable type must be used instead in C:\Users\js098\Project\PythonLearn-Zeabur-PHP\vendor\cboden\ratchet\src\Ratchet\WebSocket\WsServer.php on line 107
+
+Deprecated: Ratchet\Http\HttpServerInterface::onOpen(): Implicitly marking parameter $request as nullable is deprecated, the explicit nullable type must be used instead in C:\Users\js098\Project\PythonLearn-Zeabur-PHP\vendor\cboden\ratchet\src\Ratchet\Http\HttpServerInterface.php on line 13
+   ✅ 偵測到 XAMPP 安裝: C:/xampp/mysql/bin/mysql.exe
+   🔍 智能掃描 MySQL 端口（避免系統衝突）...
+   ❌ 端口 3307 無響應
+   ❌ 端口 3308 無響應
+   ❌ 端口 3309 無響應
+   ✅ 發現可用的 MySQL 端口: 3306
+   ⚠️ 使用標準端口 3306 (可能是系統MySQL)
+   🔍 智能掃描 MySQL 端口（避免系統衝突）...
+   ❌ 端口 3307 無響應
+   ❌ 端口 3308 無響應
+   ❌ 端口 3309 無響應
+   ✅ 發現可用的 MySQL 端口: 3306
+   ⚠️ 使用標準端口 3306 (可能是系統MySQL)
+   🔐 嘗試常見密碼組合...
+   🔑 嘗試密碼: (空密碼)
+   ✅ 認證成功: (空密碼)
+🔍 正在初始化資料庫連接...
+================================
+📊 MySQL 連接嘗試:
+   主機: localhost:3306
+   資料庫: pythonlearn_collaboration
+   用戶: root
+   密碼: (空密碼)
+   🔸 階段 1: 測試 MySQL 服務連通性...
+      ✅ MySQL 服務響應正常
+   🔸 階段 2: 測試 MySQL 認證...
+      ✅ MySQL 認證成功
+   🔸 階段 3: 準備專案資料庫...
+   資料庫 pythonlearn_collaboration 準備就緒
+      ✅ 專案資料庫連接成功
+✅ MySQL 表 rooms 創建成功
+✅ MySQL 表 room_users 創建成功
+✅ MySQL 表 code_history 創建成功
+✅ MySQL 表 chat_messages 創建成功
+✅ MySQL 表 ai_interactions 創建成功
+✅ MySQL 表 code_changes 創建成功
+✅ MySQL 模式已啟用
+================================
+🔧 WebSocket 服務器啟動中...
+   數據庫類型: MySQL
+   連接狀態: ✅ 已連接
+   數據表數量: 10
+
+Deprecated: Ratchet\RFC6455\Messaging\Frame::__construct(): Implicitly marking parameter $ufExceptionFactory as nullable is deprecated, the explicit nullable type must be used instead in C:\Users\js098\Project\PythonLearn-Zeabur-PHP\vendor\ratchet\rfc6455\src\Messaging\Frame.php on line 76

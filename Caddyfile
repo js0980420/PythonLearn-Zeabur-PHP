@@ -2,7 +2,10 @@
 {$ZEABUR_WEB_DOMAIN:localhost:8080} {
     # WebSocket 代理到 Ratchet 服務器
     handle /ws {
-        reverse_proxy localhost:8081
+        reverse_proxy localhost:8081 {
+            header_up Upgrade {http.request.header.upgrade}
+            header_up Connection {http.request.header.connection}
+        }
     }
     
     # 健康檢查端點
@@ -10,7 +13,16 @@
         reverse_proxy localhost:8080
     }
     
+    handle /api/health {
+        reverse_proxy localhost:8080
+    }
+    
     # API 端點代理到 PHP
+    handle /api/* {
+        reverse_proxy localhost:8080
+    }
+    
+    # 後端資源
     handle /backend/* {
         reverse_proxy localhost:8080
     }
@@ -40,7 +52,18 @@
 # 開發環境配置 (本地測試)
 localhost:3000 {
     handle /ws {
-        reverse_proxy localhost:8081
+        reverse_proxy localhost:8081 {
+            header_up Upgrade {http.request.header.upgrade}
+            header_up Connection {http.request.header.connection}
+        }
+    }
+    
+    handle /health {
+        reverse_proxy localhost:8080
+    }
+    
+    handle /api/* {
+        reverse_proxy localhost:8080
     }
     
     handle {

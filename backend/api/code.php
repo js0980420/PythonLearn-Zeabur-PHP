@@ -1,23 +1,19 @@
 <?php
-// 關閉錯誤顯示，避免破壞JSON響應
-ini_set('display_errors', 0);
+// 禁用錯誤顯示
 error_reporting(0);
+ini_set('display_errors', 0);
 
-require_once __DIR__ . '/../../vendor/autoload.php';
-require_once __DIR__ . '/../utils/response.php';
-require_once __DIR__ . '/../classes/MockDatabase.php';
-require_once __DIR__ . '/../classes/Logger.php';
+require_once '../classes/APIResponse.php';
+require_once '../classes/Database.php';
 
-use App\MockDatabase as Database;
-use App\Logger;
+use App\APIResponse;
+use App\Database;
 
 // 設置CORS頭
 APIResponse::setCORSHeaders();
 
 // 初始化
 $database = Database::getInstance();
-$database->addTestData();
-$logger = new Logger('code.log');
 
 try {
     session_start();

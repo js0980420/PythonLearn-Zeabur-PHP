@@ -146,7 +146,8 @@ class WebSocketManager {
             case 'code_sync':
                 this.handleCodeChange(message);
                 break;
-            case 'code_saved':
+            case 'save_success':
+            case 'code_saved':  // 向後兼容
                 this.handleCodeSaved(message);
                 break;
             case 'code_loaded':
@@ -168,8 +169,18 @@ class WebSocketManager {
                 case 'history_loaded':
                     this.handleHistoryLoaded(message);
                     break;
+                case 'history_data':
+                    this.handleHistoryData(message);
+                    break;
             case 'conflict_notification':
                 this.handleConflictNotification(message);
+                break;
+            case 'user_list_update':
+                console.log('👥 收到用戶列表更新:', message);
+                this.updateUserList(message.users);
+                if (message.users && message.total_users !== undefined) {
+                    console.log(`👥 當前房間用戶數: ${message.total_users}`);
+                }
                 break;
             case 'pong':
                 this.lastHeartbeat = Date.now();
@@ -208,6 +219,14 @@ class WebSocketManager {
         
         // 更新房間信息顯示
         this.updateRoomInfo(message.room_id, message.users);
+        
+        // 初始化 SaveLoadManager
+        if (window.SaveLoadManager) {
+            window.SaveLoadManager.init(this.currentUser, message.room_id);
+        }
+        
+        // 自動載入歷史記錄到下拉選單
+        this.getHistory();
         
         // 顯示加入提示
         if (window.UI) {
@@ -330,6 +349,23 @@ class WebSocketManager {
         }
     }
 
+    // 處理歷史數據
+    handleHistoryData(message) {
+        console.log('📜 收到歷史數據:', message);
+        
+        // 將歷史數據傳遞給 SaveLoadManager
+        if (window.SaveLoadManager && typeof window.SaveLoadManager.handleMessage === 'function') {
+            console.log('🔄 傳遞歷史數據給 SaveLoadManager...');
+            window.SaveLoadManager.handleMessage(message);
+        } else {
+            console.warn('⚠️ SaveLoadManager 不可用，使用降級處理');
+            // 降級處理：直接更新下拉選單
+            if (window.SaveLoadManager && typeof window.SaveLoadManager.updateHistoryDropdown === 'function') {
+                window.SaveLoadManager.updateHistoryDropdown(message.history || []);
+            }
+        }
+    }
+
     // 處理游標變更
     handleCursorChange(message) {
         if (window.editorManager) {
@@ -339,9 +375,9 @@ class WebSocketManager {
 
     // 處理聊天消息
     handleChatMessage(message) {
-        if (window.chatManager) {
-            window.chatManager.displayMessage(message);
-        }
+                    if (window.Chat) {
+                window.Chat.addMessage(message.userName || '用戶', message.message || message.content || '', message.isSystem || false, message.isTeacher || false);
+            }
     }
 
     // 處理AI回應

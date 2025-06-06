@@ -2,6 +2,18 @@
 name: pythonlearn-collaboration
 
 services:
+  # MySQL 數據庫服務
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: pythonlearn_collaboration
+      MYSQL_USER: pythonlearn_user
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    restart: unless-stopped
+
   # Caddy 反向代理服務 (主要入口)
   caddy:
     # 使用自定義 Dockerfile
@@ -45,11 +57,11 @@ services:
       ENVIRONMENT: production
       
       # 數據庫配置
-      MYSQL_HOST: ${MYSQL_HOST}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      MYSQL_DATABASE: python_collaboration
+      MYSQL_HOST: mysql
       MYSQL_PORT: 3306
+      MYSQL_DATABASE: pythonlearn_collaboration
+      MYSQL_USER: pythonlearn_user
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       
       # AI 配置
       OPENAI_API_KEY: ${OPENAI_API_KEY}
@@ -61,12 +73,23 @@ services:
       MAX_CONCURRENT_USERS: 100
       MAX_ROOMS: 50
       MAX_USERS_PER_ROOM: 8
+      
+      # WebSocket 配置
+      WEBSOCKET_HOST: websocket
+      WEBSOCKET_PORT: 8081
+      WEBSOCKET_ENABLED: true
+      
+      # 域名（Zeabur 自動設置）
+      ZEABUR_DOMAIN: ${ZEABUR_DOMAIN}
     
     # 健康檢查
     healthcheck:
-      path: /health
+      path: /api/health
       interval: 30s
       timeout: 10s
+    depends_on:
+      - mysql
+    restart: unless-stopped
 
   # WebSocket 服務 (Ratchet)
   websocket:
@@ -93,14 +116,16 @@ services:
       ENVIRONMENT: production
       
       # 數據庫配置 (與 PHP 服務相同)
-      MYSQL_HOST: ${MYSQL_HOST}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      MYSQL_DATABASE: python_collaboration
+      MYSQL_HOST: mysql
       MYSQL_PORT: 3306
+      MYSQL_DATABASE: pythonlearn_collaboration
+      MYSQL_USER: pythonlearn_user
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     
     # 重啟策略
-    restart: always
+    restart: unless-stopped
+    depends_on:
+      - mysql
 
 # 部署配置
 deploy:
@@ -111,8 +136,7 @@ deploy:
     required:
       - OPENAI_API_KEY
     optional:
-      - MYSQL_HOST
-      - MYSQL_USER
+      - MYSQL_ROOT_PASSWORD
       - MYSQL_PASSWORD
 
 # 🌐 網路配置
@@ -135,49 +159,6 @@ monitoring:
     - name: caddy_requests_total
       type: counter
       help: "Total Caddy proxy requests"
-
-# 🔍 日誌配置
-logging:
-  driver: json-file
-  options:
-    max-size: "100m"
-    max-file: "3"
-  
-  # 日誌聚合
-  aggregation:
-    enabled: true
-    retention: 7d
-
-# 🔐 密鑰管理
-secrets:
-  openai-api-key:
-    external: true
-    name: OPENAI_API_KEY
-  
-  mysql-root-password:
-    external: true
-    name: MYSQL_ROOT_PASSWORD
-
-# 卷配置
-volumes:
-  mysql-data:
-
-# 🌐 網路配置
-networks:
-  default:
-    driver: bridge
-
-# 📊 監控配置
-monitoring:
-  enabled: true
-  metrics:
-    - name: http_requests_total
-      type: counter
-      help: "Total HTTP requests"
-    
-    - name: websocket_connections
-      type: gauge
-      help: "Active WebSocket connections"
     
     - name: ai_requests_total
       type: counter
@@ -199,21 +180,6 @@ logging:
     enabled: true
     retention: 7d
 
-# ⚙️ 配置檔案映射
-configs:
-  apache-config:
-    file: ./apache-config.conf
-    target: /etc/apache2/sites-available/000-default.conf
-  
-  supervisor-config:
-    file: ./supervisor.conf
-    target: /etc/supervisor/conf.d/pythonlearn.conf
-  
-  start-script:
-    file: ./start.sh
-    target: /usr/local/bin/start.sh
-    mode: 0755
-
 # 🔐 密鑰管理
 secrets:
   openai-api-key:
@@ -224,6 +190,44 @@ secrets:
     external: true
     name: MYSQL_ROOT_PASSWORD
   
-  session-secret:
+  mysql-password:
     external: true
-    name: SESSION_SECRET 
+    name: MYSQL_PASSWORD
+
+# 卷配置
+volumes:
+  mysql_data:
+    driver: local
+
+# 健康檢查配置
+healthcheck:
+  php:
+    path: /api/health
+    interval: 30s
+    timeout: 10s
+    retries: 3
+    
+  websocket:
+    port: 8081
+    interval: 30s
+    timeout: 10s
+    retries: 3
+
+# 環境變數配置
+env:
+  # MySQL 密碼（需要在 Zeabur 控制台設置）
+  MYSQL_ROOT_PASSWORD:
+    type: secret
+    default: "secure_root_password_2024"
+    
+  MYSQL_PASSWORD:
+    type: secret
+    default: "secure_user_password_2024"
+    
+  # OpenAI API 密鑰（需要在 Zeabur 控制台設置）
+  OPENAI_API_KEY:
+    type: secret
+    
+  # 域名（Zeabur 自動設置）
+  ZEABUR_DOMAIN:
+    type: auto 

@@ -1,16 +1,24 @@
 <?php
 
-// 引入 composer autoload
-require_once __DIR__ . '/../../vendor/autoload.php';
+namespace App;
 
+use PDO;
+use PDOException;
+use Exception;
+
+/**
+ * 數據庫管理類
+ * 支援 MySQL（雲端）和 localStorage 降級（本地）
+ */
 class Database {
     private static $instance = null;
-    private $connection;
-    private $config;
+    private $pdo = null;
+    private $mode = 'mysql';
+    private $localStorage = [];
+    private $nextId = 1;
     
     private function __construct() {
-        $this->config = require __DIR__ . '/../config/database.php';
-        $this->connect();
+        $this->initializeDatabase();
     }
     
     public static function getInstance() {
@@ -20,420 +28,739 @@ class Database {
         return self::$instance;
     }
     
-    private function connect() {
+    /**
+     * 初始化數據庫連接
+     */
+    private function initializeDatabase() {
+        // 1. 優先檢查 Zeabur 雲端環境
+        if ($this->isZeaburEnvironment()) {
+            $this->initializeMySQL('zeabur');
+        } 
+        // 2. 檢查 XAMPP 本地環境
+        elseif ($this->isXAMPPEnvironment()) {
+            $this->initializeMySQL('xampp');
+        } 
+        // 3. 降級到本地存儲模式
+        else {
+            $this->initializeLocalStorage();
+        }
+    }
+    
+    /**
+     * 檢查是否在 Zeabur 環境
+     */
+    private function isZeaburEnvironment() {
+        return isset($_ENV['ZEABUR_DOMAIN']) || 
+               isset($_ENV['DATABASE_URL']) || 
+               isset($_ENV['MYSQL_HOST']);
+    }
+    
+    /**
+     * 檢查是否在 XAMPP 環境
+     */
+    private function isXAMPPEnvironment() {
+        // 檢查 XAMPP 常見路徑和環境標識
+        $xamppPaths = [
+            'C:\\xampp\\mysql\\bin\\mysql.exe',
+            'C:\\xampp\\apache\\bin\\httpd.exe',
+            '/opt/lampp/bin/mysql',
+            '/Applications/XAMPP/xamppfiles/bin/mysql'
+        ];
+        
+        foreach ($xamppPaths as $path) {
+            if (file_exists($path)) {
+                return true;
+            }
+        }
+        
+        // 檢查環境變數或手動設定
+        return isset($_ENV['XAMPP_MODE']) || 
+               (isset($_ENV['USE_MYSQL']) && $_ENV['USE_MYSQL'] === 'true');
+    }
+    
+    /**
+     * 初始化 MySQL 連接（支援 Zeabur 雲端 和 XAMPP 本地）
+     */
+    private function initializeMySQL($environment = 'zeabur') {
         try {
-            // 檢查是否能連接到 XAMPP MySQL
-            $mysqlDsn = sprintf(
-                "mysql:host=%s;port=%d;dbname=%s;charset=%s",
-                $this->config['host'],
-                $this->config['port'],
-                $this->config['database'],
-                $this->config['charset']
-            );
-            
-            // 嘗試連接 MySQL
-            try {
-                $this->connection = new PDO(
-                    $mysqlDsn,
-                    $this->config['username'],
-                    $this->config['password'],
-                    $this->config['options']
-                );
+            if ($environment === 'xampp') {
+                // XAMPP 預設配置
+                $host = $_ENV['MYSQL_HOST'] ?? 'localhost';
+                $port = $_ENV['MYSQL_PORT'] ?? '3306';
+                $dbname = $_ENV['MYSQL_DATABASE'] ?? 'pythonlearn_collaboration';
+                $username = $_ENV['MYSQL_USER'] ?? 'root';
+                $password = $_ENV['MYSQL_PASSWORD'] ?? '';
                 
-                echo "<!-- ✅ 已連接到 XAMPP MySQL 數據庫 -->\n";
+                echo "🔧 嘗試連接 XAMPP MySQL 數據庫...\n";
+                echo "   主機: {$host}:{$port}\n";
+                echo "   數據庫: {$dbname}\n";
+                echo "   用戶: {$username}\n";
                 
-            } catch (PDOException $mysqlException) {
-                // MySQL 連接失敗，降級到 SQLite
-                echo "<!-- ⚠️ MySQL 連接失敗，使用 SQLite: " . $mysqlException->getMessage() . " -->\n";
+                // 首先嘗試連接並創建數據庫（如果不存在）
+                $dsn = "mysql:host={$host};port={$port};charset=utf8mb4";
+                $tempPdo = new PDO($dsn, $username, $password, [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+                ]);
                 
-                $dbPath = __DIR__ . '/../../data/database.sqlite';
-                $dbDir = dirname($dbPath);
+                // 創建數據庫（如果不存在）
+                $tempPdo->exec("CREATE DATABASE IF NOT EXISTS `{$dbname}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+                echo "✅ 數據庫 '{$dbname}' 確認存在\n";
                 
-                // 確保data目錄存在
-                if (!is_dir($dbDir)) {
-                    mkdir($dbDir, 0755, true);
+                // 連接到指定數據庫
+                $dsn = "mysql:host={$host};port={$port};dbname={$dbname};charset=utf8mb4";
+                
+            } else {
+                // Zeabur 雲端配置
+                $host = $_ENV['MYSQL_HOST'] ?? $_ENV['DB_HOST'] ?? 'localhost';
+                $port = $_ENV['MYSQL_PORT'] ?? $_ENV['DB_PORT'] ?? '3306';
+                $dbname = $_ENV['MYSQL_DATABASE'] ?? $_ENV['DB_NAME'] ?? 'pythonlearn';
+                $username = $_ENV['MYSQL_USER'] ?? $_ENV['DB_USER'] ?? 'root';
+                $password = $_ENV['MYSQL_PASSWORD'] ?? $_ENV['DB_PASSWORD'] ?? '';
+                
+                // 專案專用數據庫配置
+                if (!$dbname || $dbname === 'pythonlearn') {
+                    $dbname = 'pythonlearn_collaboration';
                 }
                 
-                $sqliteDsn = "sqlite:$dbPath";
+                // 如果有 DATABASE_URL（某些雲端平台使用）
+                if (isset($_ENV['DATABASE_URL'])) {
+                    $url = parse_url($_ENV['DATABASE_URL']);
+                    $host = $url['host'];
+                    $port = $url['port'] ?? 3306;
+                    $dbname = ltrim($url['path'], '/');
+                    $username = $url['user'];
+                    $password = $url['pass'];
+                }
                 
-                $this->connection = new PDO($sqliteDsn, null, null, [
+                $dsn = "mysql:host={$host};port={$port};dbname={$dbname};charset=utf8mb4";
+                echo "�� 嘗試連接 Zeabur MySQL 數據庫...\n";
+            }
+            
+            $this->pdo = new PDO($dsn, $username, $password, [
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                     PDO::ATTR_EMULATE_PREPARES => false,
+                PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4"
                 ]);
                 
-                // 啟用外鍵約束
-                $this->connection->exec('PRAGMA foreign_keys = ON');
+            // 創建表格（如果不存在）
+            $this->createTables();
                 
-                echo "<!-- ✅ 已降級到 SQLite 數據庫 -->\n";
-            }
+            echo "✅ MySQL 數據庫連接成功 ({$environment} 模式)\n";
             
         } catch (PDOException $e) {
-            throw new Exception("資料庫連接失敗: " . $e->getMessage());
+            echo "❌ MySQL 連接失敗，降級到本地存儲模式: " . $e->getMessage() . "\n";
+            $this->initializeLocalStorage();
         }
-    }
-    
-    public function getConnection() {
-        return $this->connection;
-    }
-    
-    public function query($sql, $params = []) {
-        try {
-            $stmt = $this->connection->prepare($sql);
-            $stmt->execute($params);
-            return $stmt;
-        } catch (PDOException $e) {
-            throw new Exception("查詢執行失敗: " . $e->getMessage());
-        }
-    }
-    
-    public function fetch($sql, $params = []) {
-        $stmt = $this->query($sql, $params);
-        return $stmt->fetch();
-    }
-    
-    public function fetchAll($sql, $params = []) {
-        $stmt = $this->query($sql, $params);
-        return $stmt->fetchAll();
-    }
-    
-    public function insert($table, $data) {
-        $columns = implode(',', array_keys($data));
-        $placeholders = ':' . implode(', :', array_keys($data));
-        
-        $sql = "INSERT INTO {$table} ({$columns}) VALUES ({$placeholders})";
-        $this->query($sql, $data);
-        
-        return $this->connection->lastInsertId();
-    }
-    
-    public function update($table, $data, $where, $whereParams = []) {
-        $setClause = [];
-        foreach (array_keys($data) as $column) {
-            $setClause[] = "{$column} = :{$column}";
-        }
-        $setClause = implode(', ', $setClause);
-        
-        $sql = "UPDATE {$table} SET {$setClause} WHERE {$where}";
-        $params = array_merge($data, $whereParams);
-        
-        return $this->query($sql, $params);
-    }
-    
-    public function delete($table, $where, $params = []) {
-        $sql = "DELETE FROM {$table} WHERE {$where}";
-        return $this->query($sql, $params);
-    }
-    
-    public function beginTransaction() {
-        return $this->connection->beginTransaction();
-    }
-    
-    public function commit() {
-        return $this->connection->commit();
-    }
-    
-    public function rollback() {
-        return $this->connection->rollback();
     }
     
     /**
-     * 檢查當前使用的數據庫類型
+     * 初始化本地存儲模式
      */
-    public function getDatabaseType() {
-        $driver = $this->connection->getAttribute(PDO::ATTR_DRIVER_NAME);
-        return $driver;
-    }
-    
-    /**
-     * 創建表格 - 支援 MySQL 和 SQLite
-     */
-    public function createTables() {
-        $isMySQL = $this->getDatabaseType() === 'mysql';
+    private function initializeLocalStorage() {
+        $this->mode = 'localStorage';
+        $this->localStorage = [
+            'users' => [],
+            'rooms' => [],
+            'room_users' => [],
+            'code_history' => [],
+            'code_changes' => [],
+            'conflicts' => [],
+            'ai_requests' => [],
+            'code_executions' => [],
+            'system_logs' => []
+        ];
         
-        if ($isMySQL) {
-            $this->createMySQLTables();
-        } else {
-            $this->createSQLiteTables();
-        }
+        // 載入本地存儲的數據（如果存在）
+        $this->loadLocalData();
+        
+        echo "✅ 本地存儲模式已啟用\n";
     }
     
     /**
      * 創建 MySQL 表格
      */
-    private function createMySQLTables() {
-        $sql = "
-        CREATE TABLE IF NOT EXISTS users (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            username VARCHAR(50) NOT NULL UNIQUE,
-            user_type VARCHAR(20) NOT NULL DEFAULT 'student',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    private function createTables() {
+        if ($this->mode !== 'mysql') return;
         
-        CREATE TABLE IF NOT EXISTS rooms (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            room_name VARCHAR(200) NOT NULL,
-            description TEXT,
-            max_users INT DEFAULT 10,
-            created_by INT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (created_by) REFERENCES users(id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        $tables = [
+            'users' => "
+                CREATE TABLE IF NOT EXISTS users (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    username VARCHAR(50) NOT NULL UNIQUE,
+                    user_type ENUM('student', 'teacher') DEFAULT 'student',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            ",
+            
+            'rooms' => "
+                CREATE TABLE IF NOT EXISTS rooms (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    room_name VARCHAR(100) NOT NULL,
+                    room_id VARCHAR(100) NOT NULL UNIQUE,
+                    password VARCHAR(255) NULL,
+                    created_by INT,
+                    max_users INT DEFAULT 10,
+                    is_active BOOLEAN DEFAULT TRUE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            ",
+            
+            'room_users' => "
+                CREATE TABLE IF NOT EXISTS room_users (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    room_id VARCHAR(100) NOT NULL,
+                    user_id INT NOT NULL,
+                    username VARCHAR(50) NOT NULL,
+                    joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    is_active BOOLEAN DEFAULT TRUE,
+                    INDEX idx_room_user (room_id, user_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            ",
+            
+            'code_history' => "
+                CREATE TABLE IF NOT EXISTS code_history (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    room_id VARCHAR(100) NOT NULL,
+                    user_id VARCHAR(50) NOT NULL,
+                    username VARCHAR(50) NOT NULL,
+                    code_content TEXT,
+                    slot_id INT DEFAULT 0,
+                    save_name VARCHAR(255) DEFAULT '',
+                    operation_type VARCHAR(50) DEFAULT 'save',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_room_slot (room_id, slot_id),
+                    INDEX idx_room_history (room_id, created_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            ",
+            
+            'code_executions' => "
+                CREATE TABLE IF NOT EXISTS code_executions (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    room_id VARCHAR(100) NOT NULL,
+                    user_id VARCHAR(50) NOT NULL,
+                    code TEXT,
+                    output TEXT,
+                    error TEXT,
+                    success BOOLEAN DEFAULT FALSE,
+                    execution_time DECIMAL(10,2) DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_room_executions (room_id, created_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            ",
+            
+            'ai_requests' => "
+                CREATE TABLE IF NOT EXISTS ai_requests (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    room_id VARCHAR(100) NOT NULL,
+                    user_id VARCHAR(50) NOT NULL,
+                    request_type VARCHAR(50) NOT NULL,
+                    request_data TEXT,
+                    response_data TEXT,
+                    success BOOLEAN DEFAULT FALSE,
+                    error_message TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_room_ai (room_id, created_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            "
+        ];
         
-        CREATE TABLE IF NOT EXISTS room_users (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            room_id VARCHAR(100) NOT NULL,
-            user_id INT NOT NULL,
-            joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            left_at TIMESTAMP NULL,
-            is_active BOOLEAN DEFAULT TRUE,
-            FOREIGN KEY (user_id) REFERENCES users(id),
-            INDEX idx_room_user (room_id, user_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-        
-        CREATE TABLE IF NOT EXISTS code_history (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            room_id VARCHAR(100) NOT NULL,
-            user_id INT NOT NULL,
-            code LONGTEXT NOT NULL,
-            version INT NOT NULL,
-            description TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id),
-            INDEX idx_room_version (room_id, version)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-        
-        CREATE TABLE IF NOT EXISTS conflicts (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            conflict_id VARCHAR(100) NOT NULL UNIQUE,
-            room_id VARCHAR(100) NOT NULL,
-            conflict_type ENUM('LINE_CONFLICT', 'REGION_CONFLICT', 'SYNTAX_CONFLICT', 'LOGIC_CONFLICT') NOT NULL,
-            affected_lines JSON,
-            users_involved JSON,
-            original_code TEXT,
-            conflicted_versions JSON,
-            status ENUM('pending', 'resolved', 'escalated') DEFAULT 'pending',
-            resolution ENUM('accept', 'reject', 'share', 'ai_analyze') NULL,
-            resolved_by INT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            resolved_at TIMESTAMP NULL,
-            FOREIGN KEY (resolved_by) REFERENCES users(id),
-            INDEX idx_room_status (room_id, status)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-        
-        CREATE TABLE IF NOT EXISTS ai_requests (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            user_id INT NOT NULL,
-            request_type ENUM('explain', 'check_errors', 'suggest_improvements', 'analyze_conflict', 'answer_question') NOT NULL,
-            prompt TEXT NOT NULL,
-            response TEXT,
-            execution_time FLOAT,
-            token_usage INT,
-            success BOOLEAN DEFAULT TRUE,
-            error_message TEXT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id),
-            INDEX idx_user_type (user_id, request_type)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-        ";
-        
-        // 分割並執行每個 CREATE TABLE 語句
-        $statements = explode(';', $sql);
-        foreach ($statements as $statement) {
-            $statement = trim($statement);
-            if (!empty($statement)) {
-                $this->connection->exec($statement);
+        foreach ($tables as $tableName => $sql) {
+            try {
+                $this->pdo->exec($sql);
+                echo "✅ 表格 {$tableName} 創建/檢查完成\n";
+        } catch (PDOException $e) {
+                echo "❌ 創建表格 {$tableName} 失敗: " . $e->getMessage() . "\n";
             }
         }
     }
     
     /**
-     * 創建 SQLite 表格
+     * 執行查詢（單行結果）
      */
-    private function createSQLiteTables() {
-        $sql = "
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username VARCHAR(50) NOT NULL UNIQUE,
-            user_type VARCHAR(20) NOT NULL DEFAULT 'student',
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        );
-        
-        CREATE TABLE IF NOT EXISTS rooms (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            room_name VARCHAR(200) NOT NULL,
-            description TEXT,
-            max_users INTEGER DEFAULT 10,
-            created_by INTEGER NOT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (created_by) REFERENCES users(id)
-        );
-        
-        CREATE TABLE IF NOT EXISTS room_users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            room_id VARCHAR(100) NOT NULL,
-            user_id INTEGER NOT NULL,
-            joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            left_at DATETIME NULL,
-            is_active BOOLEAN DEFAULT TRUE,
-            FOREIGN KEY (user_id) REFERENCES users(id)
-        );
-        
-        CREATE TABLE IF NOT EXISTS code_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            room_id VARCHAR(100) NOT NULL,
-            user_id INTEGER NOT NULL,
-            code TEXT NOT NULL,
-            version INTEGER NOT NULL,
-            description TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id)
-        );
-        
-        CREATE TABLE IF NOT EXISTS conflicts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            conflict_id VARCHAR(100) NOT NULL UNIQUE,
-            room_id VARCHAR(100) NOT NULL,
-            conflict_type VARCHAR(50) NOT NULL,
-            affected_lines TEXT,
-            users_involved TEXT,
-            original_code TEXT,
-            conflicted_versions TEXT,
-            status VARCHAR(20) DEFAULT 'pending',
-            resolution VARCHAR(20) NULL,
-            resolved_by INTEGER NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            resolved_at DATETIME NULL,
-            FOREIGN KEY (resolved_by) REFERENCES users(id)
-        );
-        
-        CREATE TABLE IF NOT EXISTS ai_requests (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            request_type VARCHAR(50) NOT NULL,
-            prompt TEXT NOT NULL,
-            response TEXT,
-            execution_time REAL,
-            token_usage INTEGER,
-            success BOOLEAN DEFAULT TRUE,
-            error_message TEXT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id)
-        );
-        ";
-        
-        // 分割並執行每個 CREATE TABLE 語句
-        $statements = explode(';', $sql);
-        foreach ($statements as $statement) {
-            $statement = trim($statement);
-            if (!empty($statement)) {
-                $this->connection->exec($statement);
+    public function fetch($sql, $params = []) {
+        if ($this->mode === 'mysql') {
+            try {
+                $stmt = $this->pdo->prepare($sql);
+                $stmt->execute($params);
+            return $stmt->fetch(\PDO::FETCH_ASSOC);
+            } catch (PDOException $e) {
+                echo "❌ 查詢錯誤: " . $e->getMessage() . "\n";
+                return null;
             }
+        } else {
+            return $this->fetchLocal($sql, $params);
         }
     }
     
     /**
-     * 初始化數據庫 - 創建表格並插入測試數據
+     * 執行查詢（多行結果）
      */
-    public function initialize() {
-        $this->createTables();
-        $this->insertTestData();
-    }
-    
-    /**
-     * 插入測試數據
-     */
-    private function insertTestData() {
-        try {
-            // 檢查是否已有數據
-            $userCount = $this->fetch("SELECT COUNT(*) as count FROM users")['count'];
-            if ($userCount > 0) {
-                return; // 已有數據，跳過初始化
+    public function fetchAll($sql, $params = []) {
+        if ($this->mode === 'mysql') {
+            try {
+                $stmt = $this->pdo->prepare($sql);
+                $stmt->execute($params);
+            return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+            } catch (PDOException $e) {
+                echo "❌ 查詢錯誤: " . $e->getMessage() . "\n";
+                return [];
             }
-            
-            // 插入測試用戶
-            $testUsers = [
-                ['username' => 'teacher', 'user_type' => 'teacher'],
-                ['username' => '學生A', 'user_type' => 'student'],
-                ['username' => '學生B', 'user_type' => 'student'],
-                ['username' => '張三', 'user_type' => 'student'],
-                ['username' => '李四', 'user_type' => 'student']
-            ];
-            
-            foreach ($testUsers as $user) {
-                $this->insert('users', $user);
-            }
-            
-            echo "<!-- ✅ 已插入測試數據 -->\n";
-            
-        } catch (Exception $e) {
-            echo "<!-- ⚠️ 插入測試數據失敗: " . $e->getMessage() . " -->\n";
+        } else {
+            return $this->fetchAllLocal($sql, $params);
         }
     }
     
     /**
-     * 獲取數據庫狀態信息
+     * 插入數據
      */
-    public function getStatus() {
-        try {
-            if (!$this->connection) {
+    public function insert($table, $data) {
+        // 如果是本地存儲模式，在插入時自動處理ID和時間戳
+        if ($this->mode === 'localStorage' && !isset($data['id'])) {
+            $data['id'] = $this->nextId++;
+            if (!isset($data['created_at'])) {
+                $data['created_at'] = date('Y-m-d H:i:s');
+            }
+        }
+        
+        // 為 code_history 表自動設置槽位ID
+        if ($table === 'code_history' && !isset($data['slot_id'])) {
+            $data['slot_id'] = $data['slot_id'] ?? 0; // 默認使用槽位0
+        }
+
+        if ($this->mode === 'mysql') {
+            $columns = implode(', ', array_keys($data));
+            $placeholders = ':' . implode(', :', array_keys($data));
+            $sql = "INSERT INTO {$table} ({$columns}) VALUES ({$placeholders})";
+            
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($data);
+            
+            return $this->pdo->lastInsertId();
+        } else {
+            $id = $data['id'];
+            $this->localStorage[$table][] = $data;
+            $this->saveToLocalStorage(); // 確保數據持久化
+            return $id;
+        }
+    }
+    
+    /**
+     * 更新數據
+     */
+    public function update($table, $data, $where) {
+        if ($this->mode === 'mysql') {
+            try {
+                $setClause = [];
+                foreach ($data as $key => $value) {
+                    $setClause[] = "{$key} = :{$key}";
+                }
+                
+                $whereClause = [];
+                foreach ($where as $key => $value) {
+                    $whereClause[] = "{$key} = :where_{$key}";
+                    $data["where_{$key}"] = $value;
+                }
+                
+                $sql = "UPDATE {$table} SET " . implode(', ', $setClause) . 
+                       " WHERE " . implode(' AND ', $whereClause);
+                
+                $stmt = $this->pdo->prepare($sql);
+                return $stmt->execute($data);
+            } catch (PDOException $e) {
+                echo "❌ 更新錯誤: " . $e->getMessage() . "\n";
+                return false;
+            }
+        } else {
+            return $this->updateLocal($table, $data, $where);
+        }
+    }
+    
+    /**
+     * 刪除數據
+     */
+    public function delete($table, $where) {
+        if ($this->mode === 'mysql') {
+            try {
+                $whereClause = [];
+                foreach ($where as $key => $value) {
+                    $whereClause[] = "{$key} = :{$key}";
+                }
+                
+                $sql = "DELETE FROM {$table} WHERE " . implode(' AND ', $whereClause);
+                
+                $stmt = $this->pdo->prepare($sql);
+                return $stmt->execute($where);
+            } catch (PDOException $e) {
+                echo "❌ 刪除錯誤: " . $e->getMessage() . "\n";
+                return false;
+            }
+        } else {
+            return $this->deleteLocal($table, $where);
+        }
+    }
+    
+    /**
+     * 執行原生 SQL
+     */
+    public function execute($sql, $params = []) {
+        if ($this->mode === 'mysql') {
+            try {
+                $stmt = $this->pdo->prepare($sql);
+                return $stmt->execute($params);
+            } catch (PDOException $e) {
+                echo "❌ SQL 執行錯誤: " . $e->getMessage() . "\n";
+                return false;
+            }
+        } else {
+            // 本地模式不支援原生 SQL，返回 false
+            echo "⚠️ 本地模式不支援原生 SQL 執行\n";
+            return false;
+        }
+    }
+    
+    // ==================== 本地存儲模式方法 ====================
+    
+    /**
+     * 本地模式查詢（單行）
+     */
+    private function fetchLocal($sql, $params = []) {
+        // 處理槽位查詢 - 改為支援槽位系統
+        if (strpos($sql, 'SELECT') !== false && strpos($sql, 'slot_id') !== false) {
+            $roomId = $params['room_id'] ?? '';
+            $slotId = $params['slot_id'] ?? 0;
+            
+            foreach ($this->localStorage['code_history'] as $record) {
+                if ($record['room_id'] == $roomId && $record['slot_id'] == $slotId) {
+                    return $record;
+                }
+            }
+            
+            return null;
+        }
+        
+        // 簡化的 SQL 解析和模擬 - 改為槽位系統
+        if (strpos($sql, 'SELECT code_content') !== false || 
+            (strpos($sql, 'FROM code_history') !== false && strpos($sql, 'ORDER BY') !== false)) {
+            $roomId = $params['room_id'] ?? '';
+            $slotId = $params['slot_id'] ?? 0;
+            
+            // 按槽位ID查找，時間降序查找最新的代碼
+            $latestRecord = null;
+            $latestTime = 0;
+            
+            foreach ($this->localStorage['code_history'] as $record) {
+                if ($record['room_id'] == $roomId && $record['slot_id'] == $slotId) {
+                    $recordTime = strtotime($record['created_at']);
+                    
+                    if ($recordTime > $latestTime) {
+                        $latestTime = $recordTime;
+                        $latestRecord = $record;
+                    }
+                }
+            }
+            
+            if ($latestRecord) {
                 return [
-                    'connected' => false,
-                    'type' => 'none',
-                    'error' => '數據庫未連接'
+                    'code_content' => $latestRecord['code_content'],
+                    'created_at' => $latestRecord['created_at'],
+                    'user_id' => $latestRecord['user_id'],
+                    'username' => $latestRecord['username'] ?? $latestRecord['user_id'],
+                    'slot_id' => $latestRecord['slot_id'] ?? 0,
+                    'save_name' => $latestRecord['save_name'] ?? '程式碼載入',
+                    'operation_type' => $latestRecord['operation_type'] ?? 'save'
                 ];
             }
             
-            $databaseType = $this->getDatabaseType();
-            $status = [
-                'connected' => true,
-                'type' => $databaseType === 'mysql' ? 'MySQL' : 'SQLite',
-                'driver' => $databaseType
-            ];
-            
-            // 獲取表數量
-            try {
-                if ($databaseType === 'mysql') {
-                    $result = $this->fetch("SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = DATABASE()");
-                } else {
-                    $result = $this->fetch("SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
+            return ['code_content' => '# 歡迎使用Python協作平台\nprint("Hello, World!")'];
+        }
+        
+        // 處理其他類型的查詢
+        if (strpos($sql, 'SELECT') !== false && strpos($sql, 'WHERE') !== false) {
+            // 通用的單行查詢處理
+            $tableName = $this->extractTableName($sql);
+            if ($tableName && isset($this->localStorage[$tableName])) {
+                foreach ($this->localStorage[$tableName] as $record) {
+                    if ($this->matchesWhereClause($record, $params)) {
+                        return $record;
+                    }
                 }
-                $status['tables_count'] = $result['count'] ?? 0;
-            } catch (Exception $e) {
-                $status['tables_count'] = 0;
-                $status['table_error'] = $e->getMessage();
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * 本地模式查詢（多行）
+     */
+    private function fetchAllLocal($sql, $params = []) {
+        if (strpos($sql, 'SELECT * FROM code_history WHERE room_id') !== false) {
+            $roomId = $params['room_id'] ?? '';
+            $limit = 20; // 默認限制
+            
+            $history = [];
+            foreach ($this->localStorage['code_history'] as $record) {
+                if ($record['room_id'] == $roomId) {
+                    $history[] = $record;
+                }
             }
             
-            // 獲取用戶數量
-            try {
-                $result = $this->fetch("SELECT COUNT(*) as count FROM users");
-                $status['users_count'] = $result['count'] ?? 0;
-            } catch (Exception $e) {
-                $status['users_count'] = 0;
-                $status['users_error'] = '用戶表不存在或無法訪問';
+            // 按槽位ID和時間降序排列
+            usort($history, function($a, $b) {
+                $slotA = $a['slot_id'] ?? 0;
+                $slotB = $b['slot_id'] ?? 0;
+                
+                if ($slotA == $slotB) {
+                    return strtotime($b['created_at']) - strtotime($a['created_at']);
+                }
+                
+                return $slotA - $slotB; // 槽位0-4順序排列
+            });
+            
+            return array_slice($history, 0, $limit);
+        }
+        
+        return [];
+    }
+    
+    /**
+     * 本地模式更新
+     */
+    private function updateLocal($table, $data, $where) {
+        if (!isset($this->localStorage[$table])) {
+            return false;
+        }
+        
+        foreach ($this->localStorage[$table] as &$row) {
+            $match = true;
+            foreach ($where as $key => $value) {
+                if (!isset($row[$key]) || $row[$key] != $value) {
+                    $match = false;
+                    break;
+                }
             }
             
-            // 獲取房間數量
-            try {
-                $result = $this->fetch("SELECT COUNT(*) as count FROM rooms");
-                $status['rooms_count'] = $result['count'] ?? 0;
-            } catch (Exception $e) {
-                $status['rooms_count'] = 0;
-                $status['rooms_error'] = '房間表不存在或無法訪問';
+            if ($match) {
+                foreach ($data as $key => $value) {
+                    $row[$key] = $value;
+                }
+                $row['updated_at'] = date('Y-m-d H:i:s');
+                $this->saveToLocalStorage();
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * 本地模式刪除
+     */
+    private function deleteLocal($table, $where) {
+        if (!isset($this->localStorage[$table])) {
+            return false;
+        }
+        
+        $deleted = false;
+        foreach ($this->localStorage[$table] as $index => $row) {
+            $match = true;
+            foreach ($where as $key => $value) {
+                if (!isset($row[$key]) || $row[$key] != $value) {
+                    $match = false;
+                    break;
+                }
             }
             
-            return $status;
+            if ($match) {
+                unset($this->localStorage[$table][$index]);
+                $deleted = true;
+            }
+        }
+        
+        if ($deleted) {
+            $this->localStorage[$table] = array_values($this->localStorage[$table]);
+            $this->saveToLocalStorage();
+        }
+        
+        return $deleted;
+    }
+    
+    /**
+     * 載入本地數據
+     */
+    private function loadLocalData() {
+        $dataFile = __DIR__ . '/../../storage/local_database.json';
+        
+        if (file_exists($dataFile)) {
+            $jsonData = file_get_contents($dataFile);
+            $data = json_decode($jsonData, true);
             
-        } catch (Exception $e) {
-            return [
-                'connected' => false,
-                'type' => 'error',
-                'error' => $e->getMessage()
+            if ($data) {
+                $this->localStorage = array_merge($this->localStorage, $data);
+                $this->nextId = $this->getMaxId() + 1;
+            }
+        }
+    }
+    
+    /**
+     * 保存本地數據
+     */
+    private function saveToLocalStorage() {
+        $storageDir = __DIR__ . '/../../storage';
+        if (!is_dir($storageDir)) {
+            mkdir($storageDir, 0755, true);
+        }
+        
+        $dataFile = $storageDir . '/local_database.json';
+        file_put_contents($dataFile, json_encode($this->localStorage, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    }
+    
+    /**
+     * 獲取最大 ID
+     */
+    private function getMaxId() {
+        $maxId = 0;
+        foreach ($this->localStorage as $table => $records) {
+            foreach ($records as $record) {
+                if (isset($record['id']) && $record['id'] > $maxId) {
+                    $maxId = $record['id'];
+                }
+            }
+        }
+        return $maxId;
+    }
+    
+    /**
+     * 獲取數據庫狀態
+     */
+    public function getStatus() {
+                return [
+            'mode' => $this->mode,
+            'connected' => $this->isConnected(),
+            'tables_count' => $this->mode === 'mysql' ? 'N/A' : count($this->localStorage),
+            'environment' => $this->isZeaburEnvironment() ? 'Zeabur Cloud' : 'Local Development'
+        ];
+    }
+    
+    /**
+     * 檢查連接狀態
+     */
+    public function isConnected() {
+        return $this->mode === 'mysql' ? ($this->pdo !== null) : true;
+    }
+    
+    /**
+     * 從 SQL 中提取表名
+     */
+    private function extractTableName($sql) {
+        // 簡單的表名提取
+        if (preg_match('/FROM\s+(\w+)/i', $sql, $matches)) {
+            return $matches[1];
+        }
+        return null;
+    }
+    
+    /**
+     * 檢查記錄是否匹配 WHERE 條件
+     */
+    private function matchesWhereClause($record, $params) {
+        foreach ($params as $key => $value) {
+            if (!isset($record[$key]) || $record[$key] != $value) {
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    /**
+     * 清理本地存儲數據
+     */
+    public function clearLocalStorage() {
+        if ($this->mode === 'localStorage') {
+            $this->localStorage = [
+                'users' => [],
+                'rooms' => [],
+                'room_users' => [],
+                'code_history' => [],
+                'code_changes' => [],
+                'conflicts' => [],
+                'ai_requests' => [],
+                'code_executions' => [],
+                'system_logs' => []
             ];
+            $this->saveToLocalStorage();
+            return true;
+        }
+        return false;
+    }
+    
+    /**
+     * 獲取本地存儲統計信息
+     */
+    public function getLocalStorageStats() {
+        if ($this->mode !== 'localStorage') {
+            return null;
+        }
+        
+        $stats = [];
+        foreach ($this->localStorage as $table => $records) {
+            $stats[$table] = count($records);
+        }
+        
+        return $stats;
+    }
+    
+    public function fetchById($table, $id) {
+        if ($this->mode === 'mysql') {
+            $stmt = $this->pdo->prepare("SELECT * FROM {$table} WHERE id = :id");
+            $stmt->execute(['id' => $id]);
+            return $stmt->fetch(\PDO::FETCH_ASSOC);
+        } else {
+            // 本地存儲模式
+            if (isset($this->localStorage[$table])) {
+                foreach ($this->localStorage[$table] as $record) {
+                    if (isset($record['id']) && $record['id'] == $id) {
+                        return $record;
+                    }
+                }
+            }
+            return null;
+        }
+    }
+    
+    private function getMaxSlotId($roomId, $table) {
+        $maxSlot = 0;
+        if (isset($this->localStorage[$table])) {
+            foreach ($this->localStorage[$table] as $record) {
+                if (($record['room_id'] ?? null) == $roomId) {
+                    $slot = $record['slot_id'] ?? 0;
+                    if ($slot > $maxSlot) {
+                        $maxSlot = $slot;
+                    }
+                }
+            }
+        }
+        return $maxSlot;
+    }
+    
+    public function initTables() {
+        if ($this->mode === 'mysql' && $this->pdo) {
+            $this->createTables();
+        } else if ($this->mode === 'localStorage') {
+            if (!isset($this->localStorage['code_history'])) {
+                $this->localStorage['code_history'] = [];
+            }
+            // 可以為其他表做類似的初始化
+             if (!isset($this->localStorage['rooms'])) {
+                $this->localStorage['rooms'] = [];
+            }
+             if (!isset($this->localStorage['users'])) {
+                $this->localStorage['users'] = [];
+            }
         }
     }
 }
