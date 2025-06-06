@@ -2,7 +2,7 @@
 name: pythonlearn-collaboration
 
 services:
-  # 主應用服務 (PHP + WebSocket 整合在同一端口)
+  # 主Web服務
   app:
     # 構建配置
     build:
@@ -10,9 +10,17 @@ services:
         composer install --no-dev --optimize-autoloader
         echo "✅ PHP 依賴安裝完成"
     
-    # 啟動配置 - 使用整合式WebSocket代理
+    # 啟動配置 - 同時啟動Web和WebSocket服務
     start: |
+      # 後台啟動WebSocket服務器
+      php websocket/server.php &
+      # 前台啟動Web服務器
       php -S 0.0.0.0:8080 router.php
+    
+    # 端口配置
+    ports:
+      - 8080
+      - 8081
     
     # 環境變數
     envs:
@@ -20,11 +28,13 @@ services:
       ZEABUR_DOMAIN: ${ZEABUR_WEB_DOMAIN}
       ENVIRONMENT: production
       
-      # WebSocket 配置 (整合到HTTP服務器)
+      # WebSocket 配置
       WEBSOCKET_ENABLED: true
-      WEBSOCKET_INTERNAL_PORT: 8081
+      WEBSOCKET_PORT: 8081
+      WEBSOCKET_HOST: 0.0.0.0
+      WSS_URL: wss://${ZEABUR_WEB_DOMAIN}/ws
       
-      # 數據庫配置 (Zeabur MySQL 服務)
+      # 數據庫配置
       MYSQL_HOST: ${MYSQL_HOST}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
@@ -42,33 +52,24 @@ services:
       MAX_ROOMS: 50
       MAX_USERS_PER_ROOM: 8
     
-    # 端口配置 - 只使用8080端口
-    ports:
-      - port: 8080
-        name: http
-    
     # 健康檢查
     healthcheck:
       path: /health
       interval: 30s
       timeout: 10s
-    
-    # 域名配置
-    domains:
-      - ${ZEABUR_WEB_DOMAIN}
 
-  # MySQL 數據庫服務
-  mysql:
-    image: mysql:8.0
-    envs:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: python_collaboration
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-    
-    # 持久化存儲
-    volumes:
-      - mysql-data:/var/lib/mysql
+# 部署配置
+deploy:
+  auto: true
+  
+  # 環境變數需求
+  envs:
+    required:
+      - OPENAI_API_KEY
+    optional:
+      - MYSQL_HOST
+      - MYSQL_USER
+      - MYSQL_PASSWORD
 
 # 卷配置
 volumes:
