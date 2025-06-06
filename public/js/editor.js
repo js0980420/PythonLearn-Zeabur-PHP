@@ -167,41 +167,60 @@ class EditorManager {
         }
         
         const code = this.editor.getValue();
-        let customName = null;
 
-        // 如果是手動保存，則彈出輸入框讓用戶命名
-        if (!isAutoSave) {
+        // 如果是自動保存，直接保存到槽位0（最新）
+        if (isAutoSave) {
+            const now = new Date();
+            const autoSaveName = `自動保存 ${now.toLocaleString('zh-TW', { hour12: false })}`;
+            
+            this.saveToHistory(code, autoSaveName);
+
+            wsManager.sendMessage({
+                type: 'save_code',
+                room_id: wsManager.currentRoom,
+                user_id: wsManager.currentUser,
+                code: code,
+                save_name: autoSaveName,
+                slot_id: 0 // 自動保存到槽位0
+            });
+
+            this.resetEditingState();
+            console.log('🔄 自動保存到槽位0: ' + autoSaveName);
+            return;
+        }
+
+        // 手動保存：顯示5槽位選擇對話框
+        if (window.SaveLoadManager) {
+            // 先保存到本地歷史記錄
+            const now = new Date();
+            const tempName = `手動保存 ${now.toLocaleString('zh-TW', { hour12: false })}`;
+            this.saveToHistory(code, tempName);
+            
+            // 顯示槽位選擇對話框
+            window.SaveLoadManager.displaySaveSlotDialog();
+            this.resetEditingState();
+        } else {
+            // 回退方案：使用舊的prompt方式
             let name = prompt("請為您的代碼版本命名 (留空則自動命名): ");
-            if (name === null) { // 用戶點擊了取消
+            if (name === null) {
                 console.log("用戶取消保存操作。");
                 return;
             }
-            customName = name.trim();
+            
+            const customName = name.trim() || `手動保存 ${new Date().toLocaleString('zh-TW', { hour12: false })}`;
+            this.saveToHistory(code, customName);
+
+            wsManager.sendMessage({
+                type: 'save_code',
+                room_id: wsManager.currentRoom,
+                user_id: wsManager.currentUser,
+                code: code,
+                save_name: customName
+            });
+
+            this.resetEditingState();
+            UI.showSuccessToast(`代碼已保存: ${customName}`);
         }
-
-        // 生成默認名稱（如果沒有提供或為空）
-        if (customName === null || customName === '') {
-            const now = new Date();
-            customName = isAutoSave ? 
-                         `自動保存 ${now.toLocaleString('zh-TW', { hour12: false })}` :
-                         `手動保存 ${now.toLocaleString('zh-TW', { hour12: false })}`;
-        }
-        
-        this.saveToHistory(code, customName); // 將名稱傳遞給 saveToHistory
-
-        wsManager.sendMessage({
-            type: 'save_code',
-            room_id: wsManager.currentRoom,
-            user_id: wsManager.currentUser,
-            code: code,
-            save_name: customName // 修改為 save_name 以匹配後端
-        });
-
-        // 保存後重置編輯狀態
-        this.resetEditingState();
-
-        UI.showSuccessToast(`代碼已保存: ${customName}`);
-        this.updateVersionDisplay(); // 保持版本號更新
     }
 
     // 重置編輯狀態
@@ -874,6 +893,7 @@ class EditorManager {
             user_id: wsManager.currentUser,
             username: wsManager.currentUser,
             code: code,
+            change_type: forceUpdate ? 'replace' : 'insert', // 修復：添加change_type字段
             timestamp: Date.now(),
             // 🔧 新增：標記是否為預警後的發送
             hasConflictWarning: !forceUpdate && this.shouldShowConflictWarning()
