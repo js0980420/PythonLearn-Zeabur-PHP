@@ -127,7 +127,11 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">您的名稱</label>
-                        <input type="text" class="form-control" id="nameInput" placeholder="輸入您的名稱">
+                        <input type="text" class="form-control" id="nameInput" placeholder="輸入您的名稱" value="Alex Wang">
+                        <div class="form-text">
+                            <i class="fas fa-info-circle"></i> 
+                            默認使用測試用戶"Alex Wang (艾克斯王)"，您可以修改為其他名稱
+                        </div>
                     </div>
                     <button class="btn btn-primary w-100 mb-3" onclick="globalJoinRoom()"><i class="fas fa-sign-in-alt"></i> 加入房間</button>
                     <div class="text-center">
@@ -379,6 +383,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
     
     <!-- 模組化JS檔案 (確保路徑相對於public目錄是正確的) -->
+    <script src="js/auto-login.js"></script>
     <script src="js/websocket.js"></script>
     <script src="js/save-load.js"></script>
     <script src="js/ui.js"></script>
