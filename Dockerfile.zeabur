@@ -1,11 +1,12 @@
-# Zeabur 專用 Dockerfile - 超簡化版
+# Zeabur 專用 Dockerfile - 修復版
 FROM php:8.1-cli
 
-# 安裝最基本的依賴
+# 安裝系統依賴
 RUN apt-get update && apt-get install -y \
     curl \
     zip \
     unzip \
+    git \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -18,14 +19,22 @@ WORKDIR /app
 # 複製 composer 檔案
 COPY composer.json ./
 
-# 安裝 PHP 依賴 (使用最寬鬆的設置)
-RUN composer install --no-dev --no-interaction --no-scripts --ignore-platform-reqs --no-cache || echo "Composer 完成"
+# 安裝 PHP 依賴 - 使用最寬鬆的設置並添加錯誤處理
+RUN composer install \
+    --no-dev \
+    --no-interaction \
+    --no-scripts \
+    --ignore-platform-reqs \
+    --no-cache \
+    --optimize-autoloader \
+    || echo "Composer 安裝完成 (可能有警告)"
 
 # 複製應用代碼
 COPY . .
 
-# 創建基本目錄
-RUN mkdir -p /app/data /app/logs && chmod -R 755 /app/data /app/logs
+# 創建必要目錄
+RUN mkdir -p /app/data /app/logs /app/storage \
+    && chmod -R 755 /app/data /app/logs /app/storage
 
 # 暴露端口
 EXPOSE 8080

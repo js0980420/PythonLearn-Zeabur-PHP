@@ -1,0 +1,40 @@
+# Zeabur 部署忽略文件
+# 確保使用正確的構建配置
+
+# 忽略其他 Dockerfile
+Dockerfile
+Dockerfile.caddy
+
+# 忽略開發文件
+*.md
+*.txt
+*.log
+*.bat
+*.ps1
+*.sh
+
+# 忽略測試文件
+test-*
+*test*
+debug_*
+
+# 忽略開發工具
+.vscode/
+.cursor/
+*.mdc
+
+# 忽略系統文件
+.DS_Store
+Thumbs.db
+
+# 忽略備份文件
+*.bak
+*.backup
+
+# 忽略臨時文件
+temp/
+logs/
+storage/
+
+# 忽略 Composer 依賴 (讓 Zeabur 重新安裝)
+vendor/ 
