@@ -9,7 +9,6 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     zip \
     unzip \
-    supervisor \
     default-mysql-client \
     && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd sockets \
     && apt-get clean \
@@ -34,9 +33,6 @@ COPY . .
 RUN mkdir -p /app/data /app/logs /app/storage /app/sessions /app/temp \
     && chmod -R 755 /app/data /app/logs /app/storage /app/sessions /app/temp
 
-# 複製 Supervisor 配置
-COPY supervisor.conf /etc/supervisor/conf.d/pythonlearn.conf
-
 # 創建啟動腳本
 RUN echo '#!/bin/bash\n\
 echo "🚀 Starting PythonLearn Collaboration Platform..."\n\
@@ -51,8 +47,9 @@ php websocket/server.php > /app/logs/websocket.log 2>&1 &\n\
 # 等待 WebSocket 服務器啟動\n\
 sleep 3\n\
 \n\
-# 啟動 Supervisor 來管理 PHP 服務器\n\
-exec /usr/bin/supervisord -c /etc/supervisor/supervisord.conf -n\n\
+# 啟動 PHP Web 服務器\n\
+echo "🌐 Starting Web server on port 8080..."\n\
+exec php -S 0.0.0.0:8080 -t public router.php\n\
 ' > /usr/local/bin/start.sh && chmod +x /usr/local/bin/start.sh
 
 # 健康檢查

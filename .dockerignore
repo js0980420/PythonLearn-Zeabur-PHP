@@ -1,0 +1,52 @@
+# Git 相關
+.git
+.gitignore
+
+# 開發工具
+.cursor
+.vscode
+
+# 日誌檔案
+*.log
+logs/
+
+# 臨時檔案
+*.tmp
+temp/
+
+# 測試檔案
+test-*
+*test*
+debug_*
+
+# 文檔檔案
+*.md
+指南/
+
+# 本地配置
+.env
+ai_config.json
+
+# 系統檔案
+.DS_Store
+Thumbs.db
+
+# 備份檔案
+*.bak
+*.backup
+
+# 開發腳本
+*.bat
+*.ps1
+*.sh
+start*
+stop*
+launch*
+manage-*
+setup-*
+
+# PHP 開發檔案
+php/
+
+# 其他 Dockerfile
+Dockerfile.* 
