@@ -1,33 +1,18 @@
-# Zeabur 部署配置 - 強制使用 buildCommand
+# Zeabur 部署配置 - 簡化版使用 Dockerfile
 name: pythonlearn-collaboration
 
 services:
-  # 主要 PHP 應用服務
-  web:
-    # 明確指定構建方式，不使用 Dockerfile
-    build:
-      dockerfile: false
-      buildCommand: |
-        echo "🔧 開始構建 PHP 應用..."
-        echo "📦 當前目錄內容:"
-        ls -la
-        echo "📋 Composer 版本:"
-        composer --version || echo "Composer 不可用"
-        echo "🔧 安裝依賴 (忽略平台要求)..."
-        composer install --no-dev --no-interaction --no-scripts --ignore-platform-reqs --no-cache --optimize-autoloader || echo "✅ Composer 完成"
-        echo "📁 創建必要目錄..."
-        mkdir -p data logs storage
-        chmod -R 755 data logs storage || echo "權限設置完成"
-        echo "✅ 構建完成"
-    
-    # 啟動命令
-    start: php -S 0.0.0.0:8080 -t public router.php
+  # 主要應用服務 - 包含 Web + WebSocket
+  app:
+    # 使用 Dockerfile 構建
+    dockerfile: Dockerfile.simple
     
     # 端口配置
     ports:
-      - 8080
+      - 8080  # PHP Web 服務器
+      - 8081  # WebSocket 服務器
     
-    # 基本環境變數
+    # 環境變數
     envs:
       ENVIRONMENT: production
       OPENAI_API_KEY: ${OPENAI_API_KEY}
@@ -38,17 +23,63 @@ services:
     # 健康檢查
     healthcheck:
       path: /health.php
+      port: 8080
       interval: 30s
       timeout: 10s
     
     # 重啟策略
     restart: unless-stopped
 
+  # Caddy 反向代理服務
+  proxy:
+    # 使用官方 Caddy 鏡像
+    image: caddy:2-alpine
+    
+    # Caddy 配置
+    command: |
+      caddy run --config /etc/caddy/Caddyfile
+    
+    # 配置文件
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
+    
+    ports:
+      - 80
+    
+    depends_on:
+      - app
+    
+    restart: unless-stopped
+
+# 配置文件定義
+configs:
+  caddyfile:
+    content: |
+      :80 {
+        # 處理 WebSocket 連接
+        @websocket {
+          header Connection *Upgrade*
+          header Upgrade websocket
+          path /ws
+        }
+        reverse_proxy @websocket app:8081
+        
+        # 處理普通 HTTP 請求
+        reverse_proxy app:8080
+        
+        # 日誌
+        log {
+          output stdout
+          format console
+        }
+      }
+
 # 部署配置
 deploy:
   auto: true
   
-  # 環境變數 (全部可選)
+  # 環境變數
   envs:
     optional:
       - OPENAI_API_KEY
@@ -94,14 +125,6 @@ secrets:
   openai-api-key:
     external: true
     name: OPENAI_API_KEY
-  
-  mysql-root-password:
-    external: true
-    name: MYSQL_ROOT_PASSWORD
-  
-  mysql-password:
-    external: true
-    name: MYSQL_PASSWORD
 
 # 卷配置
 volumes:
@@ -110,28 +133,18 @@ volumes:
 
 # 健康檢查配置
 healthcheck:
-  php:
+  web:
     path: /health.php
     interval: 30s
     timeout: 10s
     
-  websocket:
-    port: 8081
+  caddy:
+    port: 80
     interval: 30s
     timeout: 10s
-    retries: 3
 
 # 環境變數配置
 env:
-  # MySQL 密碼（需要在 Zeabur 控制台設置）
-  MYSQL_ROOT_PASSWORD:
-    type: secret
-    default: "secure_root_password_2024"
-    
-  MYSQL_PASSWORD:
-    type: secret
-    default: "secure_user_password_2024"
-    
   # OpenAI API 密鑰（需要在 Zeabur 控制台設置）
   OPENAI_API_KEY:
     type: secret

@@ -22,6 +22,64 @@ $method = $_SERVER['REQUEST_METHOD'];
 $path = parse_url($requestUri, PHP_URL_PATH);
 $pathSegments = explode('/', trim($path, '/'));
 
+// 處理直接訪問 /api.php 的情況
+if ($path === '/api.php' && $method === 'POST') {
+    // 從 POST 數據中獲取參數
+    $input = null;
+    $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+    
+    if (strpos($contentType, 'application/json') !== false) {
+        $input = json_decode(file_get_contents('php://input'), true);
+    } else {
+        // 處理 form-data
+        $input = $_POST;
+    }
+    
+    $action = $input['action'] ?? '';
+    
+    // 根據 action 處理不同的請求
+    switch ($action) {
+        case 'auth':
+        case 'login':
+            $response = [
+                'success' => true,
+                'user_id' => 'user_' . uniqid(),
+                'username' => $input['username'] ?? 'Anonymous',
+                'message' => '登入成功'
+            ];
+            echo json_encode($response);
+            exit;
+            
+        case 'get_history':
+            $roomId = $input['room_id'] ?? 'default';
+            $response = [
+                'success' => true,
+                'history' => [],
+                'room_id' => $roomId,
+                'message' => '歷史記錄獲取成功'
+            ];
+            echo json_encode($response);
+            exit;
+            
+        case 'test':
+            echo json_encode([
+                'success' => true,
+                'message' => 'API 測試成功',
+                'timestamp' => date('c'),
+                'method' => $method
+            ]);
+            exit;
+            
+        default:
+            echo json_encode([
+                'success' => false,
+                'message' => '未知的 action: ' . $action,
+                'available_actions' => ['auth', 'login', 'get_history', 'test']
+            ]);
+            exit;
+    }
+}
+
 // 模擬認證API
 if ($method === 'POST' && end($pathSegments) === 'auth') {
     $input = json_decode(file_get_contents('php://input'), true);
@@ -131,7 +189,14 @@ http_response_code(404);
 echo json_encode([
     'success' => false,
     'message' => 'API 端點未找到',
-    'path' => $path
+    'path' => $path,
+    'method' => $method,
+    'available_endpoints' => [
+        'POST /api.php with action parameter',
+        'POST /api/auth',
+        'GET /api/history',
+        'POST /api/ai'
+    ]
 ]);
 
 /**

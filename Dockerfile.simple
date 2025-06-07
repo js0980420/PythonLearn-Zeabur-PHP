@@ -1,0 +1,66 @@
+# 簡化的 Zeabur Dockerfile - 單容器運行 Web + WebSocket
+FROM php:8.1-cli
+
+# 安裝系統依賴
+RUN apt-get update && apt-get install -y \
+    curl \
+    zip \
+    unzip \
+    supervisor \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# 安裝 Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# 設置工作目錄
+WORKDIR /app
+
+# 複製 composer 檔案
+COPY composer.json ./
+
+# 安裝 PHP 依賴
+RUN composer install \
+    --no-dev \
+    --no-interaction \
+    --no-scripts \
+    --ignore-platform-reqs \
+    --no-cache \
+    --optimize-autoloader \
+    || echo "Composer 安裝完成"
+
+# 複製應用代碼
+COPY . .
+
+# 創建必要目錄
+RUN mkdir -p /app/data /app/logs /app/storage /app/test-logs \
+    && chmod -R 755 /app/data /app/logs /app/storage /app/test-logs
+
+# 創建 Supervisor 配置文件
+COPY <<EOF /etc/supervisor/conf.d/app.conf
+[supervisord]
+nodaemon=true
+user=root
+
+[program:php-web]
+command=php -S 0.0.0.0:8080 -t public router.php
+directory=/app
+autostart=true
+autorestart=true
+stderr_logfile=/var/log/php-web.err.log
+stdout_logfile=/var/log/php-web.out.log
+
+[program:websocket]
+command=php test-servers/stable-websocket-server.php
+directory=/app
+autostart=true
+autorestart=true
+stderr_logfile=/var/log/websocket.err.log
+stdout_logfile=/var/log/websocket.out.log
+EOF
+
+# 暴露端口
+EXPOSE 8080 8081
+
+# 啟動命令
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"] 

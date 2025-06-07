@@ -43,14 +43,24 @@ class WebSocketManager {
             // 本地開發環境 - 連接到 WebSocket 服務器 8081 端口
             wsUrl = `ws://${hostname}:8081`;
             console.log('🏠 本地開發環境，WebSocket 連接: ' + wsUrl);
+        } else if (hostname.startsWith('192.168.') || hostname.startsWith('10.') || hostname.startsWith('172.')) {
+            // 本地網路環境 - 連接到 WebSocket 服務器 8081 端口
+            wsUrl = `ws://${hostname}:8081`;
+            console.log('🏠 本地網路環境，WebSocket 連接: ' + wsUrl);
         } else if (hostname.includes('replit.dev') || hostname.includes('repl.co')) {
             // Replit 環境 - 使用相同主機但不同端口
             wsUrl = `${protocol}//${hostname.replace(/:\d+/, '')}:9082`;
             console.log('🔧 Replit 環境，WebSocket 連接: ' + wsUrl);
+        } else if (hostname.includes('zeabur.app') || hostname.includes('python-learn')) {
+            // Zeabur 雲端環境 - 使用 Caddy 反向代理到 /ws 路徑
+            const wsProtocol = protocol === 'https:' ? 'wss:' : 'ws:';
+            wsUrl = `${wsProtocol}//${hostname}/ws`;
+            console.log('☁️ Zeabur 雲端環境 (Caddy 代理)，WebSocket 連接: ' + wsUrl);
         } else {
-            // 生產環境 - Zeabur 使用 Caddy 反向代理
-            wsUrl = `${protocol}//${hostname}/ws`;
-            console.log('☁️ 生產環境 (Caddy 代理)，WebSocket 連接: ' + wsUrl);
+            // 其他生產環境 - 直接連接 WebSocket 端口
+            const wsProtocol = protocol === 'https:' ? 'wss:' : 'ws:';
+            wsUrl = `${wsProtocol}//${hostname}:8081`;
+            console.log('🌐 其他生產環境，WebSocket 連接: ' + wsUrl);
         }
         
         console.log(`🔌 嘗試連接到 WebSocket: ${wsUrl}`);
