@@ -1,4 +1,4 @@
-# 簡化的 Zeabur Dockerfile - 單容器運行 Web + WebSocket
+# 簡化的 Zeabur Dockerfile - 單一 PHP 服務器
 FROM php:8.1-cli
 
 # 安裝系統依賴
@@ -6,7 +6,6 @@ RUN apt-get update && apt-get install -y \
     curl \
     zip \
     unzip \
-    supervisor \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -36,31 +35,8 @@ COPY . .
 RUN mkdir -p /app/data /app/logs /app/storage /app/test-logs \
     && chmod -R 755 /app/data /app/logs /app/storage /app/test-logs
 
-# 創建 Supervisor 配置文件
-COPY <<EOF /etc/supervisor/conf.d/app.conf
-[supervisord]
-nodaemon=true
-user=root
-
-[program:php-web]
-command=php -S 0.0.0.0:8080 -t public router.php
-directory=/app
-autostart=true
-autorestart=true
-stderr_logfile=/var/log/php-web.err.log
-stdout_logfile=/var/log/php-web.out.log
-
-[program:websocket]
-command=php test-servers/stable-websocket-server.php
-directory=/app
-autostart=true
-autorestart=true
-stderr_logfile=/var/log/websocket.err.log
-stdout_logfile=/var/log/websocket.out.log
-EOF
-
 # 暴露端口
-EXPOSE 8080 8081
+EXPOSE 8080
 
-# 啟動命令
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"] 
+# 啟動命令 - 單一 PHP 服務器處理 HTTP 和 WebSocket
+CMD ["php", "-S", "0.0.0.0:8080", "-t", "public", "router.php"] 

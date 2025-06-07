@@ -1,16 +1,15 @@
-# Zeabur 部署配置 - 簡化版使用 Dockerfile
+# Zeabur 部署配置 - 單一服務架構
 name: pythonlearn-collaboration
 
 services:
   # 主要應用服務 - 包含 Web + WebSocket
-  app:
+  web:
     # 使用 Dockerfile 構建
     dockerfile: Dockerfile.simple
     
-    # 端口配置
+    # 端口配置 - Zeabur 會自動處理 HTTPS
     ports:
-      - 8080  # PHP Web 服務器
-      - 8081  # WebSocket 服務器
+      - 8080  # 主要 HTTP 端口
     
     # 環境變數
     envs:
@@ -23,57 +22,11 @@ services:
     # 健康檢查
     healthcheck:
       path: /health.php
-      port: 8080
       interval: 30s
       timeout: 10s
     
     # 重啟策略
     restart: unless-stopped
-
-  # Caddy 反向代理服務
-  proxy:
-    # 使用官方 Caddy 鏡像
-    image: caddy:2-alpine
-    
-    # Caddy 配置
-    command: |
-      caddy run --config /etc/caddy/Caddyfile
-    
-    # 配置文件
-    configs:
-      - source: caddyfile
-        target: /etc/caddy/Caddyfile
-    
-    ports:
-      - 80
-    
-    depends_on:
-      - app
-    
-    restart: unless-stopped
-
-# 配置文件定義
-configs:
-  caddyfile:
-    content: |
-      :80 {
-        # 處理 WebSocket 連接
-        @websocket {
-          header Connection *Upgrade*
-          header Upgrade websocket
-          path /ws
-        }
-        reverse_proxy @websocket app:8081
-        
-        # 處理普通 HTTP 請求
-        reverse_proxy app:8080
-        
-        # 日誌
-        log {
-          output stdout
-          format console
-        }
-      }
 
 # 部署配置
 deploy:

@@ -21,6 +21,13 @@ if ($path === '/api.php') {
     return true;
 }
 
+// WebSocket 處理
+if ($path === '/ws') {
+    error_log("Router: 路由到 WebSocket 處理器");
+    require_once __DIR__ . '/public/websocket-handler.php';
+    return true;
+}
+
 // API 路由重寫
 if ($path === '/api/auth') {
     error_log("Router: 路由到 /api/auth");
