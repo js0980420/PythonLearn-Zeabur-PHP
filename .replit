@@ -1,0 +1,18 @@
+run = "bash replit-start.sh"
+language = "php"
+
+[nix]
+channel = "stable-22_11"
+
+[deployment]
+run = ["sh", "-c", "php websocket/server.php & php -S 0.0.0.0:8080 router.php"]
+
+[languages.php]
+pattern = "**/*.php"
+syntax = "php"
+
+[languages.php.languageServer]
+start = ["intelephense", "--stdio"]
+
+[env]
+PHP_LD_LIBRARY_PATH = "/nix/store/kmxb3ibhajxf4n6kqkfg56kib2xkb29p-glibc-2.35-163/lib" 

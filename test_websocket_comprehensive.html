@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket 全面測試 - 協議修復驗證</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
+        .log-area { height: 300px; overflow-y: auto; background: #f8f9fa; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 12px; }
+        .status-indicator { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; }
+        .status-connected { background-color: #28a745; }
+        .status-disconnected { background-color: #dc3545; }
+        .status-connecting { background-color: #ffc107; }
+        .user-info { background: #e3f2fd; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .message-count { font-weight: bold; color: #007bff; }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1>🔧 WebSocket 協議修復全面測試</h1>
+        <p class="text-muted">測試修復後的 WebSocket 協議一致性和用戶列表功能</p>
+
+        <!-- 連接狀態區域 -->
+        <div class="test-section">
+            <h3>📡 連接狀態</h3>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center mb-3">
+                        <span id="connectionStatus" class="status-indicator status-disconnected"></span>
+                        <span>WebSocket 狀態: <span id="statusText">未連接</span></span>
+                    </div>
+                    
+                    <div class="input-group mb-3">
+                        <input type="text" id="roomNameInput" class="form-control" placeholder="房間名稱" value="test_room_123">
+                        <input type="text" id="userNameInput" class="form-control" placeholder="用戶名稱" value="測試用戶_1">
+                        <button class="btn btn-primary" onclick="connectToRoom()">加入房間</button>
+                    </div>
+                    
+                    <button class="btn btn-secondary me-2" onclick="disconnect()">斷開連接</button>
+                    <button class="btn btn-info me-2" onclick="sendHeartbeat()">測試心跳</button>
+                    <button class="btn btn-warning" onclick="clearLogs()">清空日誌</button>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="user-info">
+                        <h6>房間信息</h6>
+                        <div>房間ID: <span id="currentRoom">-</span></div>
+                        <div>當前用戶: <span id="currentUser">-</span></div>
+                        <div>連接時間: <span id="connectionTime">-</span></div>
+                        <div>消息計數: <span id="messageCount" class="message-count">0</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 用戶列表測試區域 -->
+        <div class="test-section">
+            <h3>👥 用戶列表測試</h3>
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>在線用戶列表</h6>
+                    <div id="userListDisplay" class="border p-3 mb-3" style="min-height: 100px; background: #f8f9fa;">
+                        <em class="text-muted">等待用戶數據...</em>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-outline-primary" onclick="requestUserList()">刷新用戶列表</button>
+                        <button class="btn btn-sm btn-outline-info" onclick="simulateUserJoin()">模擬用戶加入</button>
+                        <button class="btn btn-sm btn-outline-warning" onclick="simulateUserLeave()">模擬用戶離開</button>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <h6>用戶數據結構分析</h6>
+                    <div id="userDataAnalysis" class="border p-3" style="min-height: 100px; background: #f0f8ff; font-family: monospace; font-size: 12px;">
+                        <em class="text-muted">等待用戶數據...</em>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 功能測試區域 -->
+        <div class="test-section">
+            <h3>🧪 功能測試</h3>
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>代碼操作測試</h6>
+                    <textarea id="testCode" class="form-control mb-2" rows="4" placeholder="測試代碼...">print("Hello from WebSocket test!")</textarea>
+                    <div class="d-flex gap-2 mb-3">
+                        <button class="btn btn-sm btn-success" onclick="testCodeChange()">發送代碼變更</button>
+                        <button class="btn btn-sm btn-info" onclick="testSaveCode()">測試保存代碼</button>
+                        <button class="btn btn-sm btn-secondary" onclick="testLoadCode()">測試載入代碼</button>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <h6>AI 助教測試</h6>
+                    <div class="d-flex gap-2 mb-3">
+                        <button class="btn btn-sm btn-outline-primary" onclick="testAIExplain()">解釋代碼</button>
+                        <button class="btn btn-sm btn-outline-success" onclick="testAICheck()">錯誤檢查</button>
+                        <button class="btn btn-sm btn-outline-info" onclick="testAIImprove()">改進建議</button>
+                    </div>
+                    
+                    <h6>錯誤測試</h6>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-outline-danger" onclick="testInvalidMessage()">無效消息</button>
+                        <button class="btn btn-sm btn-outline-warning" onclick="testMissingParams()">缺少參數</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 實時日誌區域 -->
+        <div class="test-section">
+            <h3>📝 實時日誌</h3>
+            <div id="logOutput" class="log-area"></div>
+        </div>
+    </div>
+
+    <script>
+        let websocket = null;
+        let messageCount = 0;
+        let connectionStartTime = null;
+        let currentRoomId = null;
+        let currentUserId = null;
+
+        // 添加日誌
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logArea = document.getElementById('logOutput');
+            const colorClass = {
+                'info': 'text-primary',
+                'success': 'text-success', 
+                'warning': 'text-warning',
+                'error': 'text-danger'
+            }[type] || 'text-dark';
+            
+            logArea.innerHTML += `<div class="${colorClass}">[${timestamp}] ${message}</div>`;
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+
+        // 更新狀態顯示
+        function updateStatus(status, text) {
+            const indicator = document.getElementById('connectionStatus');
+            const statusText = document.getElementById('statusText');
+            
+            indicator.className = `status-indicator status-${status}`;
+            statusText.textContent = text;
+        }
+
+        // 更新消息計數
+        function updateMessageCount() {
+            messageCount++;
+            document.getElementById('messageCount').textContent = messageCount;
+        }
+
+        // 連接到房間
+        function connectToRoom() {
+            const roomName = document.getElementById('roomNameInput').value.trim();
+            const userName = document.getElementById('userNameInput').value.trim();
+            
+            if (!roomName || !userName) {
+                addLog('❌ 請填寫房間名稱和用戶名稱', 'error');
+                return;
+            }
+
+            if (websocket && websocket.readyState === WebSocket.OPEN) {
+                addLog('⚠️ WebSocket 已連接，先斷開現有連接', 'warning');
+                websocket.close();
+            }
+
+            addLog(`🔄 正在連接到 WebSocket 服務器...`, 'info');
+            updateStatus('connecting', '連接中...');
+
+            try {
+                websocket = new WebSocket('ws://localhost:8080');
+                
+                websocket.onopen = function() {
+                    addLog('✅ WebSocket 連接成功', 'success');
+                    updateStatus('connected', '已連接');
+                    connectionStartTime = new Date();
+                    document.getElementById('connectionTime').textContent = connectionStartTime.toLocaleTimeString();
+                    
+                    // 發送加入房間消息
+                    const joinMessage = {
+                        type: 'join_room',
+                        room_id: roomName,
+                        user_id: userName,
+                        username: userName
+                    };
+                    
+                    addLog(`📤 發送加入房間消息: ${JSON.stringify(joinMessage)}`, 'info');
+                    websocket.send(JSON.stringify(joinMessage));
+                    
+                    currentRoomId = roomName;
+                    currentUserId = userName;
+                    document.getElementById('currentRoom').textContent = roomName;
+                    document.getElementById('currentUser').textContent = userName;
+                };
+
+                websocket.onmessage = function(event) {
+                    updateMessageCount();
+                    
+                    try {
+                        const message = JSON.parse(event.data);
+                        addLog(`📨 收到消息: ${message.type}`, 'success');
+                        addLog(`📋 完整內容: ${JSON.stringify(message, null, 2)}`, 'info');
+                        
+                        // 處理特定消息類型
+                        handleSpecificMessage(message);
+                        
+                    } catch (e) {
+                        addLog(`❌ 解析消息失敗: ${e.message}`, 'error');
+                        addLog(`📄 原始數據: ${event.data}`, 'error');
+                    }
+                };
+
+                websocket.onerror = function(error) {
+                    addLog(`❌ WebSocket 錯誤: ${error}`, 'error');
+                    updateStatus('disconnected', '連接錯誤');
+                };
+
+                websocket.onclose = function(event) {
+                    addLog(`🔌 WebSocket 連接關閉 (代碼: ${event.code}, 原因: ${event.reason || '未知'})`, 'warning');
+                    updateStatus('disconnected', '已斷開');
+                    currentRoomId = null;
+                    currentUserId = null;
+                    document.getElementById('currentRoom').textContent = '-';
+                    document.getElementById('currentUser').textContent = '-';
+                };
+
+            } catch (error) {
+                addLog(`❌ 創建 WebSocket 連接失敗: ${error.message}`, 'error');
+                updateStatus('disconnected', '連接失敗');
+            }
+        }
+
+        // 處理特定消息類型
+        function handleSpecificMessage(message) {
+            switch (message.type) {
+                case 'room_joined':
+                    addLog(`🎉 成功加入房間 ${message.room_id}`, 'success');
+                    if (message.users) {
+                        updateUserList(message.users);
+                        addLog(`👥 房間內用戶數: ${message.users.length}`, 'info');
+                    }
+                    if (message.current_code) {
+                        document.getElementById('testCode').value = message.current_code;
+                        addLog(`📝 載入房間代碼 (${message.current_code.length} 字符)`, 'info');
+                    }
+                    break;
+
+                case 'user_joined':
+                    addLog(`👤 用戶 ${message.username} 加入房間`, 'info');
+                    if (message.users) {
+                        updateUserList(message.users);
+                    }
+                    break;
+
+                case 'user_left':
+                    addLog(`👋 用戶 ${message.user_id} 離開房間`, 'info');
+                    if (message.users) {
+                        updateUserList(message.users);
+                    }
+                    break;
+
+                case 'error':
+                    addLog(`❌ 服務器錯誤: ${message.error}`, 'error');
+                    if (message.details) {
+                        addLog(`📋 錯誤詳情: ${message.details}`, 'error');
+                    }
+                    break;
+
+                case 'pong':
+                    addLog(`💓 心跳響應正常`, 'success');
+                    break;
+
+                case 'ai_response':
+                    if (message.success) {
+                        addLog(`🤖 AI 響應成功`, 'success');
+                    } else {
+                        addLog(`🤖 AI 響應失敗: ${message.error}`, 'error');
+                    }
+                    break;
+
+                default:
+                    addLog(`📝 其他消息類型: ${message.type}`, 'info');
+            }
+        }
+
+        // 更新用戶列表顯示
+        function updateUserList(users) {
+            const userListDiv = document.getElementById('userListDisplay');
+            const analysisDiv = document.getElementById('userDataAnalysis');
+            
+            if (!users || users.length === 0) {
+                userListDiv.innerHTML = '<em class="text-muted">房間內暫無其他用戶</em>';
+                analysisDiv.innerHTML = '<em class="text-muted">無用戶數據</em>';
+                return;
+            }
+
+            // 顯示用戶列表
+            let userListHTML = '<strong>房間內用戶:</strong><br>';
+            users.forEach((user, index) => {
+                const status = '🟢'; // 在線狀態
+                const userName = user.username || user.userName || user.name || '未知用戶';
+                userListHTML += `${status} ${userName} (${user.user_id})<br>`;
+            });
+            userListDiv.innerHTML = userListHTML;
+
+            // 顯示數據結構分析
+            const analysisHTML = users.map((user, index) => {
+                return `用戶 ${index + 1}:
+  user_id: "${user.user_id}"
+  username: "${user.username}"
+  join_time: ${user.join_time}`;
+            }).join('\n\n');
+            
+            analysisDiv.innerHTML = `<pre>${analysisHTML}</pre>`;
+            
+            addLog(`👥 用戶列表已更新: ${users.length} 個用戶`, 'success');
+        }
+
+        // 測試函數
+        function sendHeartbeat() {
+            if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+                addLog('❌ WebSocket 未連接', 'error');
+                return;
+            }
+            
+            const pingMessage = { type: 'ping' };
+            addLog(`💓 發送心跳: ${JSON.stringify(pingMessage)}`, 'info');
+            websocket.send(JSON.stringify(pingMessage));
+        }
+
+        function testCodeChange() {
+            if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+                addLog('❌ WebSocket 未連接', 'error');
+                return;
+            }
+            
+            const code = document.getElementById('testCode').value;
+            const message = {
+                type: 'code_change',
+                room_id: currentRoomId,
+                user_id: currentUserId,
+                username: currentUserId,
+                code: code
+            };
+            
+            addLog(`📝 發送代碼變更: ${JSON.stringify(message)}`, 'info');
+            websocket.send(JSON.stringify(message));
+        }
+
+        function testSaveCode() {
+            if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+                addLog('❌ WebSocket 未連接', 'error');
+                return;
+            }
+            
+            const code = document.getElementById('testCode').value;
+            const message = {
+                type: 'save_code',
+                room_id: currentRoomId,
+                user_id: currentUserId,
+                code: code
+            };
+            
+            addLog(`💾 發送保存代碼: ${JSON.stringify(message)}`, 'info');
+            websocket.send(JSON.stringify(message));
+        }
+
+        function testLoadCode() {
+            if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+                addLog('❌ WebSocket 未連接', 'error');
+                return;
+            }
+            
+            const message = {
+                type: 'load_code',
+                room_id: currentRoomId,
+                user_id: currentUserId
+            };
+            
+            addLog(`📂 發送載入代碼: ${JSON.stringify(message)}`, 'info');
+            websocket.send(JSON.stringify(message));
+        }
+
+        function testInvalidMessage() {
+            if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+                addLog('❌ WebSocket 未連接', 'error');
+                return;
+            }
+            
+            const message = { type: 'invalid_message_type', test: 'data' };
+            addLog(`🧪 發送無效消息測試: ${JSON.stringify(message)}`, 'warning');
+            websocket.send(JSON.stringify(message));
+        }
+
+        function testMissingParams() {
+            if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+                addLog('❌ WebSocket 未連接', 'error');
+                return;
+            }
+            
+            const message = { type: 'save_code' }; // 缺少必要參數
+            addLog(`🧪 發送缺少參數測試: ${JSON.stringify(message)}`, 'warning');
+            websocket.send(JSON.stringify(message));
+        }
+
+        function testAIExplain() {
+            if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+                addLog('❌ WebSocket 未連接', 'error');
+                return;
+            }
+            
+            const code = document.getElementById('testCode').value;
+            const message = {
+                type: 'ai_request',
+                action: 'explain',
+                requestId: 'test_' + Date.now(),
+                data: { code: code }
+            };
+            
+            addLog(`🤖 發送 AI 解釋請求: ${JSON.stringify(message)}`, 'info');
+            websocket.send(JSON.stringify(message));
+        }
+
+        function testAICheck() {
+            if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+                addLog('❌ WebSocket 未連接', 'error');
+                return;
+            }
+            
+            const code = document.getElementById('testCode').value;
+            const message = {
+                type: 'ai_request',
+                action: 'check_errors',
+                requestId: 'test_' + Date.now(),
+                data: { code: code }
+            };
+            
+            addLog(`🤖 發送 AI 錯誤檢查請求: ${JSON.stringify(message)}`, 'info');
+            websocket.send(JSON.stringify(message));
+        }
+
+        function testAIImprove() {
+            if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+                addLog('❌ WebSocket 未連接', 'error');
+                return;
+            }
+            
+            const code = document.getElementById('testCode').value;
+            const message = {
+                type: 'ai_request',
+                action: 'suggest_improvements',
+                requestId: 'test_' + Date.now(),
+                data: { code: code }
+            };
+            
+            addLog(`🤖 發送 AI 改進建議請求: ${JSON.stringify(message)}`, 'info');
+            websocket.send(JSON.stringify(message));
+        }
+
+        function disconnect() {
+            if (websocket) {
+                websocket.close(1000, '用戶主動斷開');
+                addLog('🔌 主動斷開 WebSocket 連接', 'info');
+            }
+        }
+
+        function clearLogs() {
+            document.getElementById('logOutput').innerHTML = '';
+            messageCount = 0;
+            document.getElementById('messageCount').textContent = '0';
+            addLog('🧹 日誌已清空', 'info');
+        }
+
+        // 頁面載入完成後的初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            addLog('🚀 WebSocket 測試頁面已載入', 'info');
+            addLog('💡 請填寫房間名稱和用戶名稱，然後點擊"加入房間"開始測試', 'info');
+        });
+    </script>
+</body>
+</html> 

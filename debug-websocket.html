@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket 調試工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        #log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .info-box {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+        }
+        .info-box h4 {
+            margin-top: 0;
+            color: #495057;
+        }
+        .info-item {
+            margin: 5px 0;
+            font-family: monospace;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 WebSocket 調試工具</h1>
+        
+        <div class="grid">
+            <div class="info-box">
+                <h4>🌐 環境信息</h4>
+                <div class="info-item">協議: <span id="protocol"></span></div>
+                <div class="info-item">主機: <span id="hostname"></span></div>
+                <div class="info-item">端口: <span id="port"></span></div>
+                <div class="info-item">完整 URL: <span id="fullUrl"></span></div>
+                <div class="info-item">用戶代理: <span id="userAgent"></span></div>
+            </div>
+            
+            <div class="info-box">
+                <h4>🔌 WebSocket 信息</h4>
+                <div class="info-item">目標 URL: <span id="wsUrl"></span></div>
+                <div class="info-item">連接狀態: <span id="wsState">未連接</span></div>
+                <div class="info-item">支援 WebSocket: <span id="wsSupport"></span></div>
+                <div class="info-item">最後錯誤: <span id="lastError">無</span></div>
+            </div>
+        </div>
+        
+        <div id="connectionStatus" class="status warning">
+            ⏳ 準備連接
+        </div>
+        
+        <div>
+            <button id="connectBtn" onclick="testConnection()">🔌 測試連接</button>
+            <button id="disconnectBtn" onclick="disconnect()" disabled>🔌 斷開連接</button>
+            <button onclick="clearLog()">🗑️ 清除日誌</button>
+            <button onclick="testMultipleUrls()">🔄 測試多個 URL</button>
+        </div>
+    </div>
+    
+    <div class="container">
+        <h3>📋 詳細日誌</h3>
+        <div id="log"></div>
+    </div>
+
+    <script>
+        let ws = null;
+        let connectionStartTime = null;
+
+        // 初始化頁面信息
+        function initializeInfo() {
+            document.getElementById('protocol').textContent = window.location.protocol;
+            document.getElementById('hostname').textContent = window.location.hostname;
+            document.getElementById('port').textContent = window.location.port || '(默認)';
+            document.getElementById('fullUrl').textContent = window.location.href;
+            document.getElementById('userAgent').textContent = navigator.userAgent;
+            
+            // 檢查 WebSocket 支援
+            const wsSupported = 'WebSocket' in window;
+            document.getElementById('wsSupport').textContent = wsSupported ? '✅ 支援' : '❌ 不支援';
+            document.getElementById('wsSupport').style.color = wsSupported ? 'green' : 'red';
+            
+            // 計算 WebSocket URL
+            const wsUrl = calculateWebSocketUrl();
+            document.getElementById('wsUrl').textContent = wsUrl;
+        }
+
+        function calculateWebSocketUrl() {
+            const hostname = window.location.hostname;
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            
+            if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                return `ws://${hostname}:8081`;
+            } else if (hostname.includes('replit.dev') || hostname.includes('repl.co')) {
+                return `${protocol}//${hostname.replace(/:\d+/, '')}:8081`;
+            } else {
+                return `${protocol}//${hostname}/ws`;
+            }
+        }
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logElement = document.getElementById('log');
+            const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : 'ℹ️';
+            logElement.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function updateStatus(message, type) {
+            const statusElement = document.getElementById('connectionStatus');
+            statusElement.textContent = message;
+            statusElement.className = `status ${type}`;
+        }
+
+        function updateButtons(connected) {
+            document.getElementById('connectBtn').disabled = connected;
+            document.getElementById('disconnectBtn').disabled = !connected;
+        }
+
+        function updateWebSocketState(state) {
+            const stateNames = {
+                0: 'CONNECTING',
+                1: 'OPEN',
+                2: 'CLOSING',
+                3: 'CLOSED'
+            };
+            document.getElementById('wsState').textContent = stateNames[state] || '未知';
+        }
+
+        function testConnection() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                log('WebSocket 已經連接', 'warning');
+                return;
+            }
+
+            const wsUrl = calculateWebSocketUrl();
+            log(`開始連接測試...`);
+            log(`目標 URL: ${wsUrl}`);
+            connectionStartTime = Date.now();
+            
+            try {
+                // 檢查 WebSocket 支援
+                if (!('WebSocket' in window)) {
+                    throw new Error('瀏覽器不支援 WebSocket');
+                }
+
+                log(`創建 WebSocket 對象...`);
+                ws = new WebSocket(wsUrl);
+                updateWebSocketState(ws.readyState);
+
+                // 設置超時
+                const timeout = setTimeout(() => {
+                    if (ws.readyState === WebSocket.CONNECTING) {
+                        log('連接超時 (10秒)', 'error');
+                        ws.close();
+                        updateStatus('❌ 連接超時', 'error');
+                        document.getElementById('lastError').textContent = '連接超時';
+                    }
+                }, 10000);
+
+                ws.onopen = function(event) {
+                    clearTimeout(timeout);
+                    const connectionTime = Date.now() - connectionStartTime;
+                    log(`WebSocket 連接成功！耗時: ${connectionTime}ms`, 'success');
+                    log(`連接事件詳情: ${JSON.stringify({
+                        type: event.type,
+                        target: event.target.constructor.name,
+                        readyState: event.target.readyState
+                    })}`, 'info');
+                    
+                    updateStatus('✅ 連接成功', 'success');
+                    updateButtons(true);
+                    updateWebSocketState(ws.readyState);
+                    document.getElementById('lastError').textContent = '無';
+                    
+                    // 發送測試消息
+                    setTimeout(() => {
+                        sendTestMessage();
+                    }, 1000);
+                };
+
+                ws.onmessage = function(event) {
+                    log(`收到消息: ${event.data}`, 'success');
+                    try {
+                        const data = JSON.parse(event.data);
+                        log(`解析後的消息: ${JSON.stringify(data, null, 2)}`, 'info');
+                    } catch (e) {
+                        log(`無法解析為 JSON: ${e.message}`, 'warning');
+                    }
+                };
+
+                ws.onclose = function(event) {
+                    clearTimeout(timeout);
+                    log(`WebSocket 連接關閉`, 'warning');
+                    log(`關閉詳情: 代碼=${event.code}, 原因="${event.reason}", 乾淨關閉=${event.wasClean}`, 'info');
+                    
+                    updateStatus('🔌 連接已關閉', 'warning');
+                    updateButtons(false);
+                    updateWebSocketState(ws.readyState);
+                    
+                    // 常見錯誤代碼說明
+                    const errorCodes = {
+                        1000: '正常關閉',
+                        1001: '端點離開',
+                        1002: '協議錯誤',
+                        1003: '不支援的數據類型',
+                        1006: '異常關閉 (通常是網路問題)',
+                        1011: '服務器錯誤',
+                        1015: 'TLS 握手失敗'
+                    };
+                    
+                    const errorDesc = errorCodes[event.code] || '未知錯誤';
+                    log(`錯誤代碼說明: ${errorDesc}`, 'info');
+                    document.getElementById('lastError').textContent = `${event.code}: ${errorDesc}`;
+                };
+
+                ws.onerror = function(error) {
+                    clearTimeout(timeout);
+                    log(`WebSocket 錯誤事件觸發`, 'error');
+                    log(`錯誤對象: ${JSON.stringify(error)}`, 'error');
+                    
+                    updateStatus('❌ 連接錯誤', 'error');
+                    updateButtons(false);
+                    updateWebSocketState(ws.readyState);
+                    document.getElementById('lastError').textContent = 'WebSocket 錯誤事件';
+                };
+
+            } catch (error) {
+                log(`創建 WebSocket 失敗: ${error.message}`, 'error');
+                log(`錯誤堆疊: ${error.stack}`, 'error');
+                updateStatus('❌ 創建失敗', 'error');
+                document.getElementById('lastError').textContent = error.message;
+            }
+        }
+
+        function sendTestMessage() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const testMessage = {
+                    type: 'ping',
+                    timestamp: Date.now(),
+                    test: true
+                };
+                
+                log(`發送測試消息: ${JSON.stringify(testMessage)}`, 'info');
+                ws.send(JSON.stringify(testMessage));
+            } else {
+                log('無法發送測試消息：WebSocket 未連接', 'error');
+            }
+        }
+
+        function disconnect() {
+            if (ws) {
+                log('手動斷開連接...', 'info');
+                ws.close(1000, '用戶手動斷開');
+            }
+        }
+
+        function testMultipleUrls() {
+            const urls = [
+                'ws://localhost:8081',
+                'ws://127.0.0.1:8081',
+                'ws://localhost:8080',
+                'ws://127.0.0.1:8080'
+            ];
+            
+            log('開始測試多個 URL...', 'info');
+            
+            urls.forEach((url, index) => {
+                setTimeout(() => {
+                    log(`測試 URL ${index + 1}/${urls.length}: ${url}`, 'info');
+                    testSingleUrl(url);
+                }, index * 2000);
+            });
+        }
+
+        function testSingleUrl(url) {
+            const testWs = new WebSocket(url);
+            const startTime = Date.now();
+            
+            const timeout = setTimeout(() => {
+                testWs.close();
+                log(`${url} - 超時`, 'error');
+            }, 5000);
+            
+            testWs.onopen = function() {
+                clearTimeout(timeout);
+                const time = Date.now() - startTime;
+                log(`${url} - 連接成功 (${time}ms)`, 'success');
+                testWs.close();
+            };
+            
+            testWs.onerror = function() {
+                clearTimeout(timeout);
+                log(`${url} - 連接失敗`, 'error');
+            };
+            
+            testWs.onclose = function(event) {
+                if (event.code !== 1000) {
+                    log(`${url} - 關閉 (代碼: ${event.code})`, 'warning');
+                }
+            };
+        }
+
+        function clearLog() {
+            document.getElementById('log').textContent = '';
+        }
+
+        // 頁面載入時初始化
+        window.onload = function() {
+            initializeInfo();
+            log('WebSocket 調試工具已載入', 'info');
+            log('點擊 "測試連接" 開始診斷', 'info');
+        };
+    </script>
+</body>
+</html> 

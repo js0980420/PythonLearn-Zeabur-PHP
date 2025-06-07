@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 完整功能流程測試</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .test-section {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .test-section:last-child {
+            border-bottom: none;
+        }
+        
+        .test-title {
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ccc;
+        }
+        
+        .status-indicator.success {
+            background: #4CAF50;
+        }
+        
+        .status-indicator.error {
+            background: #f44336;
+        }
+        
+        .status-indicator.testing {
+            background: #ff9800;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .test-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #2196F3;
+            color: white;
+        }
+        
+        .btn-success {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .btn-warning {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        .test-output {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+        
+        .input-group label {
+            min-width: 80px;
+            font-weight: bold;
+        }
+        
+        .input-group input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .code-editor {
+            width: 100%;
+            height: 150px;
+            font-family: 'Courier New', monospace;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            resize: vertical;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2196F3;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧪 PythonLearn 完整功能流程測試</h1>
+            <p>測試所有功能模組的整合性和穩定性</p>
+        </div>
+        
+        <!-- API 測試區域 -->
+        <div class="test-section">
+            <h2 class="test-title">
+                <span class="status-indicator" id="api-status"></span>
+                🔌 API 功能測試
+            </h2>
+            
+            <div class="input-group">
+                <label>用戶名:</label>
+                <input type="text" id="username" value="測試用戶" placeholder="輸入用戶名">
+                <label>類型:</label>
+                <select id="userType">
+                    <option value="student">學生</option>
+                    <option value="teacher">教師</option>
+                </select>
+            </div>
+            
+            <div class="test-controls">
+                <button class="btn btn-primary" onclick="testAuth()">🔐 測試認證</button>
+                <button class="btn btn-success" onclick="testCreateRoom()">🏠 創建房間</button>
+                <button class="btn btn-warning" onclick="testSaveCode()">💾 保存代碼</button>
+                <button class="btn btn-danger" onclick="testExecuteCode()">▶️ 執行代碼</button>
+            </div>
+            
+            <div class="test-output" id="api-output">等待測試...</div>
+        </div>
+        
+        <!-- WebSocket 測試區域 -->
+        <div class="test-section">
+            <h2 class="test-title">
+                <span class="status-indicator" id="websocket-status"></span>
+                🌐 WebSocket 連接測試
+            </h2>
+            
+            <div class="input-group">
+                <label>房間ID:</label>
+                <input type="text" id="roomId" value="test_room_001" placeholder="輸入房間ID">
+                <button class="btn btn-primary" onclick="connectWebSocket()">🔗 連接</button>
+                <button class="btn btn-danger" onclick="disconnectWebSocket()">❌ 斷開</button>
+            </div>
+            
+            <div class="test-controls">
+                <button class="btn btn-success" onclick="joinRoom()">🚪 加入房間</button>
+                <button class="btn btn-warning" onclick="sendCodeChange()">📝 發送代碼變更</button>
+                <button class="btn btn-primary" onclick="sendChatMessage()">💬 發送聊天</button>
+                <button class="btn btn-danger" onclick="leaveRoom()">🚪 離開房間</button>
+            </div>
+            
+            <div class="test-output" id="websocket-output">等待連接...</div>
+        </div>
+        
+        <!-- 代碼編輯測試區域 -->
+        <div class="test-section">
+            <h2 class="test-title">
+                <span class="status-indicator" id="editor-status"></span>
+                📝 代碼編輯器測試
+            </h2>
+            
+            <textarea class="code-editor" id="codeEditor" placeholder="在這裡輸入Python代碼...">
+# 測試代碼
+print("Hello, Test World!")
+
+def test_function():
+    return "測試函數運行正常"
+
+result = test_function()
+print(result)
+            </textarea>
+            
+            <div class="test-controls">
+                <button class="btn btn-primary" onclick="validateCode()">✅ 驗證代碼</button>
+                <button class="btn btn-success" onclick="formatCode()">🎨 格式化</button>
+                <button class="btn btn-warning" onclick="saveCodeToServer()">💾 保存到服務器</button>
+                <button class="btn btn-danger" onclick="loadCodeFromServer()">📥 從服務器載入</button>
+            </div>
+            
+            <div class="test-output" id="editor-output">代碼編輯器就緒...</div>
+        </div>
+        
+        <!-- 整合測試區域 -->
+        <div class="test-section">
+            <h2 class="test-title">
+                <span class="status-indicator" id="integration-status"></span>
+                🔄 整合測試
+            </h2>
+            
+            <div class="test-controls">
+                <button class="btn btn-primary" onclick="runFullTest()">🚀 運行完整測試</button>
+                <button class="btn btn-success" onclick="runPerformanceTest()">⚡ 性能測試</button>
+                <button class="btn btn-warning" onclick="runStressTest()">💪 壓力測試</button>
+                <button class="btn btn-danger" onclick="clearAllTests()">🧹 清除所有測試</button>
+            </div>
+            
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="test-count">0</div>
+                    <div class="stat-label">測試執行次數</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="success-count">0</div>
+                    <div class="stat-label">成功次數</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="error-count">0</div>
+                    <div class="stat-label">錯誤次數</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="response-time">0ms</div>
+                    <div class="stat-label">平均響應時間</div>
+                </div>
+            </div>
+            
+            <div class="test-output" id="integration-output">整合測試就緒...</div>
+        </div>
+    </div>
+
+    <script>
+        // 全域變數
+        let websocket = null;
+        let currentUser = null;
+        let currentRoom = null;
+        let testStats = {
+            testCount: 0,
+            successCount: 0,
+            errorCount: 0,
+            responseTimes: []
+        };
+
+        // API 測試基礎URL
+        const API_BASE = 'http://localhost:9081';
+        const WS_BASE = 'ws://localhost:9082';
+
+        // 工具函數
+        function log(section, message, type = 'info') {
+            const output = document.getElementById(section + '-output');
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
+            output.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function updateStatus(section, status) {
+            const indicator = document.getElementById(section + '-status');
+            indicator.className = `status-indicator ${status}`;
+        }
+
+        function updateStats() {
+            document.getElementById('test-count').textContent = testStats.testCount;
+            document.getElementById('success-count').textContent = testStats.successCount;
+            document.getElementById('error-count').textContent = testStats.errorCount;
+            
+            if (testStats.responseTimes.length > 0) {
+                const avgTime = testStats.responseTimes.reduce((a, b) => a + b, 0) / testStats.responseTimes.length;
+                document.getElementById('response-time').textContent = Math.round(avgTime) + 'ms';
+            }
+        }
+
+        // API 測試函數
+        async function testAuth() {
+            updateStatus('api', 'testing');
+            log('api', '開始認證測試...');
+            
+            const startTime = Date.now();
+            testStats.testCount++;
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/auth`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: document.getElementById('username').value,
+                        user_type: document.getElementById('userType').value
+                    })
+                });
+                
+                const data = await response.json();
+                const responseTime = Date.now() - startTime;
+                testStats.responseTimes.push(responseTime);
+                
+                if (data.success) {
+                    currentUser = data.data;
+                    updateStatus('api', 'success');
+                    log('api', `認證成功: ${data.data.username} (${responseTime}ms)`, 'success');
+                    testStats.successCount++;
+                } else {
+                    throw new Error(data.error || '認證失敗');
+                }
+            } catch (error) {
+                updateStatus('api', 'error');
+                log('api', `認證失敗: ${error.message}`, 'error');
+                testStats.errorCount++;
+            }
+            
+            updateStats();
+        }
+
+        async function testCreateRoom() {
+            if (!currentUser) {
+                log('api', '請先進行認證測試', 'error');
+                return;
+            }
+            
+            updateStatus('api', 'testing');
+            log('api', '開始創建房間測試...');
+            
+            const startTime = Date.now();
+            testStats.testCount++;
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/room`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: 'create',
+                        room_name: '測試房間_' + Date.now()
+                    })
+                });
+                
+                const data = await response.json();
+                const responseTime = Date.now() - startTime;
+                testStats.responseTimes.push(responseTime);
+                
+                if (data.success) {
+                    currentRoom = data.data;
+                    document.getElementById('roomId').value = data.data.room_id;
+                    updateStatus('api', 'success');
+                    log('api', `房間創建成功: ${data.data.room_id} (${responseTime}ms)`, 'success');
+                    testStats.successCount++;
+                } else {
+                    throw new Error(data.error || '房間創建失敗');
+                }
+            } catch (error) {
+                updateStatus('api', 'error');
+                log('api', `房間創建失敗: ${error.message}`, 'error');
+                testStats.errorCount++;
+            }
+            
+            updateStats();
+        }
+
+        async function testSaveCode() {
+            if (!currentUser || !currentRoom) {
+                log('api', '請先完成認證和房間創建測試', 'error');
+                return;
+            }
+            
+            updateStatus('api', 'testing');
+            log('api', '開始代碼保存測試...');
+            
+            const startTime = Date.now();
+            testStats.testCount++;
+            
+            try {
+                const code = document.getElementById('codeEditor').value;
+                const response = await fetch(`${API_BASE}/api/code`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: 'save',
+                        room_id: currentRoom.room_id,
+                        user_id: currentUser.user_id,
+                        code: code
+                    })
+                });
+                
+                const data = await response.json();
+                const responseTime = Date.now() - startTime;
+                testStats.responseTimes.push(responseTime);
+                
+                if (data.success) {
+                    updateStatus('api', 'success');
+                    log('api', `代碼保存成功: 版本 ${data.data.version} (${responseTime}ms)`, 'success');
+                    testStats.successCount++;
+                } else {
+                    throw new Error(data.error || '代碼保存失敗');
+                }
+            } catch (error) {
+                updateStatus('api', 'error');
+                log('api', `代碼保存失敗: ${error.message}`, 'error');
+                testStats.errorCount++;
+            }
+            
+            updateStats();
+        }
+
+        async function testExecuteCode() {
+            updateStatus('api', 'testing');
+            log('api', '開始代碼執行測試...');
+            
+            const startTime = Date.now();
+            testStats.testCount++;
+            
+            try {
+                const code = document.getElementById('codeEditor').value;
+                const response = await fetch(`${API_BASE}/api/code`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: 'execute',
+                        code: code
+                    })
+                });
+                
+                const data = await response.json();
+                const responseTime = Date.now() - startTime;
+                testStats.responseTimes.push(responseTime);
+                
+                if (data.success) {
+                    updateStatus('api', 'success');
+                    log('api', `代碼執行成功 (${responseTime}ms):\n${data.data.output}`, 'success');
+                    testStats.successCount++;
+                } else {
+                    throw new Error(data.error || '代碼執行失敗');
+                }
+            } catch (error) {
+                updateStatus('api', 'error');
+                log('api', `代碼執行失敗: ${error.message}`, 'error');
+                testStats.errorCount++;
+            }
+            
+            updateStats();
+        }
+
+        // WebSocket 測試函數
+        function connectWebSocket() {
+            updateStatus('websocket', 'testing');
+            log('websocket', '正在連接WebSocket測試服務器...');
+            
+            try {
+                websocket = new WebSocket(WS_BASE);
+                
+                websocket.onopen = function() {
+                    updateStatus('websocket', 'success');
+                    log('websocket', 'WebSocket連接成功', 'success');
+                };
+                
+                websocket.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    log('websocket', `收到消息: ${data.type} - ${data.message || JSON.stringify(data)}`);
+                };
+                
+                websocket.onerror = function(error) {
+                    updateStatus('websocket', 'error');
+                    log('websocket', `WebSocket錯誤: ${error}`, 'error');
+                };
+                
+                websocket.onclose = function() {
+                    updateStatus('websocket', 'error');
+                    log('websocket', 'WebSocket連接已關閉');
+                };
+                
+            } catch (error) {
+                updateStatus('websocket', 'error');
+                log('websocket', `連接失敗: ${error.message}`, 'error');
+            }
+        }
+
+        function disconnectWebSocket() {
+            if (websocket) {
+                websocket.close();
+                websocket = null;
+                updateStatus('websocket', 'error');
+                log('websocket', 'WebSocket連接已斷開');
+            }
+        }
+
+        function joinRoom() {
+            if (!websocket) {
+                log('websocket', '請先連接WebSocket', 'error');
+                return;
+            }
+            
+            const roomId = document.getElementById('roomId').value;
+            const message = {
+                type: 'join_room',
+                room_id: roomId,
+                user_id: currentUser?.user_id || 'test_user',
+                username: currentUser?.username || '測試用戶'
+            };
+            
+            websocket.send(JSON.stringify(message));
+            log('websocket', `發送加入房間請求: ${roomId}`);
+        }
+
+        function sendCodeChange() {
+            if (!websocket) {
+                log('websocket', '請先連接WebSocket', 'error');
+                return;
+            }
+            
+            const code = document.getElementById('codeEditor').value;
+            const message = {
+                type: 'code_change',
+                code: code,
+                timestamp: Date.now()
+            };
+            
+            websocket.send(JSON.stringify(message));
+            log('websocket', '發送代碼變更');
+        }
+
+        function sendChatMessage() {
+            if (!websocket) {
+                log('websocket', '請先連接WebSocket', 'error');
+                return;
+            }
+            
+            const message = {
+                type: 'chat_message',
+                message: '這是一條測試聊天消息 ' + new Date().toLocaleTimeString()
+            };
+            
+            websocket.send(JSON.stringify(message));
+            log('websocket', '發送聊天消息');
+        }
+
+        function leaveRoom() {
+            if (!websocket) {
+                log('websocket', '請先連接WebSocket', 'error');
+                return;
+            }
+            
+            const message = {
+                type: 'leave_room'
+            };
+            
+            websocket.send(JSON.stringify(message));
+            log('websocket', '發送離開房間請求');
+        }
+
+        // 代碼編輯器測試函數
+        function validateCode() {
+            updateStatus('editor', 'testing');
+            const code = document.getElementById('codeEditor').value;
+            
+            // 簡單的Python語法檢查
+            const errors = [];
+            const lines = code.split('\n');
+            
+            lines.forEach((line, index) => {
+                if (line.trim().startsWith('print ') && !line.includes('(')) {
+                    errors.push(`第 ${index + 1} 行: Python 3 中 print 需要使用括號`);
+                }
+            });
+            
+            if (errors.length === 0) {
+                updateStatus('editor', 'success');
+                log('editor', '代碼驗證通過', 'success');
+            } else {
+                updateStatus('editor', 'error');
+                log('editor', `代碼驗證失敗:\n${errors.join('\n')}`, 'error');
+            }
+        }
+
+        function formatCode() {
+            updateStatus('editor', 'testing');
+            let code = document.getElementById('codeEditor').value;
+            
+            // 簡單的代碼格式化
+            const lines = code.split('\n');
+            const formattedLines = lines.map(line => {
+                // 移除行尾空格
+                line = line.trimEnd();
+                
+                // 簡單的縮進修正
+                if (line.trim().endsWith(':')) {
+                    return line;
+                }
+                
+                return line;
+            });
+            
+            document.getElementById('codeEditor').value = formattedLines.join('\n');
+            updateStatus('editor', 'success');
+            log('editor', '代碼格式化完成', 'success');
+        }
+
+        async function saveCodeToServer() {
+            await testSaveCode();
+        }
+
+        async function loadCodeFromServer() {
+            if (!currentRoom) {
+                log('editor', '請先創建房間', 'error');
+                return;
+            }
+            
+            updateStatus('editor', 'testing');
+            log('editor', '從服務器載入代碼...');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/code?room_id=${currentRoom.room_id}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('codeEditor').value = data.data.code;
+                    updateStatus('editor', 'success');
+                    log('editor', '代碼載入成功', 'success');
+                } else {
+                    throw new Error(data.error || '代碼載入失敗');
+                }
+            } catch (error) {
+                updateStatus('editor', 'error');
+                log('editor', `代碼載入失敗: ${error.message}`, 'error');
+            }
+        }
+
+        // 整合測試函數
+        async function runFullTest() {
+            updateStatus('integration', 'testing');
+            log('integration', '開始運行完整測試流程...');
+            
+            try {
+                // 1. 認證測試
+                await testAuth();
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // 2. 房間創建測試
+                await testCreateRoom();
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // 3. WebSocket連接測試
+                connectWebSocket();
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // 4. 加入房間測試
+                joinRoom();
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // 5. 代碼保存測試
+                await testSaveCode();
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // 6. 代碼執行測試
+                await testExecuteCode();
+                
+                updateStatus('integration', 'success');
+                log('integration', '完整測試流程執行成功！', 'success');
+                
+            } catch (error) {
+                updateStatus('integration', 'error');
+                log('integration', `完整測試流程失敗: ${error.message}`, 'error');
+            }
+        }
+
+        async function runPerformanceTest() {
+            updateStatus('integration', 'testing');
+            log('integration', '開始性能測試...');
+            
+            const testCount = 10;
+            const results = [];
+            
+            for (let i = 0; i < testCount; i++) {
+                const startTime = Date.now();
+                
+                try {
+                    const response = await fetch(`${API_BASE}/api/status`);
+                    await response.json();
+                    const responseTime = Date.now() - startTime;
+                    results.push(responseTime);
+                    
+                    log('integration', `測試 ${i + 1}/${testCount}: ${responseTime}ms`);
+                } catch (error) {
+                    log('integration', `測試 ${i + 1}/${testCount}: 失敗`, 'error');
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            
+            const avgTime = results.reduce((a, b) => a + b, 0) / results.length;
+            const minTime = Math.min(...results);
+            const maxTime = Math.max(...results);
+            
+            updateStatus('integration', 'success');
+            log('integration', `性能測試完成:\n平均響應時間: ${avgTime.toFixed(2)}ms\n最快: ${minTime}ms\n最慢: ${maxTime}ms`, 'success');
+        }
+
+        async function runStressTest() {
+            updateStatus('integration', 'testing');
+            log('integration', '開始壓力測試...');
+            
+            const concurrentRequests = 20;
+            const promises = [];
+            
+            for (let i = 0; i < concurrentRequests; i++) {
+                promises.push(
+                    fetch(`${API_BASE}/api/status`)
+                        .then(response => response.json())
+                        .then(() => ({ success: true, index: i }))
+                        .catch(error => ({ success: false, index: i, error }))
+                );
+            }
+            
+            try {
+                const results = await Promise.all(promises);
+                const successCount = results.filter(r => r.success).length;
+                const failureCount = results.filter(r => !r.success).length;
+                
+                updateStatus('integration', successCount === concurrentRequests ? 'success' : 'error');
+                log('integration', `壓力測試完成:\n成功: ${successCount}/${concurrentRequests}\n失敗: ${failureCount}/${concurrentRequests}`, 
+                    successCount === concurrentRequests ? 'success' : 'error');
+                
+            } catch (error) {
+                updateStatus('integration', 'error');
+                log('integration', `壓力測試失敗: ${error.message}`, 'error');
+            }
+        }
+
+        function clearAllTests() {
+            // 清除所有輸出
+            ['api', 'websocket', 'editor', 'integration'].forEach(section => {
+                document.getElementById(section + '-output').textContent = '測試已清除...\n';
+                updateStatus(section, '');
+            });
+            
+            // 重置統計
+            testStats = {
+                testCount: 0,
+                successCount: 0,
+                errorCount: 0,
+                responseTimes: []
+            };
+            updateStats();
+            
+            // 斷開WebSocket
+            if (websocket) {
+                websocket.close();
+                websocket = null;
+            }
+            
+            // 重置變數
+            currentUser = null;
+            currentRoom = null;
+            
+            log('integration', '所有測試已清除', 'success');
+        }
+
+        // 頁面載入時初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            log('integration', '測試頁面載入完成，可以開始測試');
+            updateStats();
+        });
+    </script>
+</body>
+</html> 

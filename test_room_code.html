@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>房間代碼載入測試</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        
+        #codeEditor {
+            width: 100%;
+            height: 300px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+        }
+        
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 房間代碼載入測試</h1>
+        
+        <div id="connectionStatus" class="status info">
+            🔌 準備連接...
+        </div>
+        
+        <div>
+            <button id="connectBtn" onclick="connectToRoom()">連接到房間</button>
+            <button id="disconnectBtn" onclick="disconnect()" disabled>斷開連接</button>
+            <button onclick="clearLog()">清空日誌</button>
+        </div>
+        
+        <h3>📝 編輯器內容</h3>
+        <textarea id="codeEditor" placeholder="代碼將在這裡顯示..."></textarea>
+        
+        <h3>📋 連接日誌</h3>
+        <div id="log" class="log"></div>
+    </div>
+
+    <script>
+        let ws = null;
+        let isConnected = false;
+        
+        function log(message) {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.textContent += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        function updateStatus(message, type = 'info') {
+            const statusElement = document.getElementById('connectionStatus');
+            statusElement.textContent = message;
+            statusElement.className = `status ${type}`;
+        }
+        
+        function updateButtons() {
+            document.getElementById('connectBtn').disabled = isConnected;
+            document.getElementById('disconnectBtn').disabled = !isConnected;
+        }
+        
+        function connectToRoom() {
+            if (isConnected) {
+                log('❌ 已經連接，請先斷開');
+                return;
+            }
+            
+            log('🔌 開始連接到WebSocket服務器...');
+            updateStatus('🔌 正在連接...', 'info');
+            
+            try {
+                ws = new WebSocket('ws://localhost:8080');
+                
+                ws.onopen = function(event) {
+                    log('✅ WebSocket連接成功');
+                    updateStatus('✅ 已連接', 'success');
+                    isConnected = true;
+                    updateButtons();
+                    
+                    // 發送加入房間請求
+                    const joinMessage = {
+                        type: 'join_room',
+                        room_id: 'test_room_001',
+                        user_id: 'test_user_' + Date.now(),
+                        username: 'Test User'
+                    };
+                    
+                    log('📤 發送加入房間請求: ' + JSON.stringify(joinMessage));
+                    ws.send(JSON.stringify(joinMessage));
+                };
+                
+                ws.onmessage = function(event) {
+                    try {
+                        const message = JSON.parse(event.data);
+                        log('📨 收到消息: ' + message.type);
+                        
+                        if (message.type === 'room_joined') {
+                            log('🎉 成功加入房間!');
+                            log('📝 房間ID: ' + message.room_id);
+                            log('👤 用戶ID: ' + message.user_id);
+                            log('📊 代碼長度: ' + (message.current_code ? message.current_code.length : 0));
+                            log('👥 用戶數量: ' + (message.users ? message.users.length : 0));
+                            
+                            // 更新編輯器內容
+                            const editor = document.getElementById('codeEditor');
+                            if (message.current_code !== undefined && message.current_code !== null) {
+                                editor.value = message.current_code;
+                                log('✅ 編輯器代碼已設置');
+                                updateStatus('✅ 房間代碼已載入', 'success');
+                            } else {
+                                log('⚠️ 房間代碼為空或未定義');
+                                editor.value = '# 預設代碼\nprint("Hello, World!")';
+                                updateStatus('⚠️ 使用預設代碼', 'warning');
+                            }
+                        } else if (message.type === 'user_list_update') {
+                            log('👥 用戶列表更新: ' + message.total_users + ' 個用戶');
+                        } else {
+                            log('📋 其他消息: ' + JSON.stringify(message, null, 2));
+                        }
+                    } catch (e) {
+                        log('❌ 解析消息失敗: ' + e.message);
+                        log('📄 原始消息: ' + event.data);
+                    }
+                };
+                
+                ws.onerror = function(error) {
+                    log('❌ WebSocket錯誤: ' + error);
+                    updateStatus('❌ 連接錯誤', 'error');
+                };
+                
+                ws.onclose = function(event) {
+                    log('🔌 WebSocket連接已關閉');
+                    updateStatus('🔌 連接已關閉', 'info');
+                    isConnected = false;
+                    updateButtons();
+                };
+                
+            } catch (e) {
+                log('❌ 連接失敗: ' + e.message);
+                updateStatus('❌ 連接失敗', 'error');
+            }
+        }
+        
+        function disconnect() {
+            if (ws && isConnected) {
+                log('🔌 主動斷開連接...');
+                ws.close();
+            }
+        }
+        
+        function clearLog() {
+            document.getElementById('log').textContent = '';
+        }
+        
+        // 頁面載入完成後的初始化
+        window.onload = function() {
+            log('🚀 測試頁面已載入');
+            log('📋 點擊 "連接到房間" 開始測試');
+            updateButtons();
+        };
+    </script>
+</body>
+</html> 

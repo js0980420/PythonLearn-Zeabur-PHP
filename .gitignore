@@ -1,0 +1,169 @@
+# 依賴目錄
+node_modules/
+vendor/
+
+# 環境變數檔案
+.env
+.env.local
+.env.production
+config.env
+
+# 日誌檔案
+*.log
+logs/
+websocket.log
+
+# 臨時檔案
+*.tmp
+*.temp
+temp/
+storage/
+sessions/
+
+# 系統檔案
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE 配置檔案
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 編譯輸出
+dist/
+build/
+
+# 快取檔案
+*.cache
+.cache/
+
+# 備份檔案
+*.bak
+*.backup
+
+# 測試覆蓋率報告
+coverage/
+
+# 本地開發工具
+.cursor/
+
+# 注意：composer.lock 不應該被忽略，Zeabur 需要它來確保依賴版本一致性
+
+# 數據庫文件
+*.db
+*.sqlite
+*.sqlite3
+/data/*.db
+/data/*.sqlite
+
+# 緩存文件
+/cache/
+/tmp/
+/temp/
+*.cache
+
+# 用戶上傳文件
+/uploads/
+/storage/uploads/
+
+# IDE 和編輯器文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# 系統文件
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# PHP 相關
+*.php~
+*.php.bak
+
+# 備份文件
+*.bak
+*.backup
+*.old
+
+# 測試覆蓋率
+/coverage/
+/.nyc_output/
+
+# 運行時文件
+*.pid
+*.sock
+
+# 本地配置文件
+config.local.php
+database.local.php
+
+# 開發工具
+.phpunit.result.cache
+.php_cs.cache
+
+# 編譯輸出
+/dist/
+/build/
+
+# 運行時 PID 文件
+.websocket.pid
+.web.pid
+
+# 大型日誌文件
+websocket.log
+*.log
+
+# 環境配置檔案
+.env
+.env.local
+.env.production
+ai_config.json
+
+# 日誌檔案
+*.log
+logs/
+
+# 臨時檔案
+*.tmp
+*.temp
+
+# 系統檔案
+.DS_Store
+Thumbs.db
+
+# IDE 配置
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Cursor 規則檔案 (僅本地使用)
+.cursor/
+
+# 測試檔案
+test-*.php
+test-*.html
+test-*.bat
+*-test.php
+*-test.html
+
+# 文檔檔案 (根據需求排除)
+README*.md
+CHANGELOG.md
+CONTRIBUTING.md
+
+# 上傳檔案
+uploads/
+
+# 編譯檔案
+*.compiled 

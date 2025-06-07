@@ -1,0 +1,26 @@
+[
+    {
+        "user_id": "student003",
+        "username": "小李",
+        "user_type": "student",
+        "joined_at": "2025-06-05T04:31:00Z",
+        "last_activity": 1738637460,
+        "online": true
+    },
+    {
+        "user_id": "student004",
+        "username": "小王",
+        "user_type": "student", 
+        "joined_at": "2025-06-05T04:35:00Z",
+        "last_activity": 1738637700,
+        "online": false
+    },
+    {
+        "user_id": "student005",
+        "username": "小陳",
+        "user_type": "student",
+        "joined_at": "2025-06-05T04:40:00Z", 
+        "last_activity": 1738637900,
+        "online": true
+    }
+] 

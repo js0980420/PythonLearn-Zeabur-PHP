@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI助教功能測試</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #fafafa;
+        }
+        .test-section h3 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+        textarea {
+            width: 100%;
+            height: 150px;
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background: #3498db;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .loading {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+        .auth-section {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 AI助教功能測試平台</h1>
+        
+        <!-- 模擬登入區域 -->
+        <div class="auth-section">
+            <h3>🔐 用戶認證</h3>
+            <p>注意：這是測試環境，需要先模擬登入</p>
+            <button onclick="simulateLogin()">模擬登入</button>
+            <span id="loginStatus">未登入</span>
+        </div>
+
+        <!-- 1. 解釋程式碼 -->
+        <div class="test-section">
+            <h3>1. 解釋程式碼功能</h3>
+            <textarea id="explainCode" placeholder="輸入Python代碼...">def fibonacci(n):
+    if n <= 1:
+        return n
+    return fibonacci(n-1) + fibonacci(n-2)
+
+print(fibonacci(10))</textarea>
+            <br>
+            <button onclick="explainCode()">解釋代碼</button>
+            <div id="explainResult" class="result" style="display:none;"></div>
+        </div>
+
+        <!-- 2. 檢查錯誤 -->
+        <div class="test-section">
+            <h3>2. 檢查錯誤功能</h3>
+            <textarea id="checkCode" placeholder="輸入Python代碼...">def calculate_average(numbers):
+    total = 0
+    for num in numbers:
+        total += num
+    return total / len(numbers)  # 可能除以零
+
+result = calculate_average([])
+print(result)</textarea>
+            <br>
+            <button onclick="checkErrors()">檢查錯誤</button>
+            <div id="checkResult" class="result" style="display:none;"></div>
+        </div>
+
+        <!-- 3. 改進建議 -->
+        <div class="test-section">
+            <h3>3. 改進建議功能</h3>
+            <textarea id="improveCode" placeholder="輸入Python代碼...">def find_max(list):
+    max = list[0]
+    for i in range(1, len(list)):
+        if list[i] > max:
+            max = list[i]
+    return max
+
+numbers = [1, 5, 3, 9, 2]
+print(find_max(numbers))</textarea>
+            <br>
+            <button onclick="suggestImprovements()">獲取改進建議</button>
+            <div id="improveResult" class="result" style="display:none;"></div>
+        </div>
+
+        <!-- 4. 衝突分析 -->
+        <div class="test-section">
+            <h3>4. 衝突分析功能</h3>
+            <label>原始代碼：</label>
+            <textarea id="originalCode" placeholder="原始代碼...">def greet(name):
+    return f"Hello, {name}!"</textarea>
+            <label>衝突代碼：</label>
+            <textarea id="conflictCode" placeholder="衝突代碼...">def greet(name, greeting="Hi"):
+    return f"{greeting}, {name}!"</textarea>
+            <br>
+            <button onclick="analyzeConflict()">分析衝突</button>
+            <div id="conflictResult" class="result" style="display:none;"></div>
+        </div>
+
+        <!-- 5. 詢問問題 -->
+        <div class="test-section">
+            <h3>5. 詢問問題功能</h3>
+            <input type="text" id="questionText" placeholder="輸入您的問題..." value="Python中的list和tuple有什麼差別？">
+            <textarea id="questionContext" placeholder="相關上下文（可選）..."></textarea>
+            <select id="questionCategory">
+                <option value="python_programming">Python程式設計</option>
+                <option value="web_operation">網頁操作</option>
+                <option value="general">一般問題</option>
+            </select>
+            <br>
+            <button onclick="askQuestion()">詢問問題</button>
+            <div id="questionResult" class="result" style="display:none;"></div>
+        </div>
+
+        <!-- 統計信息 -->
+        <div class="test-section">
+            <h3>📊 測試統計</h3>
+            <button onclick="getStats()">獲取使用統計</button>
+            <div id="statsResult" class="result" style="display:none;"></div>
+        </div>
+    </div>
+
+    <script>
+        let isLoggedIn = false;
+        
+        // 模擬登入
+        function simulateLogin() {
+            // 這裡應該調用實際的登入API，暫時模擬
+            fetch('backend/api/auth.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'login',
+                    username: 'test_user',
+                    password: 'test123'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    isLoggedIn = true;
+                    document.getElementById('loginStatus').textContent = '已登入';
+                    document.getElementById('loginStatus').style.color = 'green';
+                } else {
+                    document.getElementById('loginStatus').textContent = '登入失敗';
+                    document.getElementById('loginStatus').style.color = 'red';
+                }
+            })
+            .catch(error => {
+                console.error('登入錯誤:', error);
+                document.getElementById('loginStatus').textContent = '登入錯誤';
+                document.getElementById('loginStatus').style.color = 'red';
+            });
+        }
+
+        // 通用API調用函數
+        function callAI(action, data, resultId) {
+            const resultDiv = document.getElementById(resultId);
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result loading';
+            resultDiv.textContent = '正在處理...';
+
+            fetch('backend/api/ai.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: action,
+                    ...data
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ 成功！\n\n${data.data.analysis}\n\n執行時間: ${data.data.execution_time}秒\nToken使用量: ${data.data.token_usage}`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ 錯誤: ${data.message}`;
+                }
+            })
+            .catch(error => {
+                console.error('API錯誤:', error);
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ 網路錯誤: ${error.message}`;
+            });
+        }
+
+        // 1. 解釋代碼
+        function explainCode() {
+            const code = document.getElementById('explainCode').value;
+            if (!code.trim()) {
+                alert('請輸入代碼');
+                return;
+            }
+            callAI('explain', { code: code }, 'explainResult');
+        }
+
+        // 2. 檢查錯誤
+        function checkErrors() {
+            const code = document.getElementById('checkCode').value;
+            if (!code.trim()) {
+                alert('請輸入代碼');
+                return;
+            }
+            callAI('check_errors', { code: code }, 'checkResult');
+        }
+
+        // 3. 改進建議
+        function suggestImprovements() {
+            const code = document.getElementById('improveCode').value;
+            if (!code.trim()) {
+                alert('請輸入代碼');
+                return;
+            }
+            callAI('suggest_improvements', { code: code }, 'improveResult');
+        }
+
+        // 4. 衝突分析
+        function analyzeConflict() {
+            const originalCode = document.getElementById('originalCode').value;
+            const conflictCode = document.getElementById('conflictCode').value;
+            if (!originalCode.trim() || !conflictCode.trim()) {
+                alert('請輸入原始代碼和衝突代碼');
+                return;
+            }
+            callAI('conflict', { 
+                original_code: originalCode, 
+                conflict_code: conflictCode 
+            }, 'conflictResult');
+        }
+
+        // 5. 詢問問題
+        function askQuestion() {
+            const question = document.getElementById('questionText').value;
+            const context = document.getElementById('questionContext').value;
+            const category = document.getElementById('questionCategory').value;
+            if (!question.trim()) {
+                alert('請輸入問題');
+                return;
+            }
+            callAI('question', { 
+                question: question, 
+                context: context, 
+                category: category 
+            }, 'questionResult');
+        }
+
+        // 獲取統計信息
+        function getStats() {
+            const resultDiv = document.getElementById('statsResult');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result loading';
+            resultDiv.textContent = '獲取統計中...';
+
+            fetch('backend/api/ai.php?action=history')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `📊 AI使用歷史\n\n共有 ${data.data.length} 條記錄\n\n` +
+                        data.data.slice(0, 5).map(item => 
+                            `${item.request_type} - ${item.created_at}`
+                        ).join('\n');
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ 錯誤: ${data.message}`;
+                }
+            })
+            .catch(error => {
+                console.error('統計錯誤:', error);
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ 網路錯誤: ${error.message}`;
+            });
+        }
+
+        // 頁面載入時自動模擬登入
+        window.addEventListener('load', function() {
+            setTimeout(simulateLogin, 1000);
+        });
+    </script>
+</body>
+</html> 

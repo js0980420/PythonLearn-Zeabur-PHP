@@ -1,0 +1,39 @@
+# 進階課程：物件導向程式設計
+
+class Student:
+    def __init__(self, name, age, grade):
+        self.name = name
+        self.age = age  
+        self.grade = grade
+        self.courses = []
+    
+    def add_course(self, course):
+        self.courses.append(course)
+        print(f"{self.name} 已加選 {course}")
+    
+    def get_info(self):
+        return f"學生：{self.name}，年齡：{self.age}，年級：{self.grade}"
+
+class Teacher:
+    def __init__(self, name, subject):
+        self.name = name
+        self.subject = subject
+        self.students = []
+    
+    def add_student(self, student):
+        self.students.append(student)
+        print(f"教師 {self.name} 已加入學生 {student.name}")
+
+# 實際使用範例
+teacher1 = Teacher("張老師", "Python程式設計")
+student1 = Student("小明", 20, "大二")
+student2 = Student("小華", 19, "大一")
+
+teacher1.add_student(student1)
+teacher1.add_student(student2)
+
+student1.add_course("Python程式設計")
+student2.add_course("Python程式設計")
+
+print(student1.get_info())
+print(student2.get_info()) 

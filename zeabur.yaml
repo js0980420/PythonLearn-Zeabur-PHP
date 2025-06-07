@@ -1,0 +1,139 @@
+# Zeabur 部署配置 - Python協作教學平台 (簡化版)
+name: pythonlearn-collaboration
+
+services:
+  web:
+    # 🏗️ 使用 Dockerfile 構建
+    build:
+      dockerfile: Dockerfile
+    
+    # 🌐 端口配置
+    ports:
+      - 8080
+    
+    # ⚙️ 環境變數
+    envs:
+      # 運行環境
+      ENVIRONMENT: production
+      
+      # AI 配置 (可選)
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: gpt-3.5-turbo
+      OPENAI_MAX_TOKENS: 1000
+      OPENAI_TEMPERATURE: 0.3
+      
+      # 應用配置
+      MAX_CONCURRENT_USERS: 100
+      MAX_ROOMS: 50
+      MAX_USERS_PER_ROOM: 8
+      
+      # WebSocket 配置
+      WEBSOCKET_ENABLED: true
+      WEBSOCKET_PORT: 8081
+    
+    # 🏥 健康檢查
+    healthcheck:
+      path: /health.php
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    
+    # 🔄 重啟策略
+    restart: unless-stopped
+
+# 🚀 部署配置
+deploy:
+  auto: true
+  
+  # 環境變數需求 (OPENAI_API_KEY 為可選)
+  envs:
+    optional:
+      - OPENAI_API_KEY
+
+# 🔍 日誌配置
+logging:
+  driver: json-file
+  options:
+    max-size: "100m"
+    max-file: "3"
+
+# 🌐 網路配置
+networks:
+  default:
+    driver: bridge
+
+# 📊 監控配置
+monitoring:
+  enabled: true
+  metrics:
+    - name: http_requests_total
+      type: counter
+      help: "Total HTTP requests"
+    
+    - name: websocket_connections
+      type: gauge
+      help: "Active WebSocket connections"
+    
+    - name: caddy_requests_total
+      type: counter
+      help: "Total Caddy proxy requests"
+    
+    - name: ai_requests_total
+      type: counter
+      help: "Total AI assistant requests"
+    
+    - name: python_executions_total
+      type: counter
+      help: "Total Python code executions"
+
+# 🔐 密鑰管理
+secrets:
+  openai-api-key:
+    external: true
+    name: OPENAI_API_KEY
+  
+  mysql-root-password:
+    external: true
+    name: MYSQL_ROOT_PASSWORD
+  
+  mysql-password:
+    external: true
+    name: MYSQL_PASSWORD
+
+# 卷配置
+volumes:
+  mysql_data:
+    driver: local
+
+# 健康檢查配置
+healthcheck:
+  php:
+    path: /health.php
+    interval: 30s
+    timeout: 10s
+    retries: 3
+    
+  websocket:
+    port: 8081
+    interval: 30s
+    timeout: 10s
+    retries: 3
+
+# 環境變數配置
+env:
+  # MySQL 密碼（需要在 Zeabur 控制台設置）
+  MYSQL_ROOT_PASSWORD:
+    type: secret
+    default: "secure_root_password_2024"
+    
+  MYSQL_PASSWORD:
+    type: secret
+    default: "secure_user_password_2024"
+    
+  # OpenAI API 密鑰（需要在 Zeabur 控制台設置）
+  OPENAI_API_KEY:
+    type: secret
+    
+  # 域名（Zeabur 自動設置）
+  ZEABUR_DOMAIN:
+    type: auto 

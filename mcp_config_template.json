@@ -1,0 +1,52 @@
+{
+  "mcpServers": {
+    "Apidog API Specs": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "apidog-mcp-server@latest",
+        "--project=<your-apidog-project-id>"
+      ],
+      "env": {
+        "APIDOG_ACCESS_TOKEN": "<your-apidog-access-token>"
+      }
+    },
+    "Magic AI Generator": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@21st-dev/magic@latest",
+        "API_KEY=<your-openai-api-key>"
+      ]
+    },
+    "Opik Web Search": {
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "C:\\Users\\user\\MCP_Servers\\opik-mcp\\build\\index.js",
+        "--apiUrl",
+        "https://www.comet.com/opik/api",
+        "--apiKey",
+        "<your-opik-api-key>",
+        "--workspace",
+        "default",
+        "--debug",
+        "true"
+      ],
+      "env": {
+        "OPIK_API_BASE_URL": "https://www.comet.com/opik/api",
+        "OPIK_API_KEY": "<your-opik-api-key>",
+        "OPIK_WORKSPACE_NAME": "default"
+      }
+    },
+    "Playwright UI Tester": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "playwright-mcp"
+      ],
+      "cwd": "C:\\Users\\user\\MCP_Servers\\playwright-mcp-server"
+    }
+  }
+} 

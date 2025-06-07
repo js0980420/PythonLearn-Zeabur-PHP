@@ -1,0 +1,78 @@
+# Zeabur 自動 TLS 配置
+{$ZEABUR_WEB_DOMAIN:localhost:8080} {
+    # WebSocket 代理到 Ratchet 服務器
+    handle /ws {
+        reverse_proxy localhost:8081 {
+            header_up Upgrade {http.request.header.upgrade}
+            header_up Connection {http.request.header.connection}
+        }
+    }
+    
+    # 健康檢查端點
+    handle /health {
+        reverse_proxy localhost:8080
+    }
+    
+    handle /api/health {
+        reverse_proxy localhost:8080
+    }
+    
+    # API 端點代理到 PHP
+    handle /api/* {
+        reverse_proxy localhost:8080
+    }
+    
+    # 後端資源
+    handle /backend/* {
+        reverse_proxy localhost:8080
+    }
+    
+    # 所有其他 HTTP 請求代理到 PHP 服務器
+    handle {
+        reverse_proxy localhost:8080
+    }
+    
+    # 日誌配置
+    log {
+        output stdout
+        format console
+        level INFO
+    }
+    
+    # 錯誤處理
+    handle_errors {
+        @websocket_error expression {http.error.status_code} == 502
+        respond @websocket_error "WebSocket service temporarily unavailable" 503
+        
+        @php_error expression {http.error.status_code} == 502
+        respond @php_error "PHP service temporarily unavailable" 503
+    }
+}
+
+# 開發環境配置 (本地測試)
+localhost:3000 {
+    handle /ws {
+        reverse_proxy localhost:8081 {
+            header_up Upgrade {http.request.header.upgrade}
+            header_up Connection {http.request.header.connection}
+        }
+    }
+    
+    handle /health {
+        reverse_proxy localhost:8080
+    }
+    
+    handle /api/* {
+        reverse_proxy localhost:8080
+    }
+    
+    handle {
+        reverse_proxy localhost:8080
+    }
+    
+    log {
+        output stdout
+        format console
+        level DEBUG
+    }
+} 

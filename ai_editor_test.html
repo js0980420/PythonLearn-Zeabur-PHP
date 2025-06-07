@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI助教編輯器交互測試</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .result { margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 3px; white-space: pre-wrap; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .warning { background: #fff3cd; color: #856404; }
+        button { margin: 5px; padding: 8px 15px; cursor: pointer; }
+        textarea { width: 100%; height: 200px; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 AI助教編輯器交互測試</h1>
+        
+        <div class="test-section">
+            <h2>📝 模擬編輯器</h2>
+            <textarea id="code-editor" placeholder="在此輸入Python代碼..."># 歡迎使用Python協作平台
+print("Hello, World!")</textarea>
+            <br>
+            <button onclick="insertSampleCode()">插入範例代碼</button>
+            <button onclick="clearEditor()">清空編輯器</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>🔍 編輯器狀態檢查</h2>
+            <button onclick="checkEditorStatus()">檢查編輯器狀態</button>
+            <button onclick="getEditorCode()">獲取編輯器代碼</button>
+            <div id="editor-status" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🤖 AI助教測試</h2>
+            <button onclick="testAIAssistant()">測試AI助教初始化</button>
+            <button onclick="testAIRequest()">測試AI請求</button>
+            <button onclick="testRealAIAPI()">測試真實AI API</button>
+            <div id="ai-status" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>📊 完整流程測試</h2>
+            <button onclick="runFullTest()">運行完整測試</button>
+            <div id="full-test-result" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        // 模擬編輯器對象
+        window.Editor = {
+            getCode: function() {
+                return document.getElementById('code-editor').value;
+            },
+            setCode: function(code) {
+                document.getElementById('code-editor').value = code;
+            }
+        };
+        
+        // 插入範例代碼
+        function insertSampleCode() {
+            const sampleCode = `# Python 範例代碼
+def fibonacci(n):
+    if n <= 1:
+        return n
+    else:
+        return fibonacci(n-1) + fibonacci(n-2)
+
+# 計算前10個費波那契數列
+for i in range(10):
+    print(f"F({i}) = {fibonacci(i)}")
+    
+# 列表推導式範例
+squares = [x**2 for x in range(1, 11)]
+print("平方數:", squares)`;
+            
+            window.Editor.setCode(sampleCode);
+            updateStatus('editor-status', '✅ 已插入範例代碼', 'success');
+        }
+        
+        // 清空編輯器
+        function clearEditor() {
+            window.Editor.setCode('');
+            updateStatus('editor-status', '✅ 編輯器已清空', 'success');
+        }
+        
+        // 檢查編輯器狀態
+        function checkEditorStatus() {
+            let status = '';
+            
+            if (window.Editor) {
+                status += '✅ window.Editor 存在\\n';
+                
+                if (typeof window.Editor.getCode === 'function') {
+                    status += '✅ getCode 方法存在\\n';
+                } else {
+                    status += '❌ getCode 方法不存在\\n';
+                }
+                
+                if (typeof window.Editor.setCode === 'function') {
+                    status += '✅ setCode 方法存在\\n';
+                } else {
+                    status += '❌ setCode 方法不存在\\n';
+                }
+            } else {
+                status += '❌ window.Editor 不存在\\n';
+            }
+            
+            updateStatus('editor-status', status, 'success');
+        }
+        
+        // 獲取編輯器代碼
+        function getEditorCode() {
+            try {
+                if (window.Editor && typeof window.Editor.getCode === 'function') {
+                    const code = window.Editor.getCode();
+                    const status = `✅ 成功獲取代碼\\n長度: ${code.length} 字符\\n內容預覽: ${code.substring(0, 100)}${code.length > 100 ? '...' : ''}`;
+                    updateStatus('editor-status', status, 'success');
+                } else {
+                    updateStatus('editor-status', '❌ 無法獲取編輯器代碼', 'error');
+                }
+            } catch (error) {
+                updateStatus('editor-status', `❌ 獲取代碼時發生錯誤: ${error.message}`, 'error');
+            }
+        }
+        
+        // 測試AI助教初始化
+        function testAIAssistant() {
+            try {
+                // 檢查是否存在AI助教相關的全域變數或函數
+                let status = '';
+                
+                if (window.AIAssistant) {
+                    status += '✅ window.AIAssistant 存在\\n';
+                } else {
+                    status += '❌ window.AIAssistant 不存在\\n';
+                }
+                
+                if (window.askAI) {
+                    status += '✅ window.askAI 函數存在\\n';
+                } else {
+                    status += '❌ window.askAI 函數不存在\\n';
+                }
+                
+                if (window.globalAskAI) {
+                    status += '✅ window.globalAskAI 函數存在\\n';
+                } else {
+                    status += '❌ window.globalAskAI 函數不存在\\n';
+                }
+                
+                updateStatus('ai-status', status, 'warning');
+            } catch (error) {
+                updateStatus('ai-status', `❌ AI助教檢查失敗: ${error.message}`, 'error');
+            }
+        }
+        
+        // 測試AI請求
+        async function testAIRequest() {
+            try {
+                const code = window.Editor.getCode();
+                if (!code || code.trim() === '') {
+                    updateStatus('ai-status', '⚠️ 編輯器代碼為空', 'warning');
+                    return;
+                }
+                
+                updateStatus('ai-status', '🔄 正在測試AI請求...', 'warning');
+                
+                // 模擬AI請求
+                setTimeout(() => {
+                    const mockResponse = `# AI分析結果
+
+## 代碼概述
+您的Python代碼包含 ${code.split('\\n').length} 行代碼。
+
+## 代碼內容
+${code.substring(0, 200)}${code.length > 200 ? '...' : ''}
+
+## 建議
+- 代碼結構良好
+- 建議添加更多註釋`;
+                    
+                    updateStatus('ai-status', '✅ 模擬AI分析完成\\n\\n' + mockResponse, 'success');
+                }, 1000);
+                
+            } catch (error) {
+                updateStatus('ai-status', `❌ AI請求錯誤: ${error.message}`, 'error');
+            }
+        }
+        
+        // 測試真實AI API
+        async function testRealAIAPI() {
+            try {
+                const code = window.Editor.getCode();
+                if (!code || code.trim() === '') {
+                    updateStatus('ai-status', '⚠️ 編輯器代碼為空', 'warning');
+                    return;
+                }
+                
+                updateStatus('ai-status', '🔄 正在請求真實AI API...', 'warning');
+                
+                const response = await fetch('http://localhost:8080/api/ai', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'explain',
+                        code: code
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    updateStatus('ai-status', '✅ 真實AI API請求成功\\n\\n' + result.analysis, 'success');
+                } else {
+                    updateStatus('ai-status', `❌ AI API請求失敗: ${result.message}`, 'error');
+                }
+                
+            } catch (error) {
+                updateStatus('ai-status', `❌ AI API請求錯誤: ${error.message}`, 'error');
+            }
+        }
+        
+        // 運行完整測試
+        async function runFullTest() {
+            const results = [];
+            
+            updateStatus('full-test-result', '🔄 開始完整測試...', 'warning');
+            
+            // 1. 檢查編輯器
+            try {
+                if (window.Editor && window.Editor.getCode) {
+                    const code = window.Editor.getCode();
+                    results.push(`✅ 編輯器: 正常 (代碼長度: ${code.length})`);
+                } else {
+                    results.push('❌ 編輯器: 異常');
+                }
+            } catch (e) {
+                results.push(`❌ 編輯器: 錯誤 - ${e.message}`);
+            }
+            
+            // 2. 檢查AI助教相關函數
+            try {
+                let aiStatus = [];
+                if (window.AIAssistant) aiStatus.push('AIAssistant');
+                if (window.askAI) aiStatus.push('askAI');
+                if (window.globalAskAI) aiStatus.push('globalAskAI');
+                
+                if (aiStatus.length > 0) {
+                    results.push(`✅ AI助教: 部分可用 (${aiStatus.join(', ')})`);
+                } else {
+                    results.push('❌ AI助教: 不可用');
+                }
+            } catch (e) {
+                results.push(`❌ AI助教: 錯誤 - ${e.message}`);
+            }
+            
+            // 3. 測試API連接
+            try {
+                const response = await fetch('http://localhost:8080/api/status');
+                if (response.ok) {
+                    results.push('✅ API服務器: 可連接');
+                } else {
+                    results.push('❌ API服務器: 連接失敗');
+                }
+            } catch (e) {
+                results.push(`❌ API服務器: 錯誤 - ${e.message}`);
+            }
+            
+            updateStatus('full-test-result', results.join('\\n'), 'success');
+        }
+        
+        // 更新狀態顯示
+        function updateStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `result ${type}`;
+        }
+        
+        // 頁面載入完成後自動檢查
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 頁面載入完成，開始初始化...');
+            setTimeout(() => {
+                checkEditorStatus();
+            }, 500);
+        });
+    </script>
+</body>
+</html> 

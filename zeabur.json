@@ -1,0 +1,27 @@
+{
+  "name": "python-teaching-platform",
+  "type": "php",
+  "buildCommand": "",
+  "startCommand": "",
+  "environment": {
+    "OPENAI_API_KEY": "your_openai_api_key_here",
+    "OPENAI_MODEL": "gpt-4o-mini",
+    "OPENAI_MAX_TOKENS": "2000",
+    "APP_ENV": "production",
+    "APP_DEBUG": "false",
+    "WS_HOST": "0.0.0.0",
+    "WS_PORT": "8080",
+    "LOG_LEVEL": "info"
+  },
+  "domains": [],
+  "ports": [
+    {
+      "port": 80,
+      "type": "http"
+    },
+    {
+      "port": 8080,
+      "type": "websocket"
+    }
+  ]
+} 

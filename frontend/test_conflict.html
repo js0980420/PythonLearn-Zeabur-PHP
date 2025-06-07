@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>衝突檢測系統測試</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .test-container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        .user-panel {
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 10px 0;
+        }
+        .user-panel.active {
+            border-color: #007bff;
+            background-color: #f8f9fa;
+        }
+        .user-panel h5 {
+            margin-bottom: 15px;
+        }
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .status-connected { background-color: #28a745; }
+        .status-disconnected { background-color: #dc3545; }
+        .status-pending { background-color: #ffc107; }
+        .code-editor {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            min-height: 200px;
+        }
+        .log-area {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .test-buttons {
+            margin: 20px 0;
+        }
+        .conflict-indicator {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 10px 0;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="test-container">
+            <h2 class="text-center mb-4">
+                <i class="fas fa-flask text-primary"></i> 
+                多人協作衝突檢測系統測試
+            </h2>
+            
+            <!-- WebSocket連接狀態 -->
+            <div class="alert alert-info text-center">
+                <h6><i class="fas fa-wifi"></i> WebSocket連接狀態</h6>
+                <span id="wsStatus" class="badge bg-secondary">未連接</span>
+                <button id="connectBtn" class="btn btn-sm btn-primary ms-2" onclick="connectWebSocket()">連接</button>
+                <button id="disconnectBtn" class="btn btn-sm btn-danger ms-2" onclick="disconnectWebSocket()" disabled>斷開</button>
+            </div>
+            
+            <!-- 測試控制區域 -->
+            <div class="test-buttons text-center">
+                <button class="btn btn-success" onclick="testConflictDetection()">
+                    <i class="fas fa-bug"></i> 觸發衝突檢測測試
+                </button>
+                <button class="btn btn-warning" onclick="testMainChangerMode()">
+                    <i class="fas fa-user-cog"></i> 測試主改方模式
+                </button>
+                <button class="btn btn-info" onclick="testAIAnalysis()">
+                    <i class="fas fa-robot"></i> 測試AI衝突分析
+                </button>
+                <button class="btn btn-secondary" onclick="clearLogs()">
+                    <i class="fas fa-trash"></i> 清除日誌
+                </button>
+            </div>
+            
+            <!-- 模擬用戶面板 -->
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="user-panel" id="user1Panel">
+                        <h5>
+                            <span class="status-indicator status-disconnected" id="user1Status"></span>
+                            用戶1 - 李四 (主改方)
+                        </h5>
+                        <div class="mb-3">
+                            <label class="form-label">代碼編輯器</label>
+                            <textarea id="user1Code" class="form-control code-editor" placeholder="在這裡輸入Python代碼...">print("Hello from 李四!")
+# 這是李四的代碼
+def calculate_sum(a, b):
+    return a + b
+
+result = calculate_sum(5, 3)
+print(f"結果: {result}")</textarea>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-primary btn-sm" onclick="simulateCodeChange('user1', 'edit')">
+                                <i class="fas fa-edit"></i> 模擬編輯
+                            </button>
+                            <button class="btn btn-success btn-sm" onclick="simulateCodeChange('user1', 'import')">
+                                <i class="fas fa-file-import"></i> 模擬導入
+                            </button>
+                            <button class="btn btn-warning btn-sm" onclick="simulateCodeChange('user1', 'paste')">
+                                <i class="fas fa-clipboard"></i> 模擬貼上
+                            </button>
+                        </div>
+                        <div class="conflict-indicator" id="user1Conflict">
+                            <i class="fas fa-exclamation-triangle text-warning"></i>
+                            <strong>衝突狀態：</strong> <span id="user1ConflictMsg">等待處理</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="user-panel" id="user2Panel">
+                        <h5>
+                            <span class="status-indicator status-disconnected" id="user2Status"></span>
+                            用戶2 - 張三 (非主改方)
+                        </h5>
+                        <div class="mb-3">
+                            <label class="form-label">代碼編輯器</label>
+                            <textarea id="user2Code" class="form-control code-editor" placeholder="在這裡輸入Python代碼...">print("Hello from 張三!")
+# 這是張三的代碼  
+def calculate_product(x, y):
+    return x * y
+
+result = calculate_product(4, 7)
+print(f"乘積: {result}")</textarea>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-primary btn-sm" onclick="simulateCodeChange('user2', 'edit')">
+                                <i class="fas fa-edit"></i> 模擬編輯
+                            </button>
+                            <button class="btn btn-info btn-sm" onclick="simulateCodeChange('user2', 'load')">
+                                <i class="fas fa-history"></i> 模擬載入
+                            </button>
+                            <button class="btn btn-danger btn-sm" onclick="simulateCodeChange('user2', 'cut')">
+                                <i class="fas fa-cut"></i> 模擬剪切
+                            </button>
+                        </div>
+                        <div class="conflict-indicator" id="user2Conflict">
+                            <i class="fas fa-hourglass-half text-info"></i>
+                            <strong>等待狀態：</strong> <span id="user2ConflictMsg">等待主改方決定</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 系統日誌 -->
+            <div class="mt-4">
+                <h5><i class="fas fa-list-alt"></i> 系統日誌</h5>
+                <div id="systemLog" class="log-area"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 引入Bootstrap和ConflictResolver -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/js/conflict.js"></script>
+
+    <script>
+        // 測試系統狀態
+        let wsConnection = null;
+        let currentRoom = 'test_room_conflict';
+        let users = {
+            user1: { id: '5', name: '李四', isMainChanger: true },
+            user2: { id: '6', name: '張三', isMainChanger: false }
+        };
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            log('📱 衝突檢測測試系統已載入');
+            
+            // 初始化ConflictResolver
+            if (window.ConflictResolver) {
+                window.ConflictResolver.initialize();
+                log('✅ ConflictResolver已初始化');
+            }
+
+            // 模擬wsManager
+            window.wsManager = {
+                websocket: null,
+                currentRoom: currentRoom,
+                currentUser: '5', // 預設為李四
+                isConnected: () => wsConnection && wsConnection.readyState === WebSocket.OPEN,
+                sendMessage: (data) => {
+                    if (wsConnection && wsConnection.readyState === WebSocket.OPEN) {
+                        wsConnection.send(JSON.stringify(data));
+                        log(`📤 發送消息: ${data.type} (${JSON.stringify(data).slice(0, 100)}...)`);
+                        return true;
+                    }
+                    log('❌ WebSocket未連接，無法發送消息');
+                    return false;
+                }
+            };
+        });
+
+        // 日誌功能
+        function log(message) {
+            const logArea = document.getElementById('systemLog');
+            const timestamp = new Date().toLocaleTimeString();
+            logArea.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('systemLog').innerHTML = '';
+            log('🗑️ 日誌已清除');
+        }
+
+        // WebSocket連接管理
+        function connectWebSocket() {
+            try {
+                wsConnection = new WebSocket('ws://localhost:8080');
+                
+                wsConnection.onopen = function() {
+                    log('🔗 WebSocket連接成功');
+                    updateConnectionStatus('connected');
+                    
+                    // 模擬用戶連接
+                    wsConnection.send(JSON.stringify({
+                        type: 'join_room',
+                        room_id: currentRoom,
+                        user_id: users.user1.id,
+                        username: users.user1.name
+                    }));
+                };
+                
+                wsConnection.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    log(`📨 收到消息: ${data.type}`);
+                    handleWebSocketMessage(data);
+                };
+                
+                wsConnection.onerror = function(error) {
+                    log('❌ WebSocket錯誤: ' + error);
+                    updateConnectionStatus('error');
+                };
+                
+                wsConnection.onclose = function() {
+                    log('🔌 WebSocket連接關閉');
+                    updateConnectionStatus('disconnected');
+                };
+                
+                window.wsManager.websocket = wsConnection;
+                
+            } catch (error) {
+                log('❌ 連接失敗: ' + error.message);
+                updateConnectionStatus('error');
+            }
+        }
+
+        function disconnectWebSocket() {
+            if (wsConnection) {
+                wsConnection.close();
+                wsConnection = null;
+                window.wsManager.websocket = null;
+            }
+        }
+
+        function updateConnectionStatus(status) {
+            const statusElement = document.getElementById('wsStatus');
+            const connectBtn = document.getElementById('connectBtn');
+            const disconnectBtn = document.getElementById('disconnectBtn');
+            
+            switch (status) {
+                case 'connected':
+                    statusElement.textContent = '已連接';
+                    statusElement.className = 'badge bg-success';
+                    connectBtn.disabled = true;
+                    disconnectBtn.disabled = false;
+                    document.getElementById('user1Status').className = 'status-indicator status-connected';
+                    break;
+                case 'disconnected':
+                    statusElement.textContent = '未連接';
+                    statusElement.className = 'badge bg-secondary';
+                    connectBtn.disabled = false;
+                    disconnectBtn.disabled = true;
+                    document.getElementById('user1Status').className = 'status-indicator status-disconnected';
+                    break;
+                case 'error':
+                    statusElement.textContent = '連接錯誤';
+                    statusElement.className = 'badge bg-danger';
+                    connectBtn.disabled = false;
+                    disconnectBtn.disabled = true;
+                    break;
+            }
+        }
+
+        // 處理WebSocket消息
+        function handleWebSocketMessage(data) {
+            switch (data.type) {
+                case 'conflict_main_changer_decision':
+                    log('🎯 收到主改方決定消息');
+                    showConflictForMainChanger(data);
+                    break;
+                case 'conflict_waiting_decision':
+                    log('⏳ 收到等待決定消息');
+                    showWaitingForDecision(data);
+                    break;
+                case 'edit_blocked_waiting_decision':
+                    log('🚫 收到編輯阻擋消息');
+                    showEditBlocked(data);
+                    break;
+                case 'conflict_resolved':
+                    log('✅ 衝突已解決');
+                    break;
+                default:
+                    log(`📋 收到其他消息: ${data.type}`);
+            }
+        }
+
+        // 測試功能
+        function testConflictDetection() {
+            log('🧪 開始衝突檢測測試...');
+            
+            // 模擬主改方決定消息
+            const mockMainChangerData = {
+                type: 'conflict_main_changer_decision',
+                conflict_id: 'test_conflict_' + Date.now(),
+                conflict_type: 'simultaneous_edit',
+                room_id: currentRoom,
+                main_changer_name: '李四',
+                other_changer_name: '張三',
+                main_changer_code: document.getElementById('user1Code').value,
+                other_changer_code: document.getElementById('user2Code').value,
+                main_change_type: 'import',
+                message: '檢測到衝突：李四導入了新代碼，與張三的修改衝突'
+            };
+            
+            log('📤 模擬發送主改方決定消息');
+            handleWebSocketMessage(mockMainChangerData);
+        }
+
+        function testMainChangerMode() {
+            log('🧪 測試主改方模式...');
+            
+            if (window.ConflictResolver) {
+                const testData = {
+                    conflict_id: 'test_main_' + Date.now(),
+                    conflict_type: 'import_conflict',
+                    room_id: currentRoom,
+                    main_changer: '李四',
+                    other_changer: '張三',
+                    local_code: document.getElementById('user1Code').value,
+                    remote_code: document.getElementById('user2Code').value,
+                    change_type: 'import',
+                    message: '測試主改方模式'
+                };
+                
+                window.ConflictResolver.showMainChangerDecision(testData);
+                log('✅ 主改方決定界面已顯示');
+            }
+        }
+
+        function testAIAnalysis() {
+            log('🧪 測試AI衝突分析...');
+            
+            if (window.ConflictResolver) {
+                window.ConflictResolver.requestAIAnalysis();
+                log('✅ AI分析請求已發送');
+            }
+        }
+
+        // 模擬代碼變更
+        function simulateCodeChange(user, changeType) {
+            const codeElement = document.getElementById(user + 'Code');
+            const currentCode = codeElement.value;
+            
+            let newCode;
+            switch (changeType) {
+                case 'edit':
+                    newCode = currentCode + '\n# 新增的編輯內容 ' + new Date().toLocaleTimeString();
+                    break;
+                case 'import':
+                    newCode = '# 導入的新文件\nimport datetime\n\n' + currentCode;
+                    break;
+                case 'paste':
+                    newCode = currentCode + '\n\n# 貼上的代碼\ndef new_function():\n    return "Hello World"';
+                    break;
+                case 'load':
+                    newCode = '# 從歷史載入的代碼\nprint("歷史版本代碼")\n\n' + currentCode;
+                    break;
+                case 'cut':
+                    const lines = currentCode.split('\n');
+                    newCode = lines.slice(0, Math.max(1, lines.length - 2)).join('\n');
+                    break;
+                default:
+                    newCode = currentCode + '\n# 修改 ' + changeType;
+            }
+            
+            codeElement.value = newCode;
+            log(`📝 ${users[user].name} 執行了 ${changeType} 操作`);
+            
+            // 模擬發送代碼變更
+            if (window.wsManager && window.wsManager.isConnected()) {
+                window.wsManager.sendMessage({
+                    type: 'code_change',
+                    room_id: currentRoom,
+                    user_id: users[user].id,
+                    username: users[user].name,
+                    code: newCode,
+                    change_type: changeType
+                });
+            }
+        }
+
+        // 顯示衝突狀態
+        function showConflictForMainChanger(data) {
+            document.getElementById('user1Conflict').style.display = 'block';
+            document.getElementById('user1ConflictMsg').textContent = '您是主改方，請選擇處理方式';
+            document.getElementById('user1Panel').classList.add('active');
+        }
+
+        function showWaitingForDecision(data) {
+            document.getElementById('user2Conflict').style.display = 'block';
+            document.getElementById('user2ConflictMsg').textContent = '等待李四處理衝突';
+            document.getElementById('user2Panel').classList.add('active');
+        }
+
+        function showEditBlocked(data) {
+            document.getElementById('user2Conflict').style.display = 'block';
+            document.getElementById('user2ConflictMsg').textContent = '編輯被阻擋，等待衝突解決';
+        }
+
+        // 在頁面載入完成後顯示提示
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                log('🎉 測試系統準備就緒！');
+                log('💡 使用步驟：');
+                log('1. 點擊 "連接" 按鈕連接WebSocket');
+                log('2. 點擊 "觸發衝突檢測測試" 測試基本功能');
+                log('3. 點擊 "測試主改方模式" 測試新的衝突處理');
+                log('4. 點擊 "測試AI衝突分析" 測試AI協助功能');
+            }, 1000);
+        });
+    </script>
+</body>
+</html> 

@@ -1,0 +1,26 @@
+FROM caddy:2.7.6-alpine
+
+# 安裝必要工具
+RUN apk add --no-cache curl
+
+# 設置工作目錄
+WORKDIR /app
+
+# 複製 Caddyfile
+COPY Caddyfile /etc/caddy/Caddyfile
+
+# 建立日誌目錄
+RUN mkdir -p /var/log/caddy
+
+# 健康檢查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost/ || exit 1
+
+# 暴露端口
+EXPOSE 80 443
+
+# 設置環境變數
+ENV CADDY_ADMIN=off
+
+# 啟動 Caddy
+CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"] 
