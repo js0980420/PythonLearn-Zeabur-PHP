@@ -111,11 +111,26 @@ class AIAssistantManager {
         console.log(`🤖 發送AI請求: ${apiAction}, RequestID: ${requestId}`);
         console.log('🔍 [AI Debug] 發送的代碼內容:', code);
 
+        // 獲取用戶信息，優先使用AutoLogin的用戶信息
+        let userInfo = { id: 1, username: 'Alex Wang' };
+        if (window.AutoLogin) {
+            const autoLoginUser = window.AutoLogin.getCurrentUser();
+            if (autoLoginUser) {
+                userInfo = {
+                    id: autoLoginUser.id,
+                    username: autoLoginUser.username
+                };
+            }
+        }
+
         // 發送AI請求到服務器
         wsManager.sendMessage({
             type: 'ai_request',
             action: apiAction,
             requestId: requestId,
+            user_id: userInfo.id,
+            username: userInfo.username,
+            room_id: wsManager.currentRoom || 'test_room_001',
             data: {
                 code: code
             }
@@ -166,7 +181,35 @@ class AIAssistantManager {
         }
     }
 
-    // 處理AI回應
+    // 處理WebSocket AI回應
+    handleWebSocketAIResponse(message) {
+        console.log('🤖 [AI Assistant] 處理WebSocket AI回應:', message);
+        
+        this.isProcessing = false;
+        
+        if (message.success && message.response) {
+            console.log('✅ [AI Assistant] AI回應成功');
+            
+            // 格式化回應
+            const formattedResponse = `
+                <h6><i class="fas fa-brain"></i> AI助教分析結果</h6>
+                <div class="mb-3">
+                    ${this.formatAIResponse(message.response)}
+                </div>
+            `;
+            this.showResponse(formattedResponse);
+        } else {
+            console.log('❌ [AI Assistant] AI回應失敗:', message.error);
+            this.showResponse(`
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>AI助教暫時無法回應：</strong> ${message.error || 'AI服務暫時不可用，請稍後再試。'}
+                </div>
+            `);
+        }
+    }
+
+    // 處理AI回應 (向後兼容)
     handleAIResponse(response) {
         this.isProcessing = false; // 重置處理狀態
 

@@ -68,7 +68,7 @@ try {
     
     // 測試代碼保存
     echo "Testing code save...\n";
-    $saveResult = $database->saveCode($testRoomId, 'test-user-1', 'print("Hello World")', 'Test Save');
+    $saveResult = $database->saveCode($testRoomId, 'test-user-1', 'print("Hello World")', 'Test Save', null, 'Test User 1');
     if ($saveResult['success']) {
         echo "✅ Code save test passed\n";
     } else {

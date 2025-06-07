@@ -422,8 +422,8 @@ class CollaborationServer implements \Ratchet\MessageComponentInterface {
             ]
         ]);
         
-        // 修正 API 路徑
-        $apiUrl = 'http://localhost:8000/api/ai';
+        // 修正 API 路徑 - 指向正確的後端API
+        $apiUrl = 'http://localhost:8080/backend/api/ai.php';
         $response = file_get_contents($apiUrl, false, $context);
         
         if ($response === false) {

@@ -584,7 +584,7 @@ class Database {
      * @param int|null $slotId 槽位ID (0=最新, 1-4=命名槽位, null=自動選擇)
      * @return array 保存結果
      */
-    public function saveCode($roomId, $userId, $code, $saveName = null, $slotId = null) {
+    public function saveCode($roomId, $userId, $code, $saveName = null, $slotId = null, $username = null) {
         try {
             $this->pdo->beginTransaction();
             
@@ -619,6 +619,11 @@ class Database {
                 throw new Exception("無效的槽位ID: {$slotId}，槽位範圍為0-4");
             }
             
+            // 2.5. 確保有用戶名稱（如果沒有提供，使用userId作為備用）
+            if ($username === null) {
+                $username = $userId;
+            }
+            
             // 3. 準備保存名稱
             if ($slotId === 0) {
                 // 槽位0始終是"最新"
@@ -651,7 +656,7 @@ class Database {
                 }
                 
                 $stmt = $this->pdo->prepare($updateSql);
-                $stmt->execute([$userId, $userId, $code, $finalSaveName, $roomId, $slotId]);
+                $stmt->execute([$userId, $username, $code, $finalSaveName, $roomId, $slotId]);
                 $historyId = $existingRecord['id'];
             } else {
                 // 創建新記錄
@@ -668,7 +673,7 @@ class Database {
                 }
                 
                 $stmt = $this->pdo->prepare($insertSql);
-                $stmt->execute([$roomId, $userId, $userId, $code, $finalSaveName, $slotId]);
+                $stmt->execute([$roomId, $userId, $username, $code, $finalSaveName, $slotId]);
                 $historyId = $this->pdo->lastInsertId();
             }
             
@@ -1271,40 +1276,62 @@ class Database {
      */
     public function insert($table, $data) {
         try {
-            if (empty($data)) {
-                return false;
-            }
-
-            // 自動添加創建時間
-            if (!isset($data['created_at'])) {
-                $data['created_at'] = $this->isMySQL ? null : date('Y-m-d H:i:s');
-            }
-
-            $columns = array_keys($data);
-            $placeholders = array_fill(0, count($columns), '?');
+            $columns = implode(', ', array_keys($data));
+            $placeholders = ':' . implode(', :', array_keys($data));
             
-            $sql = "INSERT INTO {$table} (" . implode(', ', $columns) . ") VALUES (" . implode(', ', $placeholders) . ")";
-            
-            // 如果是MySQL且有created_at字段為null，使用NOW()
-            if ($this->isMySQL && isset($data['created_at']) && $data['created_at'] === null) {
-                $nowIndex = array_search('created_at', $columns);
-                $placeholders[$nowIndex] = 'NOW()';
-                unset($data['created_at']);
-                $sql = "INSERT INTO {$table} (" . implode(', ', $columns) . ") VALUES (" . implode(', ', $placeholders) . ")";
-            }
-            
+            $sql = "INSERT INTO {$table} ({$columns}) VALUES ({$placeholders})";
             $stmt = $this->pdo->prepare($sql);
-            $success = $stmt->execute(array_values($data));
             
-            if ($success) {
-                return $this->pdo->lastInsertId();
+            foreach ($data as $key => $value) {
+                $stmt->bindValue(":{$key}", $value);
             }
             
-            return false;
+            $stmt->execute();
+            return $this->pdo->lastInsertId();
             
         } catch (PDOException $e) {
-            error_log("Database insert error: " . $e->getMessage());
-            return false;
+            throw new Exception("插入失敗: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * 更新數據
+     * @param string $table 表名
+     * @param array $data 要更新的數據
+     * @param array $where 條件
+     * @return bool 是否成功
+     */
+    public function update($table, $data, $where) {
+        try {
+            $setParts = [];
+            foreach ($data as $key => $value) {
+                $setParts[] = "{$key} = :{$key}";
+            }
+            $setClause = implode(', ', $setParts);
+            
+            $whereParts = [];
+            foreach ($where as $key => $value) {
+                $whereParts[] = "{$key} = :where_{$key}";
+            }
+            $whereClause = implode(' AND ', $whereParts);
+            
+            $sql = "UPDATE {$table} SET {$setClause} WHERE {$whereClause}";
+            $stmt = $this->pdo->prepare($sql);
+            
+            // 綁定數據值
+            foreach ($data as $key => $value) {
+                $stmt->bindValue(":{$key}", $value);
+            }
+            
+            // 綁定條件值
+            foreach ($where as $key => $value) {
+                $stmt->bindValue(":where_{$key}", $value);
+            }
+            
+            return $stmt->execute();
+            
+        } catch (PDOException $e) {
+            throw new Exception("更新失敗: " . $e->getMessage());
         }
     }
 
@@ -1335,10 +1362,110 @@ class Database {
         try {
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute($params);
-            return $stmt->fetch(PDO::FETCH_ASSOC);
+            return $stmt->fetch();
         } catch (PDOException $e) {
-            error_log("Database fetch error: " . $e->getMessage());
-            return false;
+            throw new Exception("查詢失敗: " . $e->getMessage());
+        }
+    }
+    
+    /**
+     * 獲取房間信息
+     */
+    public function getRoomInfo($roomId) {
+        try {
+            $sql = "SELECT * FROM rooms WHERE id = ?";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([$roomId]);
+            return $stmt->fetch();
+        } catch (PDOException $e) {
+            return null;
+        }
+    }
+    
+    /**
+     * 獲取在線用戶
+     */
+    public function getOnlineUsers($roomId) {
+        try {
+            $sql = "SELECT user_id, username, join_time FROM room_users WHERE room_id = ? AND is_online = 1";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([$roomId]);
+            return $stmt->fetchAll();
+        } catch (PDOException $e) {
+            return [];
+        }
+    }
+    
+    /**
+     * 記錄代碼變更
+     */
+    public function recordCodeChange($roomId, $userId, $username, $changeData) {
+        try {
+            $sql = "INSERT INTO code_changes (room_id, user_id, change_type, code_content, position_data, created_at) VALUES (?, ?, ?, ?, ?, " . ($this->isMySQL ? "NOW()" : "CURRENT_TIMESTAMP") . ")";
+            $stmt = $this->pdo->prepare($sql);
+            $result = $stmt->execute([
+                $roomId,
+                $userId,
+                $changeData['type'] ?? 'edit',
+                $changeData['new_content'] ?? '',
+                json_encode($changeData)
+            ]);
+            
+            return [
+                'success' => $result,
+                'change_id' => $this->pdo->lastInsertId()
+            ];
+        } catch (PDOException $e) {
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+    
+    /**
+     * 獲取系統統計
+     */
+    public function getSystemStats() {
+        try {
+            $stats = [];
+            
+            // 活躍房間數
+            $sql = "SELECT COUNT(*) as count FROM rooms WHERE is_active = 1";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute();
+            $result = $stmt->fetch();
+            $stats['active_rooms'] = $result['count'] ?? 0;
+            
+            // 在線用戶數
+            $sql = "SELECT COUNT(*) as count FROM room_users WHERE is_online = 1";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute();
+            $result = $stmt->fetch();
+            $stats['online_users'] = $result['count'] ?? 0;
+            
+            // 總保存次數
+            $sql = "SELECT COUNT(*) as count FROM code_history";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute();
+            $result = $stmt->fetch();
+            $stats['total_saves'] = $result['count'] ?? 0;
+            
+            // AI 互動次數
+            $sql = "SELECT COUNT(*) as count FROM ai_interactions";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute();
+            $result = $stmt->fetch();
+            $stats['ai_interactions'] = $result['count'] ?? 0;
+            
+            return $stats;
+        } catch (PDOException $e) {
+            return [
+                'active_rooms' => 0,
+                'online_users' => 0,
+                'total_saves' => 0,
+                'ai_interactions' => 0
+            ];
         }
     }
 }

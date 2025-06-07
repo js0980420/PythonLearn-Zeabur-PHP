@@ -263,6 +263,14 @@ class ChatManager {
         return text;
     }
 
+    // 獲取用戶顯示名稱
+    getDisplayName(username) {
+        const userDisplayNames = {
+            'Alex Wang': '艾克斯王'
+        };
+        return userDisplayNames[username] || username;
+    }
+
     // 添加聊天消息
     addMessage(userName, message, isSystem = false, isTeacher = false) {
         if (!this.chatContainer) {
@@ -288,8 +296,10 @@ class ChatManager {
             // 衝突代碼特殊格式
             messageDiv.innerHTML = this.formatConflictMessage(userName, message);
         } else {
+            // 獲取顯示名稱
+            const displayName = this.getDisplayName(userName);
             // 為教師消息添加特殊標識
-            const userDisplay = isTeacher ? `👨‍🏫 ${userName}` : userName;
+            const userDisplay = isTeacher ? `👨‍🏫 ${displayName}` : displayName;
             messageDiv.innerHTML = `<strong>${userDisplay}:</strong> ${this.escapeHtml(message)}`;
         }
         

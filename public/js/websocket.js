@@ -384,30 +384,35 @@ class WebSocketManager {
     handleAIResponse(message) {
         console.log('🤖 收到 AI 回應:', message);
         
-        // 優先檢查 window.aiAssistant，然後檢查其他實例
-        const aiInstance = window.aiAssistant || window.AIAssistant || AIAssistant;
+        // 優先檢查 window.AIAssistant，然後檢查其他實例
+        const aiInstance = window.AIAssistant || window.aiAssistant || AIAssistant;
         
-        if (aiInstance && typeof aiInstance.handleAIResponse === 'function') {
+        if (aiInstance && typeof aiInstance.handleWebSocketAIResponse === 'function') {
+            console.log('✅ 調用 AI 助教處理 WebSocket 回應');
+            aiInstance.handleWebSocketAIResponse(message);
+        } else if (aiInstance && typeof aiInstance.handleAIResponse === 'function') {
+            // 向後兼容舊方法
             if (message.success) {
-                // 成功的回應
-                console.log('✅ 調用 AI 助教處理成功回應');
-                aiInstance.handleAIResponse(message.data);
+                console.log('✅ 調用 AI 助教處理成功回應 (舊方法)');
+                aiInstance.handleAIResponse(message.response || message.data);
             } else {
-                // 錯誤回應
-                console.log('❌ 調用 AI 助教處理錯誤回應');
-                aiInstance.handleAIError(message.error || 'AI 服務暫時不可用');
+                console.log('❌ 調用 AI 助教處理錯誤回應 (舊方法)');
+                if (typeof aiInstance.handleAIError === 'function') {
+                    aiInstance.handleAIError(message.error || 'AI 服務暫時不可用');
+                }
             }
         } else {
             console.warn('⚠️ AI Assistant 未初始化，使用降級處理');
             
             // 降級處理：直接顯示回應
-                const responseContainer = document.getElementById('aiResponse');
-                if (responseContainer) {
-                if (message.success && message.data) {
+            const responseContainer = document.getElementById('aiResponse');
+            if (responseContainer) {
+                if (message.success && (message.response || message.data)) {
+                    const content = message.response || message.data;
                     responseContainer.innerHTML = `
                         <div class="alert alert-success">
                             <h6><i class="fas fa-robot"></i> AI 助教回應</h6>
-                            <div style="white-space: pre-wrap;">${JSON.stringify(message.data, null, 2)}</div>
+                            <div style="white-space: pre-wrap;">${typeof content === 'string' ? content : JSON.stringify(content, null, 2)}</div>
                         </div>
                     `;
                 } else {

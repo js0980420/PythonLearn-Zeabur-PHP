@@ -54,6 +54,12 @@ class EditorManager {
         
         // 載入歷史記錄
         this.loadHistoryFromStorage();
+        
+        // 自動恢復上次的代碼
+        this.restoreLastCode();
+        
+        // 設置代碼變更時自動保存到localStorage
+        this.setupAutoCodeSave();
 
         console.log('✅ 編輯器初始化完成');
     }
@@ -158,6 +164,26 @@ class EditorManager {
             }
         }, 300000); // 5分鐘 = 300000毫秒
     }
+    
+    // 設置代碼變更時自動保存到localStorage
+    setupAutoCodeSave() {
+        let saveTimeout;
+        
+        this.editor.on('change', () => {
+            // 清除之前的超時
+            clearTimeout(saveTimeout);
+            
+            // 設置新的超時，2秒後保存
+            saveTimeout = setTimeout(() => {
+                const code = this.editor.getValue();
+                if (code && code.trim() !== '') {
+                    this.saveCurrentCode(code);
+                }
+            }, 2000); // 2秒延遲
+        });
+        
+        console.log('✅ 代碼變更自動保存已設置');
+    }
 
     // 保存代碼
     saveCode(isAutoSave = false) {
@@ -248,6 +274,9 @@ class EditorManager {
 
         localStorage.setItem('codeHistory', JSON.stringify(this.codeHistory));
         console.log(`✅ 代碼已保存到本地歷史記錄: ${name}`);
+        
+        // 同時保存當前代碼到localStorage (用於頁面重新整理恢復)
+        this.saveCurrentCode(code);
 
         this.updateHistoryUI();
     }
@@ -508,13 +537,67 @@ class EditorManager {
     handleExecutionResult(result) {
         console.log('🔍 收到代碼執行結果:', result);
         console.log('   - 成功狀態:', result.success);
-        console.log('   - 消息內容:', result.message);
+        console.log('   - 輸出內容:', result.output);
+        console.log('   - 錯誤信息:', result.error);
+        console.log('   - 錯誤類型:', result.error_type);
+        console.log('   - 執行時間:', result.execution_time);
         console.log('   - 時間戳:', result.timestamp);
         
+        // 清除之前的"正在運行"狀態
+        this.clearOutput();
+        
         if (result.success) {
-            this.showOutput(result.message, 'success');
+            // 成功執行
+            let output = result.output || '程序執行完成，無輸出';
+            if (result.execution_time) {
+                output += `\n\n⏱️ 執行時間: ${result.execution_time}ms`;
+            }
+            this.showOutput(output, 'success');
         } else {
-            this.showOutput(result.message, 'error');
+            // 執行失敗
+            let errorMsg = result.error || '未知錯誤';
+            
+            // 根據錯誤類型提供更友好的提示
+            switch (result.error_type) {
+                case 'syntax_error':
+                    errorMsg = `語法錯誤:\n${errorMsg}\n\n💡 提示: 檢查代碼的語法，如括號是否匹配、縮進是否正確等`;
+                    break;
+                case 'name_error':
+                    errorMsg = `名稱錯誤:\n${errorMsg}\n\n💡 提示: 檢查變量名是否正確，是否已定義`;
+                    break;
+                case 'type_error':
+                    errorMsg = `類型錯誤:\n${errorMsg}\n\n💡 提示: 檢查數據類型是否匹配`;
+                    break;
+                case 'value_error':
+                    errorMsg = `值錯誤:\n${errorMsg}\n\n💡 提示: 檢查傳入的值是否有效`;
+                    break;
+                case 'timeout_error':
+                    errorMsg = `執行超時:\n${errorMsg}\n\n💡 提示: 代碼執行時間過長，請檢查是否有無限循環`;
+                    break;
+                case 'security_violation':
+                    errorMsg = `安全限制:\n${errorMsg}\n\n💡 提示: 代碼包含不允許的操作，請使用安全的Python語法`;
+                    break;
+                case 'empty_code':
+                    errorMsg = `代碼為空\n\n💡 提示: 請輸入要執行的Python代碼`;
+                    break;
+                default:
+                    errorMsg = `運行錯誤:\n${errorMsg}`;
+            }
+            
+            if (result.execution_time) {
+                errorMsg += `\n\n⏱️ 執行時間: ${result.execution_time}ms`;
+            }
+            
+            this.showOutput(errorMsg, 'error');
+        }
+        
+        // 顯示執行完成的通知
+        if (window.UI) {
+            if (result.success) {
+                window.UI.showSuccessToast(`代碼執行成功 (${result.execution_time}ms)`);
+            } else {
+                window.UI.showErrorToast(`代碼執行失敗: ${result.error_type || '未知錯誤'}`);
+            }
         }
     }
 
@@ -1014,6 +1097,57 @@ class EditorManager {
         });
 
         console.log(`📂 更新歷史記錄 UI，共 ${history.length} 個項目`);
+    }
+
+    // 保存當前代碼到localStorage
+    saveCurrentCode(code) {
+        const currentCodeData = {
+            code: code,
+            timestamp: Date.now(),
+            version: this.codeVersion,
+            roomId: wsManager.currentRoom,
+            userId: wsManager.currentUser
+        };
+        
+        localStorage.setItem('currentCode', JSON.stringify(currentCodeData));
+        console.log('💾 當前代碼已保存到localStorage');
+    }
+    
+    // 恢復上次的代碼
+    restoreLastCode() {
+        try {
+            const savedCode = localStorage.getItem('currentCode');
+            if (savedCode) {
+                const codeData = JSON.parse(savedCode);
+                
+                // 檢查是否是最近的代碼 (24小時內)
+                const timeDiff = Date.now() - codeData.timestamp;
+                const maxAge = 24 * 60 * 60 * 1000; // 24小時
+                
+                if (timeDiff < maxAge && codeData.code && codeData.code.trim() !== '') {
+                    this.editor.setValue(codeData.code);
+                    this.codeVersion = codeData.version || 0;
+                    this.updateVersionDisplay();
+                    
+                    console.log('✅ 已恢復上次的代碼:', {
+                        codeLength: codeData.code.length,
+                        version: codeData.version,
+                        savedTime: new Date(codeData.timestamp).toLocaleString()
+                    });
+                    
+                    // 顯示恢復提示
+                    if (window.UI && typeof window.UI.showSuccessToast === 'function') {
+                        window.UI.showSuccessToast('已恢復上次編輯的代碼');
+                    }
+                } else {
+                    console.log('⏰ 保存的代碼已過期或為空，不進行恢復');
+                }
+            } else {
+                console.log('📝 沒有找到保存的代碼');
+            }
+        } catch (error) {
+            console.error('❌ 恢復代碼時發生錯誤:', error);
+        }
     }
 }
 

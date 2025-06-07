@@ -566,19 +566,29 @@ class CodeCollaborationServer implements MessageComponentInterface {
         // 保存代碼變更到資料庫
         if ($this->database) {
             try {
+                // 🔍 調試信息：檢查 database 對象狀態
+                echo "🔍 Database 對象檢查:\n";
+                echo "   類型: " . get_class($this->database) . "\n";
+                echo "   是否有 insert 方法: " . (method_exists($this->database, 'insert') ? '✅' : '❌') . "\n";
+                
                 // 確保changeType在枚舉範圍內
                 $validChangeTypes = ['insert', 'delete', 'replace', 'paste', 'load', 'import', 'edit'];
                 $dbChangeType = in_array($changeType, $validChangeTypes) ? $changeType : 'edit';
                 
-                $result = $this->database->insert('code_changes', [
-                    'room_id' => $roomId,
-                    'user_id' => $conn->userId,
-                    'change_type' => $dbChangeType,
-                    'code_content' => $code,
-                    'position_data' => json_encode($position)
+                // 使用Database類的query方法直接插入，避免insert方法問題
+                $insertSql = "INSERT INTO code_changes (room_id, user_id, change_type, code_content, position_data, created_at) VALUES (?, ?, ?, ?, ?, NOW())";
+                $result = $this->database->query($insertSql, [
+                    $roomId,
+                    $conn->userId,
+                    $dbChangeType,
+                    $code,
+                    json_encode($position)
                 ]);
-                if (!$result) {
-                    echo "Database insert error: Insert operation failed\n";
+                
+                if ($result !== false) {
+                    echo "✅ 代碼變更記錄成功\n";
+                } else {
+                    echo "❌ 代碼變更記錄失敗\n";
                 }
             } catch (Exception $e) {
                 echo "Database insert error: " . $e->getMessage() . "\n";
@@ -1116,16 +1126,27 @@ class CodeCollaborationServer implements MessageComponentInterface {
         try {
             $this->logger->info('收到AI請求', $data);
             
-            if (!isset($data['action']) || !isset($data['data'])) {
+            if (!isset($data['action'])) {
                 $this->sendError($conn, '無效的AI請求格式');
                 return;
             }
             
             $action = $data['action'];
-            $requestData = $data['data'];
+            $requestData = $data['data'] ?? [];
+            
+            // 支持的AI請求類型
+            $supportedActions = [
+                'conflict_analysis',
+                'analyze',
+                'check_errors', 
+                'suggest',
+                'explain_code'
+            ];
             
             if ($action === 'conflict_analysis') {
                 $this->handleConflictAnalysisRequest($conn, $requestData);
+            } elseif (in_array($action, $supportedActions)) {
+                $this->handleGeneralAIRequest($conn, $data);
             } else {
                 $this->sendError($conn, '未知的AI請求類型: ' . $action);
             }
@@ -1136,6 +1157,97 @@ class CodeCollaborationServer implements MessageComponentInterface {
                 'data' => $data
             ]);
             $this->sendError($conn, 'AI請求處理失敗: ' . $e->getMessage());
+        }
+    }
+
+    private function handleGeneralAIRequest(ConnectionInterface $conn, $data) {
+        try {
+            $action = $data['action'];
+            $requestId = $data['requestId'] ?? 'unknown';
+            $code = $data['data']['code'] ?? '';
+            $userId = $data['user_id'] ?? $conn->userId;
+            $username = $data['username'] ?? $conn->username;
+            $roomId = $data['room_id'] ?? $conn->roomId;
+            
+            $this->logger->info('處理一般AI請求', [
+                'action' => $action,
+                'requestId' => $requestId,
+                'userId' => $userId,
+                'codeLength' => strlen($code)
+            ]);
+            
+            // 準備發送到AI API的數據
+            $postData = [
+                'action' => $action,
+                'code' => $code,
+                'user_id' => $userId,
+                'username' => $username,
+                'room_id' => $roomId
+            ];
+            
+            // 發送POST請求到AI API (使用不同端口避免衝突)
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, 'http://localhost:8081/api/ai');
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($postData));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Content-Type: application/json',
+                'Cookie: PHPSESSID=' . session_id()
+            ]);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+            
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+            
+            if ($response === false) {
+                throw new Exception('AI API請求失敗: ' . $curlError);
+            }
+            
+            if ($httpCode !== 200) {
+                throw new Exception('AI API返回錯誤狀態碼: ' . $httpCode);
+            }
+            
+            $aiResult = json_decode($response, true);
+            
+            if (!$aiResult) {
+                throw new Exception('AI API返回無效JSON');
+            }
+            
+            // 回傳AI分析結果給用戶
+            $this->sendToConnection($conn, [
+                'type' => 'ai_response',
+                'requestId' => $requestId,
+                'action' => $action,
+                'success' => $aiResult['success'] ?? false,
+                'response' => $aiResult['data']['analysis'] ?? $aiResult['data'] ?? null,
+                'error' => $aiResult['message'] ?? null,
+                'timestamp' => date('c')
+            ]);
+            
+            $this->logger->info('AI請求完成', [
+                'action' => $action,
+                'requestId' => $requestId,
+                'success' => $aiResult['success'] ?? false
+            ]);
+            
+        } catch (Exception $e) {
+            $this->logger->error('AI請求失敗', [
+                'action' => $data['action'] ?? 'unknown',
+                'requestId' => $data['requestId'] ?? 'unknown',
+                'error' => $e->getMessage()
+            ]);
+            
+            $this->sendToConnection($conn, [
+                'type' => 'ai_response',
+                'requestId' => $data['requestId'] ?? 'unknown',
+                'action' => $data['action'] ?? 'unknown',
+                'success' => false,
+                'error' => 'AI分析服務暫時不可用: ' . $e->getMessage(),
+                'timestamp' => date('c')
+            ]);
         }
     }
 
@@ -1150,7 +1262,7 @@ class CodeCollaborationServer implements MessageComponentInterface {
             ];
             
             $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, 'http://localhost/backend/api/ai.php');
+            curl_setopt($ch, CURLOPT_URL, 'http://localhost:8081/api/ai');
             curl_setopt($ch, CURLOPT_POST, true);
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($postData));
             curl_setopt($ch, CURLOPT_HTTPHEADER, [
@@ -1302,7 +1414,7 @@ class CodeCollaborationServer implements MessageComponentInterface {
 
         try {
             // 使用 Database 類的 saveCode 方法 (支援槽位系統)
-            $result = $this->database->saveCode($roomId, $userId, $code, $saveName, $slotId);
+            $result = $this->database->saveCode($roomId, $userId, $code, $saveName, $slotId, $username);
             
             if (!$result['success']) {
                 throw new \Exception($result['error'] ?? '保存失敗');
@@ -1425,65 +1537,66 @@ class CodeCollaborationServer implements MessageComponentInterface {
     private function handleRunCode(ConnectionInterface $conn, $data) {
         $roomId = $conn->roomId;
         $code = $data['code'] ?? '';
+        $input = $data['input'] ?? '';
         
         if (!$roomId) {
             $this->sendError($conn, '您未加入任何房間');
             return;
         }
         
+        if (empty(trim($code))) {
+            $this->sendToConnection($conn, [
+                'type' => 'code_execution_result',
+                'success' => false,
+                'error' => '代碼為空，請輸入要執行的Python代碼',
+                'error_type' => 'empty_code',
+                'output' => '',
+                'execution_time' => 0,
+                'timestamp' => date('c')
+            ]);
+            return;
+        }
+        
         try {
-            // 簡單的代碼執行模擬 (避免依賴外部API)
-            $startTime = microtime(true);
+            echo "🚀 開始執行Python代碼: 用戶 {$conn->username} 在房間 {$roomId}\n";
             
-            // 基本的代碼分析和模擬輸出
-            $output = '';
-            $error = '';
-            $success = true;
+            // 初始化Python執行器
+            require_once __DIR__ . '/../classes/PythonExecutor.php';
+            $executor = new PythonExecutor([
+                'max_execution_time' => 10,
+                'max_memory_mb' => 128
+            ]);
             
-            if (empty(trim($code))) {
-                $error = '代碼為空，請輸入要執行的Python代碼';
-                $success = false;
-            } elseif (strpos($code, 'print(') !== false) {
-                // 模擬 print 語句的輸出
-                preg_match_all('/print\s*\(\s*["\']([^"\']*)["\']/', $code, $matches);
-                if (!empty($matches[1])) {
-                    $output = implode("\n", $matches[1]) . "\n";
-                } else {
-                    $output = "代碼執行完成 (模擬輸出)\n";
-                }
-            } elseif (strpos($code, 'import') !== false || strpos($code, 'def ') !== false) {
-                $output = "代碼執行完成 (包含導入或函數定義)\n";
-            } else {
-                $output = "代碼執行完成\n";
-            }
-            
-            // 檢查常見錯誤
-            if (strpos($code, 'print ') !== false && strpos($code, 'print(') === false) {
-                $error = 'SyntaxError: Python 3 中 print 需要使用括號: print()';
-                $success = false;
-                $output = '';
-            }
-            
-            $executionTime = round((microtime(true) - $startTime) * 1000, 2);
+            // 執行代碼
+            $result = $executor->execute($code, $input);
             
             // 記錄執行請求到數據庫
-            $this->database->insert('code_executions', [
-                'room_id' => $roomId,
-                'user_id' => $conn->userId,
-                'code' => $code,
-                'output' => $output,
-                'error' => $error,
-                'success' => $success,
-                'execution_time' => $executionTime
-            ]);
+            if ($this->database) {
+                try {
+                    $insertSql = "INSERT INTO code_executions (room_id, user_id, code, output, error, success, execution_time, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())";
+                    $this->database->query($insertSql, [
+                        $roomId,
+                        $conn->userId,
+                        $code,
+                        $result['output'],
+                        $result['error'],
+                        $result['success'] ? 1 : 0,
+                        $result['execution_time']
+                    ]);
+                    echo "✅ 代碼執行記錄已保存到數據庫\n";
+                } catch (Exception $dbError) {
+                    echo "⚠️ 數據庫記錄失敗: " . $dbError->getMessage() . "\n";
+                }
+            }
             
             // 發送執行結果給用戶
             $this->sendToConnection($conn, [
                 'type' => 'code_execution_result',
-                'success' => $success,
-                'output' => $output,
-                'error' => $error,
-                'execution_time' => $executionTime,
+                'success' => $result['success'],
+                'output' => $result['output'],
+                'error' => $result['error'],
+                'error_type' => $result['error_type'],
+                'execution_time' => $result['execution_time'],
                 'timestamp' => date('c')
             ]);
             
@@ -1492,19 +1605,26 @@ class CodeCollaborationServer implements MessageComponentInterface {
                 'type' => 'user_executed_code',
                 'user_id' => $conn->userId,
                 'username' => $conn->username,
-                'success' => $success,
+                'success' => $result['success'],
+                'execution_time' => $result['execution_time'],
                 'timestamp' => date('c')
             ], $conn);
+            
+            $statusIcon = $result['success'] ? '✅' : '❌';
+            echo "{$statusIcon} 代碼執行完成: 用戶 {$conn->username}, 耗時 {$result['execution_time']}ms\n";
             
             $this->logger->info('代碼執行完成', [
                 'room_id' => $roomId,
                 'user_id' => $conn->userId,
-                'success' => $success,
-                'execution_time' => $executionTime,
-                'code_length' => strlen($code)
+                'success' => $result['success'],
+                'execution_time' => $result['execution_time'],
+                'code_length' => strlen($code),
+                'error_type' => $result['error_type']
             ]);
             
         } catch (Exception $e) {
+            echo "❌ 代碼執行器錯誤: " . $e->getMessage() . "\n";
+            
             $this->logger->error('代碼執行失敗', [
                 'error' => $e->getMessage(),
                 'room_id' => $roomId,
@@ -1515,6 +1635,9 @@ class CodeCollaborationServer implements MessageComponentInterface {
                 'type' => 'code_execution_result',
                 'success' => false,
                 'error' => '代碼執行失敗: ' . $e->getMessage(),
+                'error_type' => 'executor_error',
+                'output' => '',
+                'execution_time' => 0,
                 'timestamp' => date('c')
             ]);
         }

@@ -250,12 +250,32 @@ class SaveLoadManager {
             modal.hide();
         }
 
+        // 獲取用戶信息，優先使用AutoLogin的用戶信息
+        let userInfo = this.currentUser;
+        if (window.AutoLogin) {
+            const autoLoginUser = window.AutoLogin.getCurrentUser();
+            if (autoLoginUser) {
+                userInfo = {
+                    id: autoLoginUser.id,
+                    name: autoLoginUser.username
+                };
+            }
+        }
+
+        // 如果還是沒有用戶信息，使用默認的"Alex Wang"
+        if (!userInfo) {
+            userInfo = {
+                id: 1,
+                name: 'Alex Wang'
+            };
+        }
+
         // 發送保存請求
         const saveData = {
             type: 'save_code',
-            room_id: this.roomId,
-            user_id: this.currentUser.id,
-            username: this.currentUser.name,
+            room_id: this.roomId || 'test_room_001',
+            user_id: userInfo.id,
+            username: userInfo.name,
             code: code,
             slot_id: slotId,
             save_name: saveName,

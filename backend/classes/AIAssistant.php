@@ -16,11 +16,26 @@ class AIAssistant {
         $this->config = require __DIR__ . '/../config/openai.php';
         $this->client = new Client(['timeout' => $this->config['timeout']]);
         
-        // 使用MockDatabase避免資料庫連接問題
-        require_once __DIR__ . '/MockDatabase.php';
-        $this->database = \App\MockDatabase::getInstance();
+        // 使用現有的Database類
+        require_once __DIR__ . '/Database.php';
+        $this->database = \App\Database::getInstance();
         
-        $this->logger = new Logger('ai.log');
+        // 創建簡單的Logger實現
+        $this->logger = new class {
+            public function info($message, $context = []) {
+                $this->log('INFO', $message, $context);
+            }
+            
+            public function error($message, $context = []) {
+                $this->log('ERROR', $message, $context);
+            }
+            
+            private function log($level, $message, $context = []) {
+                $timestamp = date('Y-m-d H:i:s');
+                $contextStr = empty($context) ? '' : ' ' . json_encode($context);
+                echo "[{$timestamp}] AI {$level}: {$message}{$contextStr}\n";
+            }
+        };
         
         // 移除API密鑰檢查，允許使用模擬響應
         // if (empty($this->config['api_key'])) {
@@ -318,7 +333,9 @@ class AIAssistant {
     
     private function logRequest($userId, $requestType, $prompt, $response, $executionTime, $tokenUsage, $success, $errorMessage = null) {
         try {
+            // 使用默認房間ID 0 來避免 null 約束問題
             $this->database->insert('ai_requests', [
+                'room_id' => 0, // 使用 0 作為默認值而不是 null
                 'user_id' => $userId,
                 'request_type' => $requestType,
                 'prompt' => substr($prompt, 0, 1000), // 限制長度

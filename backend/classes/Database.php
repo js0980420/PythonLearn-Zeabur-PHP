@@ -255,15 +255,20 @@ class Database {
             'ai_requests' => "
                 CREATE TABLE IF NOT EXISTS ai_requests (
                     id INT AUTO_INCREMENT PRIMARY KEY,
-                    room_id VARCHAR(100) NOT NULL,
+                    room_id VARCHAR(100),
                     user_id VARCHAR(50) NOT NULL,
                     request_type VARCHAR(50) NOT NULL,
-                    request_data TEXT,
-                    response_data TEXT,
+                    prompt TEXT,
+                    response TEXT,
+                    execution_time DECIMAL(10,6),
+                    token_usage INT,
                     success BOOLEAN DEFAULT FALSE,
                     error_message TEXT,
+                    request_data TEXT,
+                    response_data TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    INDEX idx_room_ai (room_id, created_at)
+                    INDEX idx_room_ai (room_id, created_at),
+                    INDEX idx_user_ai (user_id, created_at)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             "
         ];

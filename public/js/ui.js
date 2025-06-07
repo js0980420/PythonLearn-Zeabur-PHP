@@ -3,6 +3,11 @@ class UIManager {
     constructor() {
         this.currentTab = 'ai'; // 'ai' 或 'chat'
         this.collaborationAlert = null;
+        
+        // 用戶顯示名稱映射
+        this.userDisplayNames = {
+            'Alex Wang': '艾克斯王'
+        };
     }
 
     // 初始化界面功能
@@ -47,9 +52,10 @@ class UIManager {
         workspaceSection.style.display = 'block';
         currentRoomEl.textContent = roomName;
         
-        // 🆕 顯示當前用戶名稱
+        // 🆕 顯示當前用戶名稱（使用顯示名稱）
         if (currentUserNameEl) {
-            currentUserNameEl.textContent = userName;
+            const displayName = this.getDisplayName(userName);
+            currentUserNameEl.textContent = displayName;
         }
     }
 
@@ -114,6 +120,11 @@ class UIManager {
         }
     }
 
+    // 獲取用戶顯示名稱
+    getDisplayName(username) {
+        return this.userDisplayNames[username] || username;
+    }
+
     // 更新在線用戶列表
     updateOnlineUsers(users) {
         const container = document.getElementById('onlineUsers');
@@ -133,7 +144,9 @@ class UIManager {
                 console.log(`🔍 處理用戶 ${index}:`, user);
                 const span = document.createElement('span');
                 span.className = 'user-indicator';
-                span.textContent = user.userName || user.name || '未知用戶';
+                const userName = user.userName || user.name || '未知用戶';
+                const displayName = this.getDisplayName(userName);
+                span.textContent = displayName;
                 container.appendChild(span);
             });
         } else {

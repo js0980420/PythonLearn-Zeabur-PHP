@@ -1,11 +1,12 @@
 <?php
-// 禁用錯誤顯示
-error_reporting(0);
-ini_set('display_errors', 0);
+// 啟用錯誤顯示來調試
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 
-require_once '../classes/APIResponse.php';
-require_once '../classes/Database.php';
-require_once '../classes/AIAssistant.php';
+require_once __DIR__ . '/../../vendor/autoload.php';
+require_once __DIR__ . '/../classes/APIResponse.php';
+require_once __DIR__ . '/../classes/Database.php';
+require_once __DIR__ . '/../classes/AIAssistant.php';
 
 use App\APIResponse;
 use App\Database;
@@ -14,9 +15,18 @@ use App\AIAssistant;
 // 設置CORS頭
 APIResponse::setCORSHeaders();
 
-// 初始化
+// 初始化數據庫（靜默模式）
+ob_start(); // 捕獲輸出
 $database = Database::getInstance();
-$aiAssistant = new AIAssistant($database);
+ob_end_clean(); // 清除輸出
+
+// 安全初始化 AIAssistant
+try {
+    $aiAssistant = new AIAssistant();
+} catch (Exception $e) {
+    echo APIResponse::error('AI服務初始化失敗: ' . $e->getMessage(), 'E011', 503);
+    exit;
+}
 
 try {
     // 啟動session，但如果失敗則使用測試用戶
@@ -32,7 +42,14 @@ try {
     }
     
     $method = $_SERVER['REQUEST_METHOD'];
-    $input = json_decode(file_get_contents('php://input'), true) ?? [];
+    
+    // 支持測試模式 - 從全域變數讀取輸入
+    if (isset($GLOBALS['test_input'])) {
+        $input = json_decode($GLOBALS['test_input'], true) ?? [];
+    } else {
+        $input = json_decode(file_get_contents('php://input'), true) ?? [];
+    }
+    
     $action = $input['action'] ?? $_GET['action'] ?? '';
     
     switch ($action) {
@@ -65,7 +82,7 @@ try {
     }
     
 } catch (Exception $e) {
-    echo APIResponse::error('系統錯誤', 'E010', 500);
+    echo APIResponse::error('系統錯誤: ' . $e->getMessage(), 'E010', 500);
 }
 
 function handleExplainCode($aiAssistant, $database, $input) {
@@ -93,7 +110,7 @@ function handleExplainCode($aiAssistant, $database, $input) {
         echo APIResponse::success($result, 'AI解釋完成');
         
     } catch (Exception $e) {
-        echo APIResponse::error('AI服務暫時不可用', 'E020', 503);
+        echo APIResponse::error('AI服務暫時不可用: ' . $e->getMessage(), 'E020', 503);
     }
 }
 

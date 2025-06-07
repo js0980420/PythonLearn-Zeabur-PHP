@@ -5,9 +5,11 @@ ini_set('display_errors', 0);
 
 require_once '../classes/APIResponse.php';
 require_once '../classes/Database.php';
+require_once '../classes/PythonExecutor.php';
 
 use App\APIResponse;
 use App\Database;
+use App\PythonExecutor;
 
 // 設置CORS頭
 APIResponse::setCORSHeaders();
@@ -163,8 +165,9 @@ function handleExecuteCode($database, $logger, $input) {
         return;
     }
     
-    // 簡單的Python代碼執行模擬
-    $output = executeSimplePython($code);
+    // 使用PythonExecutor執行代碼
+    $executor = new PythonExecutor();
+    $output = $executor->execute($code, $timeout);
     
     $logger->info('代碼執行', [
         'code_length' => strlen($code),
@@ -173,8 +176,8 @@ function handleExecuteCode($database, $logger, $input) {
     
     echo APIResponse::success([
         'output' => $output,
-        'execution_time' => 0.1,
-        'memory_usage' => '1MB'
+        'execution_time' => $executor->getExecutionTime(),
+        'memory_usage' => $executor->getMemoryUsage()
     ], '代碼執行完成');
 }
 
@@ -205,44 +208,5 @@ function handleExportCode($database, $logger, $input) {
         'filename' => $filename,
         'format' => $format
     ], '代碼導出成功');
-}
-
-function executeSimplePython($code) {
-    // 簡單的Python代碼執行模擬
-    // 在實際環境中，這裡應該使用安全的沙盒環境
-    
-    $output = '';
-    
-    // 檢查是否包含print語句
-    if (preg_match_all('/print\s*\(\s*["\']([^"\']*)["\']/', $code, $matches)) {
-        foreach ($matches[1] as $text) {
-            $output .= $text . "\n";
-        }
-    }
-    
-    // 檢查是否包含簡單的數學運算
-    if (preg_match('/(\d+)\s*\+\s*(\d+)/', $code, $matches)) {
-        $result = intval($matches[1]) + intval($matches[2]);
-        $output .= "計算結果: " . $result . "\n";
-    }
-    
-    // 檢查是否包含變數定義
-    if (preg_match_all('/(\w+)\s*=\s*["\']([^"\']*)["\']/', $code, $matches)) {
-        for ($i = 0; $i < count($matches[1]); $i++) {
-            $output .= "變數 " . $matches[1][$i] . " = " . $matches[2][$i] . "\n";
-        }
-    }
-    
-    // 檢查是否包含函數定義
-    if (preg_match('/def\s+(\w+)/', $code, $matches)) {
-        $output .= "定義了函數: " . $matches[1] . "\n";
-    }
-    
-    // 如果沒有任何輸出，返回默認消息
-    if (empty($output)) {
-        $output = "代碼執行完成\n程式沒有產生輸出";
-    }
-    
-    return trim($output);
 }
 ?> 
