@@ -1,48 +1,97 @@
-# Zeabur 部署配置 - 單一服務架構
-name: pythonlearn-collaboration
+# Zeabur 部署配置 - 雙服務架構解決 WebSocket 問題
+name: python-learn
 
 services:
-  # 主要應用服務 - 包含 Web + WebSocket
+  # 主要 Web 服務 (PHP + WebSocket)
   web:
-    # 使用 Dockerfile 構建
-    dockerfile: Dockerfile.simple
+    build:
+      dockerfile: Dockerfile.zeabur
     
-    # 端口配置 - Zeabur 會自動處理 HTTPS
-    ports:
-      - 8080  # 主要 HTTP 端口
-    
-    # 環境變數
-    envs:
-      ENVIRONMENT: production
+    # 環境變數配置
+    env:
+      # WebSocket 服務器配置
+      WEBSOCKET_HOST: "0.0.0.0"
+      WEBSOCKET_PORT: "8081"
+      
+      # PHP 配置
+      PHP_MEMORY_LIMIT: "256M"
+      PHP_MAX_EXECUTION_TIME: "300"
+      
+      # 應用配置
+      APP_ENV: "production"
+      DEBUG_MODE: "false"
+      
+      # AI 配置 (從 Zeabur 環境變數)
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENAI_MODEL: gpt-3.5-turbo
-      MAX_CONCURRENT_USERS: 50
-      MAX_ROOMS: 20
+      OPENAI_MODEL: ${OPENAI_MODEL}
+      OPENAI_MAX_TOKENS: ${OPENAI_MAX_TOKENS}
+      
+      # 數據庫配置 (從 Zeabur 環境變數)
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_PORT: ${MYSQL_PORT}
+    
+    # 暴露端口
+    ports:
+      - 8080  # HTTP 服務器
+      - 8081  # WebSocket 服務器
     
     # 健康檢查
     healthcheck:
-      path: /health.php
+      path: /api.php/status
       interval: 30s
       timeout: 10s
+      retries: 3
     
-    # 重啟策略
-    restart: unless-stopped
+    # 資源限制
+    resources:
+      cpu: 1000m
+      memory: 512Mi
 
-# 部署配置
-deploy:
-  auto: true
+  # Caddy 反向代理服務
+  caddy:
+    build:
+      dockerfile: Dockerfile.caddy
+    
+    # 環境變數
+    env:
+      DOMAIN: ${ZEABUR_WEB_DOMAIN}
+      WEB_SERVICE: "web"
+      WEB_PORT: "8080"
+      WEBSOCKET_PORT: "8081"
+    
+    # 暴露端口
+    ports:
+      - 80
+      - 443
+    
+    # 依賴 web 服務
+    depends_on:
+      - web
+    
+    # 健康檢查
+    healthcheck:
+      path: /health
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+# 全域配置
+configs:
+  # 自動重啟配置
+  restart_policy:
+    condition: on-failure
+    max_attempts: 3
+    delay: 10s
   
-  # 環境變數
-  envs:
-    optional:
-      - OPENAI_API_KEY
-
-# 🔍 日誌配置
-logging:
-  driver: json-file
-  options:
-    max-size: "50m"
-    max-file: "2"
+  # 日誌配置
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
 
 # 🌐 網路配置
 networks:

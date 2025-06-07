@@ -1,26 +1,22 @@
-FROM caddy:2.7.6-alpine
+# Caddy 反向代理 Dockerfile
+FROM caddy:2.7-alpine
 
 # 安裝必要工具
 RUN apk add --no-cache curl
 
-# 設置工作目錄
-WORKDIR /app
-
-# 複製 Caddyfile
+# 複製 Caddyfile 配置
 COPY Caddyfile /etc/caddy/Caddyfile
 
-# 建立日誌目錄
-RUN mkdir -p /var/log/caddy
-
-# 健康檢查
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost/ || exit 1
+# 創建健康檢查端點
+RUN echo '#!/bin/sh\ncurl -f http://localhost:2019/metrics || exit 1' > /usr/local/bin/health-check.sh \
+    && chmod +x /usr/local/bin/health-check.sh
 
 # 暴露端口
-EXPOSE 80 443
+EXPOSE 80 443 2019
 
-# 設置環境變數
-ENV CADDY_ADMIN=off
+# 健康檢查
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD /usr/local/bin/health-check.sh
 
 # 啟動 Caddy
 CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"] 

@@ -1,36 +1,8 @@
-# Zeabur 自動 TLS 配置
-{$ZEABUR_WEB_DOMAIN:localhost:8080} {
-    # WebSocket 代理到 Ratchet 服務器
-    handle /ws {
-        reverse_proxy localhost:8081 {
-            header_up Upgrade {http.request.header.upgrade}
-            header_up Connection {http.request.header.connection}
-        }
-    }
-    
-    # 健康檢查端點
-    handle /health {
-        reverse_proxy localhost:8080
-    }
-    
-    handle /api/health {
-        reverse_proxy localhost:8080
-    }
-    
-    # API 端點代理到 PHP
-    handle /api/* {
-        reverse_proxy localhost:8080
-    }
-    
-    # 後端資源
-    handle /backend/* {
-        reverse_proxy localhost:8080
-    }
-    
-    # 所有其他 HTTP 請求代理到 PHP 服務器
-    handle {
-        reverse_proxy localhost:8080
-    }
+# Caddyfile - Zeabur 反向代理配置
+{
+    # 全域配置
+    admin :2019
+    auto_https on
     
     # 日誌配置
     log {
@@ -40,13 +12,75 @@
     }
     
     # 錯誤處理
-    handle_errors {
-        @websocket_error expression {http.error.status_code} == 502
-        respond @websocket_error "WebSocket service temporarily unavailable" 503
-        
-        @php_error expression {http.error.status_code} == 502
-        respond @php_error "PHP service temporarily unavailable" 503
+    errors {
+        log
     }
+}
+
+# 主要站點配置
+{$ZEABUR_WEB_DOMAIN:localhost} {
+    # 日誌配置
+    log {
+        output stdout
+        format console
+    }
+    
+    # WebSocket 代理 - 關鍵配置
+    handle /ws {
+        reverse_proxy web:8081 {
+            # WebSocket 特定標頭
+            header_up Host {host}
+            header_up X-Real-IP {remote}
+            header_up X-Forwarded-For {remote}
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Forwarded-Host {host}
+            
+            # WebSocket 升級標頭
+            header_up Connection {>Connection}
+            header_up Upgrade {>Upgrade}
+            header_up Sec-WebSocket-Key {>Sec-WebSocket-Key}
+            header_up Sec-WebSocket-Version {>Sec-WebSocket-Version}
+            header_up Sec-WebSocket-Protocol {>Sec-WebSocket-Protocol}
+            header_up Sec-WebSocket-Extensions {>Sec-WebSocket-Extensions}
+        }
+    }
+    
+    # API 請求代理
+    handle /api.php* {
+        reverse_proxy web:8080 {
+            header_up Host {host}
+            header_up X-Real-IP {remote}
+            header_up X-Forwarded-For {remote}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+    
+    # 靜態檔案和其他請求
+    handle {
+        reverse_proxy web:8080 {
+            header_up Host {host}
+            header_up X-Real-IP {remote}
+            header_up X-Forwarded-For {remote}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+    
+    # 錯誤處理
+    handle_errors {
+        @websocket_error expression {http.error.status_code} == 502 && {http.request.uri.path} == "/ws"
+        respond @websocket_error "WebSocket 服務暫時不可用" 503
+        
+        @api_error expression {http.error.status_code} >= 500 && {http.request.uri.path} =~ "^/api"
+        respond @api_error "API 服務暫時不可用" 503
+        
+        respond "服務暫時不可用，請稍後再試" 503
+    }
+}
+
+# 健康檢查端點
+:2019 {
+    respond /health "OK" 200
+    respond /metrics "Caddy metrics endpoint" 200
 }
 
 # 開發環境配置 (本地測試)
