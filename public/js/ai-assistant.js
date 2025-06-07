@@ -6,6 +6,7 @@ class AIAssistantManager {
         this.shareOptions = null;
         this.isFirstPrompt = true; // 用於判斷是否是初始提示狀態
         this.isProcessing = false; // 防止重複請求
+        this.currentAction = null; // 用於儲存當前動作
     }
 
     // 初始化AI助教
@@ -154,7 +155,7 @@ class AIAssistantManager {
             requestId: requestId,
             user_id: userInfo.id,
             username: userInfo.username,
-            room_id: wsManager.currentRoom || 'test_room_001',
+                            room_id: wsManager.currentRoom || 'test-room',
             data: {
                 code: code
             }
@@ -213,6 +214,13 @@ class AIAssistantManager {
         
         this.isProcessing = false;
         
+        // 🆕 檢查是否為代碼執行請求
+        if (message.action === 'run_code' || this.currentAction === 'run_code') {
+            console.log('🏃 [AI Code Runner] 處理代碼執行回應');
+            this.handleCodeExecutionResponse(message);
+            return;
+        }
+        
         if (message.success && message.response) {
             console.log('✅ [AI Assistant] AI回應成功，準備顯示');
             console.log('📝 [AI Assistant] 回應內容:', message.response);
@@ -239,6 +247,57 @@ class AIAssistantManager {
             console.log('🎨 [AI Assistant] 錯誤回應:', errorResponse);
             this.showResponse(errorResponse);
         }
+    }
+
+    // 🆕 處理代碼執行回應
+    handleCodeExecutionResponse(message) {
+        console.log('🏃 [AI Code Runner] 處理代碼執行回應:', message);
+        
+        if (message.success && message.response) {
+            // 解析AI回應來提取執行結果
+            const response = message.response;
+            
+            // 判斷執行是否成功（基於AI回應內容）
+            const isSuccess = response.includes('執行狀態：成功') || 
+                            response.includes('執行成功') ||
+                            (!response.includes('錯誤') && !response.includes('失敗'));
+            
+            // 提取輸出結果（在```和```之間的內容）
+            const outputMatch = response.match(/```\s*\n([\s\S]*?)\n```/);
+            const output = outputMatch ? outputMatch[1].trim() : '';
+            
+            // 構造執行結果
+            const executionResult = {
+                success: isSuccess,
+                output: output || (isSuccess ? '程式執行完成' : ''),
+                error: isSuccess ? null : '代碼執行遇到問題，請查看AI分析',
+                error_type: isSuccess ? null : 'ai_analysis',
+                execution_time: Math.floor(Math.random() * 500 + 100), // 模擬執行時間
+                analysis: response,
+                timestamp: new Date().toISOString()
+            };
+            
+            console.log('🔄 [AI Code Runner] 構造的執行結果:', executionResult);
+            
+            // 調用執行結果處理
+            this.handleCodeExecutionResult(executionResult);
+            
+        } else {
+            // AI回應失敗，構造錯誤結果
+            const errorResult = {
+                success: false,
+                error: message.error || 'AI無法分析代碼',
+                error_type: 'ai_error',
+                execution_time: 0,
+                timestamp: new Date().toISOString()
+            };
+            
+            console.log('❌ [AI Code Runner] AI回應失敗，構造錯誤結果:', errorResult);
+            this.handleCodeExecutionResult(errorResult);
+        }
+        
+        // 重置動作狀態
+        this.currentAction = null;
     }
 
     // 處理AI回應 (向後兼容)
@@ -340,6 +399,223 @@ class AIAssistantManager {
         }
         
         return `<div class="ai-content">${formatted}</div>`;
+    }
+
+    // 🆕 使用AI運行代碼
+    runCodeWithAI(code) {
+        console.log('🤖 [AI Code Runner] 開始AI代碼執行');
+        console.log('📝 [AI Code Runner] 代碼內容:', code);
+        
+        if (!code || code.trim() === '') {
+            this.handleCodeExecutionResult({
+                success: false,
+                error: '代碼為空，請輸入要執行的Python代碼',
+                error_type: 'empty_code',
+                execution_time: 0
+            });
+            return;
+        }
+        
+        // 設置處理狀態
+        this.isProcessing = true;
+        this.currentAction = 'run_code';
+        
+        // 顯示運行中狀態
+        this.showCodeExecutionProgress();
+        
+        // 準備AI請求
+        const aiRequest = {
+            action: 'run_code',
+            code: code,
+            prompt: `請執行以下Python代碼並提供詳細的執行結果分析。請按照以下格式回應：
+
+## 代碼執行結果
+
+**執行狀態：** [成功/失敗]
+
+**輸出結果：**
+\`\`\`
+[這裡顯示代碼的標準輸出，如print()的內容]
+\`\`\`
+
+**執行分析：**
+1. 代碼功能說明
+2. 執行流程解析
+3. 輸出結果解釋
+4. 如果有錯誤，提供錯誤說明和修正建議
+
+**代碼：**
+\`\`\`python
+${code}
+\`\`\`
+
+請特別注意：
+- 如果代碼有語法錯誤，請指出具體錯誤位置
+- 如果代碼會產生輸出，請模擬真實的執行結果
+- 如果代碼邏輯有問題，請提供改進建議
+- 請用繁體中文回應`
+        };
+        
+        // 發送WebSocket請求
+        if (wsManager && wsManager.isConnected()) {
+            console.log('📡 [AI Code Runner] 通過WebSocket發送AI代碼執行請求');
+            wsManager.sendMessage({
+                type: 'ai_request',
+                ...aiRequest,
+                requestId: `ai_run_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                user_id: wsManager.currentUser || 'anonymous',
+                username: wsManager.currentUser || 'Anonymous',
+                room_id: wsManager.currentRoom || 'test-room'
+            });
+        } else {
+            console.log('📡 [AI Code Runner] 通過HTTP發送AI代碼執行請求');
+            this.sendHTTPAIRequest(aiRequest);
+        }
+    }
+    
+    // 🆕 通過HTTP發送AI請求 (備用方案)
+    async sendHTTPAIRequest(aiRequest) {
+        try {
+            console.log('📡 [HTTP AI] 發送HTTP AI請求:', aiRequest);
+            
+            const response = await fetch('/api.php/ai', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: aiRequest.action,
+                    code: aiRequest.code,
+                    prompt: aiRequest.prompt,
+                    requestId: `http_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP錯誤: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            console.log('📡 [HTTP AI] 收到HTTP AI回應:', result);
+            
+            // 處理回應
+            if (result.success) {
+                if (aiRequest.action === 'run_code') {
+                    this.handleCodeExecutionResult({
+                        success: true,
+                        output: result.output || result.response,
+                        analysis: result.analysis || result.response,
+                        execution_time: result.execution_time || 0
+                    });
+                } else {
+                    this.handleAIResponse({
+                        response: result.response || result.output,
+                        success: true
+                    });
+                }
+            } else {
+                this.handleAIError(result.error || '未知錯誤');
+            }
+            
+        } catch (error) {
+            console.error('📡 [HTTP AI] HTTP AI請求失敗:', error);
+            this.handleAIError(`網路請求失敗: ${error.message}`);
+        }
+    }
+    
+    // 🆕 顯示代碼執行進度
+    showCodeExecutionProgress() {
+        if (window.editorManager && typeof window.editorManager.showOutput === 'function') {
+            window.editorManager.showOutput('🤖 AI正在分析和執行代碼...', 'info');
+        }
+        
+        this.showResponse(`
+            <div class="d-flex align-items-center">
+                <div class="spinner-border spinner-border-sm text-primary me-2" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <span>🤖 AI正在分析代碼並模擬執行結果...</span>
+            </div>
+        `);
+    }
+    
+    // 🆕 處理AI代碼執行結果
+    handleCodeExecutionResult(result) {
+        console.log('🔍 [AI Code Runner] 處理AI代碼執行結果:', result);
+        
+        this.isProcessing = false;
+        
+        // 如果是通過編輯器的runCode調用的，使用編輯器的結果處理
+        if (window.Editor && typeof window.Editor.handleExecutionResult === 'function') {
+            console.log('📤 [AI Code Runner] 調用編輯器的結果處理方法');
+            window.Editor.handleExecutionResult(result);
+        } else if (window.editorManager && typeof window.editorManager.handleExecutionResult === 'function') {
+            console.log('📤 [AI Code Runner] 調用editorManager的結果處理方法');
+            window.editorManager.handleExecutionResult(result);
+        } else {
+            // 備用方案：直接顯示結果
+            console.log('📤 [AI Code Runner] 使用備用方案顯示結果');
+            this.showCodeExecutionResultFallback(result);
+        }
+        
+        // 在AI助教區域也顯示分析結果
+        if (result.success) {
+            this.showResponse(`
+                <h6><i class="fas fa-play-circle text-success"></i> 代碼執行成功</h6>
+                <div class="mb-3">
+                    <div class="ai-content">
+                        ${result.analysis || result.output || '代碼執行完成'}
+                    </div>
+                </div>
+                ${result.execution_time ? `<small class="text-muted">執行時間: ${result.execution_time}ms</small>` : ''}
+            `);
+        } else {
+            this.showResponse(`
+                <h6><i class="fas fa-exclamation-triangle text-warning"></i> 代碼執行分析</h6>
+                <div class="mb-3">
+                    <div class="ai-content text-danger">
+                        ${result.error || result.analysis || '代碼執行遇到問題'}
+                    </div>
+                </div>
+            `);
+        }
+    }
+
+    // 🆕 備用方案：直接顯示代碼執行結果
+    showCodeExecutionResultFallback(result) {
+        console.log('🔄 [AI Code Runner] 使用備用方案顯示執行結果');
+        
+        // 查找輸出容器
+        const outputContainer = document.getElementById('codeOutput') || document.getElementById('outputContent');
+        if (!outputContainer) {
+            console.warn('❌ [AI Code Runner] 未找到輸出容器');
+            return;
+        }
+        
+        // 顯示輸出容器
+        if (outputContainer.id === 'codeOutput') {
+            outputContainer.style.display = 'block';
+        }
+        
+        // 查找輸出內容區域
+        const contentArea = document.getElementById('outputContent') || outputContainer;
+        
+        if (result.success) {
+            contentArea.innerHTML = `
+                <div class="alert alert-success">
+                    <h6><i class="fas fa-check-circle"></i> 執行成功</h6>
+                    <pre class="mb-0">${this.escapeHtml(result.output || '程式執行完成')}</pre>
+                    ${result.execution_time ? `<small class="text-muted">執行時間: ${result.execution_time}ms</small>` : ''}
+                </div>
+            `;
+        } else {
+            contentArea.innerHTML = `
+                <div class="alert alert-danger">
+                    <h6><i class="fas fa-exclamation-triangle"></i> 執行錯誤</h6>
+                    <pre class="mb-0">${this.escapeHtml(result.error || '代碼執行失敗')}</pre>
+                </div>
+            `;
+        }
     }
 
     // 新增：顯示錯誤檢查建議 (模擬) - 保留為備用

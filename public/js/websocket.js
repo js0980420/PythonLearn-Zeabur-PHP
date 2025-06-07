@@ -40,12 +40,12 @@ class WebSocketManager {
 
         // 根據環境決定 WebSocket URL
         if (hostname === 'localhost' || hostname === '127.0.0.1') {
-            // 本地開發環境 - 連接到獨立的WebSocket服務器
+            // 本地開發環境 - 連接到 WebSocket 服務器 8081 端口
             wsUrl = `ws://${hostname}:8081`;
             console.log('🏠 本地開發環境，WebSocket 連接: ' + wsUrl);
         } else if (hostname.includes('replit.dev') || hostname.includes('repl.co')) {
             // Replit 環境 - 使用相同主機但不同端口
-            wsUrl = `${protocol}//${hostname.replace(/:\d+/, '')}:8081`;
+            wsUrl = `${protocol}//${hostname.replace(/:\d+/, '')}:9082`;
             console.log('🔧 Replit 環境，WebSocket 連接: ' + wsUrl);
         } else {
             // 生產環境 - Zeabur 使用 Caddy 反向代理
@@ -195,9 +195,18 @@ class WebSocketManager {
                     this.handleCodeExecutionResult(message);
                     break;
                     
-                case 'history_loaded':
-                    this.handleHistoryLoaded(message);
-                    break;
+                            case 'history_loaded':
+                this.handleHistoryLoaded(message);
+                break;
+                
+            // 高級衝突檢測相關消息
+            case 'voting_request':
+            case 'vote_result':
+            case 'voting_cancelled':
+            case 'force_code_change':
+            case 'voted_change_applied':
+                this.handleAdvancedConflictMessage(message);
+                break;
                 case 'history_data':
                     this.handleHistoryData(message);
                     break;
@@ -211,11 +220,24 @@ class WebSocketManager {
                     console.log(`👥 當前房間用戶數: ${message.total_users}`);
                 }
                 break;
+            case 'room_users':
+                console.log('👥 收到房間用戶列表:', message);
+                this.updateUserList(message.users);
+                if (message.user_count !== undefined) {
+                    console.log(`👥 當前房間用戶數: ${message.user_count}`);
+                }
+                break;
             case 'pong':
                 this.lastHeartbeat = Date.now();
                 break;
             case 'connection_replaced':
                 this.handleConnectionReplaced(message);
+                break;
+            case 'connection_established':
+                console.log('🔗 連接已建立:', message.message || '歡迎連接');
+                if (message.test_id) {
+                    console.log('🆔 測試連接ID:', message.test_id);
+                }
                 break;
             case 'error':
                 console.error('❌ 收到服務器錯誤消息:', message.error, message.details);
@@ -265,8 +287,8 @@ class WebSocketManager {
             window.SaveLoadManager.init(this.currentUser, message.room_id);
         }
         
-        // 自動載入歷史記錄到下拉選單
-        this.getHistory();
+        // 暫時禁用自動載入歷史記錄，使用內存模式
+        console.log('📚 跳過自動載入歷史記錄，使用內存模式');
         
         // 顯示加入提示
         if (window.UI) {
@@ -428,9 +450,20 @@ class WebSocketManager {
 
     // 處理聊天消息
     handleChatMessage(message) {
-                    if (window.Chat) {
-                window.Chat.addMessage(message.userName || '用戶', message.message || message.content || '', message.isSystem || false, message.isTeacher || false);
-            }
+        console.log('💬 處理聊天消息:', message);
+        
+        if (window.Chat) {
+            // 修復用戶名稱字段不一致問題
+            const username = message.username || message.userName || '用戶';
+            const messageText = message.message || message.content || '';
+            const isSystem = message.isSystem || false;
+            const isTeacher = message.isTeacher || false;
+            
+            console.log(`📝 添加聊天消息: ${username} - ${messageText}`);
+            window.Chat.addMessage(username, messageText, isSystem, isTeacher);
+        } else {
+            console.error('❌ Chat 管理器未初始化');
+        }
     }
 
     // 處理AI回應
@@ -505,7 +538,8 @@ class WebSocketManager {
     handleHistoryLoaded(message) {
         console.log('📜 收到歷史記錄:', message);
         
-        if (message.success && message.history) {
+        // 測試服務器返回的格式沒有 success 字段，直接檢查 history 數組
+        if (message.history && Array.isArray(message.history)) {
             console.log(`✅ 載入了 ${message.history.length} 條歷史記錄`);
             
             // 嘗試調用編輯器的歷史處理方法
@@ -613,6 +647,48 @@ class WebSocketManager {
                 }
                 
                 console.log('✅ 使用降級方式顯示衝突通知');
+            }
+        }
+    }
+
+    // 處理高級衝突檢測消息
+    handleAdvancedConflictMessage(message) {
+        console.log('🚨 收到高級衝突消息:', message.type);
+        
+        // 轉發給編輯器處理
+        if (window.Editor && typeof window.Editor.handleConflictMessage === 'function') {
+            window.Editor.handleConflictMessage(message);
+        }
+        
+        // 同時轉發給高級衝突檢測器
+        if (window.AdvancedConflictDetector && typeof window.AdvancedConflictDetector.handleConflictMessage === 'function') {
+            window.AdvancedConflictDetector.handleConflictMessage(message);
+        }
+        
+        // 在聊天室顯示相關通知
+        if (window.Chat && typeof window.Chat.addSystemMessage === 'function') {
+            let notificationMessage = '';
+            
+            switch (message.type) {
+                case 'voting_request':
+                    notificationMessage = `🗳️ ${message.requested_by} 請求投票修改代碼`;
+                    break;
+                case 'vote_result':
+                    notificationMessage = `📊 ${message.user_id} 投票: ${message.vote === 'agree' ? '同意' : '反對'}`;
+                    break;
+                case 'voting_cancelled':
+                    notificationMessage = '❌ 投票已取消';
+                    break;
+                case 'force_code_change':
+                    notificationMessage = `⚠️ ${message.forced_by} 強制應用了修改`;
+                    break;
+                case 'voted_change_applied':
+                    notificationMessage = '✅ 投票通過，代碼修改已應用';
+                    break;
+            }
+            
+            if (notificationMessage) {
+                window.Chat.addSystemMessage(notificationMessage);
             }
         }
     }

@@ -926,6 +926,17 @@
         <div class="control-panel">
             <div class="monitor-title">
                 <i class="fas fa-tv"></i> 教師監控後台
+                <div class="room-selector" style="margin-left: 20px; display: inline-block;">
+                    <select id="teacherRoomSelect" class="form-select" style="background: #4a5568; color: var(--text-primary); border: 1px solid #68d391; padding: 5px 10px; border-radius: 4px; font-size: 14px;" onchange="switchMonitorRoom()">
+                        <option value="">選擇監控房間</option>
+                        <option value="test-room">test-room (預設測試房間)</option>
+                        <option value="class-1">class-1 (第一班)</option>
+                        <option value="class-2">class-2 (第二班)</option>
+                        <option value="class-3">class-3 (第三班)</option>
+                        <option value="advanced">advanced (進階班)</option>
+                        <option value="all">👀 監控所有房間</option>
+                    </select>
+                </div>
             </div>
             <div class="monitor-controls">
                 <button class="control-btn" id="btnFullscreen" title="全螢幕監控">
@@ -1164,13 +1175,14 @@
         // 連接WebSocket
         function connectWebSocket() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}`;
+            // 修復：WebSocket服務器運行在8081端口
+            const wsUrl = `${protocol}//${window.location.hostname}:8081`;
             
             try {
                 ws = new WebSocket(wsUrl);
                 
                 ws.onopen = () => {
-                    addLog('已連接到服務器');
+                    addLog('已連接到WebSocket服務器 (端口8081) - 實時監控模式');
                     reconnectAttempts = 0;
                     
                     // 註冊為教師監控
@@ -1179,14 +1191,14 @@
                         data: { action: 'register' }
                     });
                     
-                    // 載入房間數據
-                    loadRoomsData();
+                    // 不再使用API載入房間數據，改為通過WebSocket實時接收
+                    // loadRoomsData();
                     
-                    // 設定定期刷新房間數據
+                    // 停止定期刷新，改為實時接收WebSocket數據
                     if (refreshInterval) {
                         clearInterval(refreshInterval);
                     }
-                    refreshInterval = setInterval(loadRoomsData, 5000); // 每5秒刷新一次
+                    // refreshInterval = setInterval(loadRoomsData, 5000);
                 };
 
                 ws.onmessage = (event) => {
@@ -1265,6 +1277,14 @@
                 case 'chat_message':
                     handleChatMessage(message);
                     break;
+                    
+                case 'teacher_message':
+                    handleTeacherMessage(message);
+                    break;
+                    
+                case 'teacher_broadcast':
+                    handleTeacherBroadcast(message);
+                    break;
 
                 case 'broadcast_error':
                     addLog(`❌ 廣播錯誤: ${message.message}`);
@@ -1279,8 +1299,20 @@
                     handleRoomsLoaded(message.data);
                     break;
 
+                case 'connection_established':
+                    addLog(`✅ 連接已建立: ${message.message || '成功連接到WebSocket服務器'}`);
+                    if (message.test_id) {
+                        addLog(`🆔 測試ID: ${message.test_id}`);
+                    }
+                    break;
+
+                case 'error':
+                    addLog(`❌ 服務器錯誤: ${message.error || message.message || '未知錯誤'}`);
+                    break;
+
                 default:
                     console.log('未處理的消息類型:', message.type);
+                    addLog(`📨 收到未處理的消息: ${message.type}`);
             }
         }
 
@@ -1539,6 +1571,34 @@
             
             // 確保房間在選擇器中
             updateChatRoomSelector();
+        }
+        
+        // 處理教師消息
+        function handleTeacherMessage(message) {
+            const username = message.username || '教師';
+            const content = message.message || '';
+            const roomName = message.room || '未知房間';
+            
+            addChatMessage(username, roomName, content, 'teacher');
+            addLog(`👨‍🏫 ${username} 向 ${roomName}: ${content}`);
+        }
+        
+        // 處理教師廣播
+        function handleTeacherBroadcast(message) {
+            const content = message.message || '';
+            const roomName = message.room || '未知房間';
+            const messageType = message.messageType || 'info';
+            
+            addLog(`📢 教師廣播到 ${roomName}: ${content}`);
+            
+            // 可以在這裡添加特殊的廣播消息顯示邏輯
+            if (messageType === 'warning') {
+                addLog(`⚠️ 警告廣播: ${content}`);
+            } else if (messageType === 'error') {
+                addLog(`❌ 錯誤廣播: ${content}`);
+            } else {
+                addLog(`ℹ️ 信息廣播: ${content}`);
+            }
         }
 
         // 添加聊天消息到聊天面板
@@ -2045,26 +2105,6 @@
             }
         }
 
-        // 教師廣播功能
-        function toggleBroadcast() {
-            const message = prompt('請輸入要廣播給學生的消息：');
-            if (message && message.trim()) {
-                const targetRoom = currentRoom || prompt('請輸入目標房間名稱（留空則廣播給所有房間）：');
-                
-                if (ws && ws.readyState === WebSocket.OPEN) {
-                    sendMessage({
-                        type: 'teacher_broadcast',
-                        data: {
-                            targetRoom: targetRoom || 'all',
-                            message: message.trim(),
-                            messageType: 'info'
-                        }
-                    });
-                    addLog(`📢 已廣播消息到 ${targetRoom || '所有房間'}: ${message}`);
-                }
-            }
-        }
-
         // 教師廣播功能 - 顯示模態框
         function toggleBroadcast() {
             updateBroadcastTargets();
@@ -2232,7 +2272,7 @@
         // 載入房間數據
         async function loadRoomsData() {
             try {
-                const response = await fetch('/backend/api/teacher.php/rooms');
+                const response = await fetch('/api/teacher.php/rooms');
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
@@ -2242,8 +2282,8 @@
                 
                 // 更新統計信息
                 updateStats({
-                    activeRooms: data.totalRooms,
-                    onlineStudents: data.studentsInRooms || data.nonTeacherUsers || data.totalUsers,
+                    activeRooms: data.totalRooms || 0,
+                    onlineStudents: data.studentsInRooms || data.nonTeacherUsers || data.totalUsers || 0,
                     editCount: 0 // 這個值需要從其他地方獲取
                 });
                 
@@ -2294,7 +2334,7 @@
                     loadRoomDetails(currentRoom);
                 }
                 
-                addLog(`📂 載入了 ${data.rooms.length} 個房間，已更新選擇器`);
+                addLog(`📂 載入了 ${data.rooms ? data.rooms.length : 0} 個房間，已更新選擇器`);
                 
             } catch (error) {
                 console.error('❌ 載入房間數據失敗:', error);
@@ -2305,7 +2345,7 @@
         // 載入房間詳細信息
         async function loadRoomDetails(roomId) {
             try {
-                const response = await fetch(`/backend/api/teacher.php/room/${roomId}`);
+                const response = await fetch(`/api/teacher.php/room/${roomId}`);
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
@@ -2347,7 +2387,83 @@
             }
         }
 
-        // 連接WebSocket
+        // 房間切換功能
+        function switchMonitorRoom() {
+            const roomSelect = document.getElementById('teacherRoomSelect');
+            const selectedRoom = roomSelect.value;
+            
+            if (!selectedRoom) {
+                addLog('請選擇要監控的房間');
+                return;
+            }
+            
+            if (selectedRoom === 'all') {
+                // 監控所有房間
+                currentRoom = null;
+                currentStudent = null;
+                
+                // 清空當前代碼編輯器
+                if (codeEditor) {
+                    codeEditor.setValue('// 監控所有房間模式\n// 在左側選擇具體學生查看代碼');
+                }
+                
+                // 更新標題
+                document.getElementById('currentStudentName').textContent = '監控所有房間';
+                
+                // 載入所有房間數據
+                loadRoomsData();
+                
+                addLog(`👀 切換到監控所有房間模式`);
+            } else {
+                // 監控特定房間
+                currentRoom = selectedRoom;
+                currentStudent = null;
+                
+                // 更新標題
+                document.getElementById('currentStudentName').textContent = `房間: ${selectedRoom}`;
+                
+                // 載入房間詳細信息
+                loadRoomDetails(selectedRoom);
+                
+                // 發送房間監控請求
+                sendMessage({
+                    type: 'monitor_room',
+                    data: { roomId: selectedRoom }
+                });
+                
+                addLog(`🏠 切換監控房間到: ${selectedRoom}`);
+            }
+            
+            // 更新學生列表和房間列表
+            updateStudentList();
+            updateRoomList();
+        }
+
+        // 更新聊天房間選擇器
+        function updateChatRoomSelector() {
+            const chatRoomSelect = document.getElementById('chatTargetRoom');
+            if (!chatRoomSelect) return;
+            
+            // 清空現有選項
+            chatRoomSelect.innerHTML = '<option value="">選擇目標房間</option><option value="all">📢 所有房間</option>';
+            
+            // 添加活躍房間
+            rooms.forEach((room, roomId) => {
+                const option = document.createElement('option');
+                option.value = roomId;
+                option.textContent = `${roomId} (${room.userCount}人)`;
+                chatRoomSelect.appendChild(option);
+            });
+        }
+
+        // 更新廣播目標選擇器
+        function updateBroadcastTargets() {
+            // 這個函數可以在廣播表單中更新目標選擇器
+            // 如果需要的話可以實現
+        }
+
+        // 初始化連接
+        connectWebSocket();
     </script>
 </body>
 </html> 

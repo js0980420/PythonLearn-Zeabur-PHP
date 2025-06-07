@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教師API測試</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        h1, h2 {
+            color: #333;
+        }
+        
+        button {
+            background: #4299e1;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background: #3182ce;
+        }
+        
+        .room-item {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        
+        .room-name {
+            font-weight: bold;
+            color: #2d3748;
+            margin-bottom: 5px;
+        }
+        
+        .room-stats {
+            color: #718096;
+            font-size: 14px;
+        }
+        
+        .user-list {
+            margin-top: 10px;
+        }
+        
+        .user-item {
+            display: inline-block;
+            background: #e2e8f0;
+            padding: 3px 8px;
+            border-radius: 12px;
+            margin: 2px;
+            font-size: 12px;
+        }
+        
+        .log {
+            background: #1a202c;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎓 教師API測試面板</h1>
+        
+        <div class="stats" id="statsContainer">
+            <div class="stat-card">
+                <div class="stat-number" id="totalRooms">0</div>
+                <div class="stat-label">活躍房間</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="totalStudents">0</div>
+                <div class="stat-label">在線學生</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="totalCode">0</div>
+                <div class="stat-label">代碼行數</div>
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+            <button onclick="loadRooms()">📂 載入房間列表</button>
+            <button onclick="loadRoomDetails('test-room')">🏠 載入test-room詳情</button>
+            <button onclick="loadRoomDetails('class-1')">📚 載入class-1詳情</button>
+            <button onclick="clearLog()">🗑️ 清空日誌</button>
+        </div>
+    </div>
+    
+    <div class="container">
+        <h2>📋 房間列表</h2>
+        <div id="roomsList">
+            <p style="color: #718096;">點擊"載入房間列表"開始</p>
+        </div>
+    </div>
+    
+    <div class="container">
+        <h2>📝 房間詳情</h2>
+        <div id="roomDetails">
+            <p style="color: #718096;">選擇房間查看詳情</p>
+        </div>
+    </div>
+    
+    <div class="container">
+        <h2>📊 API日誌</h2>
+        <div class="log" id="logContainer">
+            <div>🚀 教師API測試面板已載入</div>
+            <div>📡 API端點: /api/teacher.php</div>
+            <div>⏰ 時間: <span id="currentTime"></span></div>
+        </div>
+    </div>
+
+    <script>
+        // 更新當前時間
+        function updateTime() {
+            document.getElementById('currentTime').textContent = new Date().toLocaleString();
+        }
+        updateTime();
+        setInterval(updateTime, 1000);
+        
+        // 日誌函數
+        function log(message, type = 'info') {
+            const logContainer = document.getElementById('logContainer');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.style.marginBottom = '5px';
+            
+            let icon = '📝';
+            if (type === 'success') icon = '✅';
+            if (type === 'error') icon = '❌';
+            if (type === 'warning') icon = '⚠️';
+            
+            logEntry.innerHTML = `<span style="color: #a0aec0;">[${timestamp}]</span> ${icon} ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        // 清空日誌
+        function clearLog() {
+            document.getElementById('logContainer').innerHTML = '';
+            log('日誌已清空');
+        }
+        
+        // 載入房間列表
+        async function loadRooms() {
+            try {
+                log('正在載入房間列表...');
+                
+                const response = await fetch('/api/teacher.php/rooms');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                log(`成功載入 ${data.rooms.length} 個房間`, 'success');
+                
+                // 更新統計信息
+                document.getElementById('totalRooms').textContent = data.totalRooms || 0;
+                document.getElementById('totalStudents').textContent = data.totalUsers || 0;
+                
+                let totalCodeLines = 0;
+                data.rooms.forEach(room => {
+                    if (room.current_code) {
+                        totalCodeLines += room.current_code.split('\n').length;
+                    }
+                });
+                document.getElementById('totalCode').textContent = totalCodeLines;
+                
+                // 顯示房間列表
+                displayRooms(data.rooms);
+                
+            } catch (error) {
+                log(`載入房間列表失敗: ${error.message}`, 'error');
+            }
+        }
+        
+        // 顯示房間列表
+        function displayRooms(rooms) {
+            const container = document.getElementById('roomsList');
+            container.innerHTML = '';
+            
+            if (rooms.length === 0) {
+                container.innerHTML = '<p style="color: #718096;">暫無活躍房間</p>';
+                return;
+            }
+            
+            rooms.forEach(room => {
+                const roomElement = document.createElement('div');
+                roomElement.className = 'room-item';
+                roomElement.innerHTML = `
+                    <div class="room-name">${room.name} (${room.id})</div>
+                    <div class="room-stats">
+                        👥 ${room.userCount} 人在線 • 
+                        📝 ${room.codeLength} 字符 • 
+                        🕒 版本 ${room.version}
+                    </div>
+                    <div class="user-list">
+                        ${room.users.map(user => `<span class="user-item">${user.name}</span>`).join('')}
+                    </div>
+                    <div style="margin-top: 10px;">
+                        <button onclick="loadRoomDetails('${room.id}')">查看詳情</button>
+                        <button onclick="showRoomCode('${room.id}')">查看代碼</button>
+                    </div>
+                `;
+                container.appendChild(roomElement);
+            });
+        }
+        
+        // 載入房間詳情
+        async function loadRoomDetails(roomId) {
+            try {
+                log(`正在載入房間 ${roomId} 的詳情...`);
+                
+                const response = await fetch(`/api/teacher.php/room/${roomId}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                log(`成功載入房間 ${roomId} 詳情`, 'success');
+                
+                // 顯示房間詳情
+                displayRoomDetails(data);
+                
+            } catch (error) {
+                log(`載入房間詳情失敗: ${error.message}`, 'error');
+            }
+        }
+        
+        // 顯示房間詳情
+        function displayRoomDetails(room) {
+            const container = document.getElementById('roomDetails');
+            container.innerHTML = `
+                <div class="room-item">
+                    <div class="room-name">🏠 ${room.name} (${room.id})</div>
+                    <div class="room-stats">
+                        👥 ${room.userCount} 人在線 • 
+                        📝 ${room.code ? room.code.length : 0} 字符 • 
+                        📄 ${room.code ? room.code.split('\n').length : 0} 行 •
+                        🕒 版本 ${room.version}
+                    </div>
+                    <div class="user-list">
+                        <strong>在線用戶:</strong><br>
+                        ${room.users.map(user => `<span class="user-item">${user.name} (${user.id})</span>`).join('')}
+                    </div>
+                    <div style="margin-top: 15px;">
+                        <strong>房間代碼:</strong>
+                        <pre style="background: #f8f9fa; padding: 15px; border-radius: 5px; overflow-x: auto; margin-top: 10px;">${room.code || '// 暫無代碼'}</pre>
+                    </div>
+                    <div style="margin-top: 10px; font-size: 12px; color: #718096;">
+                        創建時間: ${room.created_at} | 最後活動: ${new Date(room.last_activity * 1000).toLocaleString()}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // 顯示房間代碼
+        function showRoomCode(roomId) {
+            loadRoomDetails(roomId);
+            document.getElementById('roomDetails').scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        // 頁面載入完成後自動載入房間列表
+        window.onload = function() {
+            log('頁面載入完成');
+            setTimeout(() => {
+                log('自動載入房間列表...');
+                loadRooms();
+            }, 1000);
+        };
+    </script>
+</body>
+</html> 

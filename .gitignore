@@ -1,55 +1,15 @@
-# 依賴目錄
-node_modules/
-vendor/
+# 依賴和包
+/vendor/
+/node_modules/
+package-lock.json
 
-# 環境變數檔案
+# 注意：composer.lock 不應該被忽略，Zeabur 需要它來確保依賴版本一致性
+
+# 環境配置
 .env
 .env.local
 .env.production
-config.env
-
-# 日誌檔案
-*.log
-logs/
-websocket.log
-
-# 臨時檔案
-*.tmp
-*.temp
-temp/
-storage/
-sessions/
-
-# 系統檔案
-.DS_Store
-Thumbs.db
-desktop.ini
-
-# IDE 配置檔案
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# 編譯輸出
-dist/
-build/
-
-# 快取檔案
-*.cache
-.cache/
-
-# 備份檔案
-*.bak
-*.backup
-
-# 測試覆蓋率報告
-coverage/
-
-# 本地開發工具
-.cursor/
-
-# 注意：composer.lock 不應該被忽略，Zeabur 需要它來確保依賴版本一致性
+.env.staging
 
 # 數據庫文件
 *.db
@@ -57,6 +17,12 @@ coverage/
 *.sqlite3
 /data/*.db
 /data/*.sqlite
+
+# 日誌文件
+*.log
+/logs/
+/storage/logs/
+websocket.log
 
 # 緩存文件
 /cache/
@@ -115,6 +81,10 @@ database.local.php
 /dist/
 /build/
 
+# 臨時文件
+*.tmp
+*.temp
+
 # 運行時 PID 文件
 .websocket.pid
 .web.pid
@@ -161,6 +131,14 @@ test-*.bat
 README*.md
 CHANGELOG.md
 CONTRIBUTING.md
+
+# 備份檔案
+*.bak
+*.backup
+
+# 快取檔案
+cache/
+tmp/
 
 # 上傳檔案
 uploads/

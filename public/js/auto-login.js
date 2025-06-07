@@ -8,7 +8,7 @@ class AutoLoginManager {
             user_type: 'student'
         };
         
-        this.defaultRoom = 'test_room_001';
+        this.defaultRoom = 'test-room';
         
         console.log('🔐 自動登入管理器初始化');
     }
@@ -66,8 +66,8 @@ class AutoLoginManager {
         try {
             // 根據環境決定 API URL
             const apiUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-                ? `http://${window.location.host}/api/auth`
-                : '/api/auth';
+                ? `http://${window.location.host}/api.php`
+                : '/api.php';
             
             const response = await fetch(apiUrl, {
                 method: 'POST',

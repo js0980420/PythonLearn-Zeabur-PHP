@@ -1,0 +1,370 @@
+{
+    "users": [
+        {
+            "username": "Alex Wang",
+            "user_type": "student",
+            "id": 39,
+            "created_at": "2025-06-07 04:52:49"
+        }
+    ],
+    "rooms": [],
+    "room_users": [],
+    "code_history": [
+        {
+            "room_id": "test-room",
+            "user_id": "學生420",
+            "code_content": "# 歡迎使用Python協作平台\\nprint(\"Hello, Wor",
+            "saved_at": "2025-06-06 04:41:54",
+            "id": 2,
+            "created_at": "2025-06-06 04:41:54"
+        },
+        {
+            "room_id": "test-room",
+            "user_id": "學生420",
+            "code_content": "# 歡迎使用Python協作平台\\nprint(\"Hel",
+            "saved_at": "2025-06-06 04:42:03",
+            "id": 4,
+            "created_at": "2025-06-06 04:42:03"
+        },
+        {
+            "room_id": "test-room",
+            "user_id": "學生420",
+            "code_content": "# 歡迎使用Python協作平台\\np",
+            "saved_at": "2025-06-06 04:42:17",
+            "id": 8,
+            "created_at": "2025-06-06 04:42:17"
+        },
+        {
+            "room_id": "test-room",
+            "user_id": "學生420",
+            "code_content": "",
+            "saved_at": "2025-06-06 04:42:29",
+            "id": 13,
+            "created_at": "2025-06-06 04:42:29"
+        },
+        {
+            "room_id": "test-room",
+            "user_id": "學生420",
+            "code_content": "# 歡迎使用Pyth",
+            "saved_at": "2025-06-06 04:42:36",
+            "id": 15,
+            "created_at": "2025-06-06 04:42:36"
+        },
+        {
+            "room_id": "test-room",
+            "user_id": "學生881",
+            "code_content": "# 歡迎使用Pyth",
+            "saved_at": "2025-06-06 04:42:45",
+            "id": 16,
+            "created_at": "2025-06-06 04:42:45"
+        },
+        {
+            "room_id": "test-room",
+            "user_id": "學生734",
+            "username": "學生734",
+            "code_content": "# 歡迎使用Pyth一一",
+            "version_number": 2,
+            "description": "程式碼保存 - 2025-06-06 05:37:20",
+            "created_at": "2025-06-06 05:37:20",
+            "id": 21
+        },
+        {
+            "room_id": "test-room",
+            "user_id": "學生703",
+            "username": "學生703",
+            "code_content": "# 歡迎使用Python協作平",
+            "version_number": 3,
+            "description": "程式碼保存 - 2025-06-06 05:40:35",
+            "created_at": "2025-06-06 05:40:35",
+            "id": 25
+        },
+        {
+            "room_id": "test-room",
+            "user_id": "學生327",
+            "username": "學生327",
+            "code_content": "# 歡迎使用Python協作平喔",
+            "version_number": 4,
+            "description": "程式碼保存 - 2025-06-06 05:47:00",
+            "created_at": "2025-06-06 05:47:00",
+            "id": 28
+        },
+        {
+            "room_id": "test-room-mysql",
+            "user_id": "test-user",
+            "username": "MySQL測試用戶",
+            "code_content": "print(\"MySQL測試代碼\")",
+            "description": "MySQL連接測試",
+            "id": 29,
+            "created_at": "2025-06-06 06:40:04",
+            "version_number": 1
+        },
+        {
+            "room_id": "test-room-mysql",
+            "user_id": "test-user",
+            "username": "MySQL測試用戶",
+            "code_content": "print(\"MySQL測試代碼\")",
+            "description": "MySQL連接測試",
+            "id": 30,
+            "created_at": "2025-06-06 06:40:30",
+            "version_number": 2
+        },
+        {
+            "room_id": "test-room-mysql",
+            "user_id": "test-user",
+            "username": "MySQL測試用戶",
+            "code_content": "print(\"MySQL測試代碼\")",
+            "description": "MySQL連接測試",
+            "id": 31,
+            "created_at": "2025-06-06 06:40:47",
+            "version_number": 3
+        },
+        {
+            "room_id": "safety-test",
+            "user_id": "test-user",
+            "code_content": "print(\"safety test\")",
+            "description": "MySQL安全測試",
+            "id": 32,
+            "created_at": "2025-06-06 06:43:02",
+            "version_number": 1
+        },
+        {
+            "room_id": "xampp-test-room",
+            "user_id": "xampp-test-user",
+            "username": "XAMPP測試用戶",
+            "code_content": "print(\"XAMPP MySQL 測試成功！\")",
+            "description": "XAMPP MySQL 整合測試",
+            "id": 33,
+            "created_at": "2025-06-06 06:46:19",
+            "version_number": 1
+        },
+        {
+            "room_id": "xampp-test-room",
+            "user_id": "xampp-test-user",
+            "username": "XAMPP測試用戶",
+            "code_content": "print(\"XAMPP MySQL 測試成功！\")",
+            "description": "XAMPP MySQL 整合測試 - 已更新",
+            "id": 34,
+            "created_at": "2025-06-06 06:46:37",
+            "version_number": 2,
+            "updated_at": "2025-06-06 06:46:37"
+        },
+        {
+            "room_id": "test-room",
+            "user_id": "學生675",
+            "username": "學生675",
+            "code_content": "一一",
+            "description": "Auto-save 2025-06-06 07:23:58",
+            "id": 36,
+            "created_at": "2025-06-06 07:23:58",
+            "version_number": 5
+        },
+        {
+            "room_id": "test-room",
+            "user_id": "學生675",
+            "username": "學生675",
+            "code_content": "一一一",
+            "description": "Auto-save 2025-06-06 07:24:07",
+            "id": 38,
+            "created_at": "2025-06-06 07:24:07",
+            "version_number": 6
+        }
+    ],
+    "code_changes": [
+        {
+            "room_id": "test-room",
+            "user_id": "學生420",
+            "change_type": "edit",
+            "code_content": "# 歡迎使用Python協作平台\\nprint(\"Hello, Wor",
+            "position_data": "[]",
+            "id": 1,
+            "created_at": "2025-06-06 04:41:53"
+        },
+        {
+            "room_id": "test-room",
+            "user_id": "學生420",
+            "change_type": "edit",
+            "code_content": "# 歡迎使用Python協作平台\\nprint(\"Hel",
+            "position_data": "[]",
+            "id": 3,
+            "created_at": "2025-06-06 04:42:01"
+        },
+        {
+            "room_id": "test-room",
+            "user_id": "學生420",
+            "change_type": "edit",
+            "code_content": "# 歡迎使用Python協作平台\\nprint(\"Hello, Wor嗚嗚嗚",
+            "position_data": "[]",
+            "id": 5,
+            "created_at": "2025-06-06 04:42:09"
+        },
+        {
+            "room_id": "test-room",
+            "user_id": "學生420",
+            "change_type": "edit",
+            "code_content": "# 歡迎使用Pyth",
+            "position_data": "[]",
+            "id": 6,
+            "created_at": "2025-06-06 04:42:13"
+        },
+        {
+            "room_id": "test-room",
+            "user_id": "學生420",
+            "change_type": "edit",
+            "code_content": "# 歡迎使用Python協作平台\\np",
+            "position_data": "[]",
+            "id": 7,
+            "created_at": "2025-06-06 04:42:16"
+        },
+        {
+            "room_id": "test-room",
+            "user_id": "學生420",
+            "change_type": "edit",
+            "code_content": "# 歡迎使用Python協作平台\\npㄘ",
+            "position_data": "[]",
+            "id": 9,
+            "created_at": "2025-06-06 04:42:18"
+        },
+        {
+            "room_id": "test-room",
+            "user_id": "學生420",
+            "change_type": "edit",
+            "code_content": "# 歡迎使用Python協作平台\\np雌ㄘ",
+            "position_data": "[]",
+            "id": 10,
+            "created_at": "2025-06-06 04:42:19"
+        },
+        {
+            "room_id": "test-room",
+            "user_id": "學生420",
+            "change_type": "edit",
+            "code_content": "# 歡迎使用Python協作平台\\npㄘㄘㄘ",
+            "position_data": "[]",
+            "id": 11,
+            "created_at": "2025-06-06 04:42:19"
+        },
+        {
+            "room_id": "test-room",
+            "user_id": "學生420",
+            "change_type": "edit",
+            "code_content": "",
+            "position_data": "[]",
+            "id": 12,
+            "created_at": "2025-06-06 04:42:28"
+        },
+        {
+            "room_id": "test-room",
+            "user_id": "學生420",
+            "change_type": "edit",
+            "code_content": "# 歡迎使用Pyth",
+            "position_data": "[]",
+            "id": 14,
+            "created_at": "2025-06-06 04:42:34"
+        },
+        {
+            "room_id": "test-room",
+            "user_id": "學生881",
+            "change_type": "edit",
+            "code_content": "# 歡迎使用Pyth嗚嗚嗚",
+            "position_data": "[]",
+            "id": 17,
+            "created_at": "2025-06-06 04:42:47"
+        },
+        {
+            "room_id": "test-room",
+            "user_id": "學生734",
+            "change_type": "edit",
+            "code_content": "# 歡迎使用Pythㄧ",
+            "position_data": "[]",
+            "id": 18,
+            "created_at": "2025-06-06 05:37:17"
+        },
+        {
+            "room_id": "test-room",
+            "user_id": "學生734",
+            "change_type": "edit",
+            "code_content": "# 歡迎使用Pyth一",
+            "position_data": "[]",
+            "id": 19,
+            "created_at": "2025-06-06 05:37:17"
+        },
+        {
+            "room_id": "test-room",
+            "user_id": "學生734",
+            "change_type": "edit",
+            "code_content": "# 歡迎使用Pyth一一",
+            "position_data": "[]",
+            "id": 20,
+            "created_at": "2025-06-06 05:37:18"
+        },
+        {
+            "room_id": "test-room",
+            "user_id": "學生734",
+            "change_type": "edit",
+            "code_content": "# 歡迎使用Pyth一一痾",
+            "position_data": "[]",
+            "id": 22,
+            "created_at": "2025-06-06 05:37:24"
+        },
+        {
+            "room_id": "test-room",
+            "user_id": "學生703",
+            "change_type": "edit",
+            "code_content": "# 歡迎使用Pyth一一ㄟ",
+            "position_data": "[]",
+            "id": 23,
+            "created_at": "2025-06-06 05:40:29"
+        },
+        {
+            "room_id": "test-room",
+            "user_id": "學生703",
+            "change_type": "edit",
+            "code_content": "# 歡迎使用Python協作平",
+            "position_data": "[]",
+            "id": 24,
+            "created_at": "2025-06-06 05:40:32"
+        },
+        {
+            "room_id": "test-room",
+            "user_id": "學生327",
+            "change_type": "edit",
+            "code_content": "# 歡迎使用Python協作平喔",
+            "position_data": "[]",
+            "id": 27,
+            "created_at": "2025-06-06 05:46:59"
+        },
+        {
+            "room_id": "test-room",
+            "user_id": "學生675",
+            "change_type": "edit",
+            "code_content": "一一",
+            "position_data": "[]",
+            "id": 35,
+            "created_at": "2025-06-06 07:23:51"
+        },
+        {
+            "room_id": "test-room",
+            "user_id": "學生675",
+            "change_type": "edit",
+            "code_content": "一一一",
+            "position_data": "[]",
+            "id": 37,
+            "created_at": "2025-06-06 07:24:04"
+        }
+    ],
+    "conflicts": [],
+    "ai_requests": [],
+    "code_executions": [
+        {
+            "room_id": "test-room",
+            "user_id": "學生703",
+            "code": "# 歡迎使用Python協作平台\\nprint(\"Hello, Wor",
+            "output": "代碼執行完成 (模擬輸出)\n",
+            "error": "",
+            "success": true,
+            "execution_time": 0.08,
+            "id": 26,
+            "created_at": "2025-06-06 05:40:44"
+        }
+    ],
+    "system_logs": []
+}

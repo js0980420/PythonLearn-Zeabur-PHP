@@ -1,0 +1,223 @@
+/* 槽位下拉選單美化樣式 */
+
+/* 槽位項目樣式 */
+.slot-item .dropdown-item,
+.load-slot-item .dropdown-item {
+    padding: 0.75rem 1rem;
+    border-radius: 0.375rem;
+    margin: 0.125rem 0.5rem;
+    transition: all 0.2s ease;
+}
+
+.slot-item .dropdown-item:hover,
+.load-slot-item .dropdown-item:hover {
+    background-color: var(--bs-primary-bg-subtle);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* 自定義命名槽位的特殊樣式 */
+.slot-item .dropdown-item.fw-bold {
+    background: linear-gradient(135deg, #fff7e6 0%, #fff2d1 100%);
+    border: 1px solid #ffc107;
+    border-radius: 0.5rem;
+}
+
+.slot-item .dropdown-item.fw-bold:hover {
+    background: linear-gradient(135deg, #fff2d1 0%, #ffe69c 100%);
+    box-shadow: 0 3px 8px rgba(255, 193, 7, 0.3);
+}
+
+/* 空槽位樣式 */
+.slot-item .dropdown-item:not(.fw-bold) {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 1px dashed #dee2e6;
+    color: #6c757d;
+}
+
+.slot-item .dropdown-item:not(.fw-bold):hover {
+    background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+    color: #495057;
+    border: 1px dashed #adb5bd;
+}
+
+/* 載入槽位樣式 */
+.load-slot-item .dropdown-item {
+    background: linear-gradient(135deg, #e7f3ff 0%, #cce7ff 100%);
+    border: 1px solid #007bff;
+    border-radius: 0.5rem;
+    color: #004085;
+}
+
+.load-slot-item .dropdown-item:hover {
+    background: linear-gradient(135deg, #cce7ff 0%, #99d1ff 100%);
+    box-shadow: 0 3px 8px rgba(0, 123, 255, 0.3);
+}
+
+/* 圖標樣式 */
+.slot-item i.fas,
+.load-slot-item i.fas {
+    margin-right: 0.5rem;
+    opacity: 0.8;
+    transition: opacity 0.2s ease;
+}
+
+.slot-item .dropdown-item:hover i.fas,
+.load-slot-item .dropdown-item:hover i.fas {
+    opacity: 1;
+}
+
+/* 書籤圖標特殊樣式 */
+.fa-bookmark {
+    color: #ffc107 !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+/* 星形圖標特殊樣式 */
+.fa-star {
+    color: #ffc107 !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    animation: twinkle 2s ease-in-out infinite alternate;
+}
+
+@keyframes twinkle {
+    from { opacity: 0.8; }
+    to { opacity: 1; }
+}
+
+/* 下拉選單標題樣式 */
+.dropdown-header {
+    font-weight: 600;
+    color: #495057 !important;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+    padding: 0.5rem 1rem 0.25rem;
+}
+
+/* 空消息樣式 */
+.empty-slots-message .dropdown-item-text {
+    padding: 1rem;
+    text-align: center;
+    font-style: italic;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 0.5rem;
+    margin: 0.25rem 0.5rem;
+    border: 1px dashed #dee2e6;
+}
+
+/* 槽位內容預覽樣式 */
+.slot-item small,
+.load-slot-item small {
+    font-size: 0.7rem;
+    opacity: 0.8;
+    line-height: 1.2;
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+    .slot-item .dropdown-item,
+    .load-slot-item .dropdown-item {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.9rem;
+    }
+    
+    .slot-item small,
+    .load-slot-item small {
+        font-size: 0.65rem;
+    }
+}
+
+/* 下拉選單動畫 */
+.dropdown-menu {
+    animation: dropdownFadeIn 0.2s ease;
+}
+
+@keyframes dropdownFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 成功狀態指示器 */
+.fa-check {
+    color: #198754 !important;
+    animation: checkPulse 0.6s ease;
+}
+
+@keyframes checkPulse {
+    0% { transform: scale(0.8); opacity: 0.5; }
+    50% { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* 加號圖標樣式 */
+.fa-plus,
+.fa-plus-circle {
+    color: #198754 !important;
+    transition: transform 0.2s ease;
+}
+
+.slot-item .dropdown-item:hover .fa-plus,
+.slot-item .dropdown-item:hover .fa-plus-circle {
+    transform: scale(1.1);
+}
+
+/* 同步圖標動畫 */
+.fa-sync-alt {
+    transition: transform 0.3s ease;
+}
+
+.load-slot-item .dropdown-item:hover .fa-sync-alt {
+    transform: rotate(180deg);
+}
+
+/* 槽位命名模態框樣式 */
+#slotNamingModal .modal-content {
+    border-radius: 1rem;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+}
+
+#slotNamingModal .modal-header {
+    border-radius: 1rem 1rem 0 0;
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+}
+
+#slotNamingModal .form-control:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+#slotNamingModal pre {
+    font-family: 'Courier New', Consolas, monospace;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+}
+
+/* 工具提示樣式 */
+.form-text {
+    font-size: 0.8rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+}
+
+/* 按鈕組美化 */
+.btn-group .dropdown-toggle-split {
+    border-left: 1px solid rgba(255,255,255,0.2);
+}
+
+.btn-group .btn:first-child:not(.dropdown-toggle) {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.btn-group .dropdown-toggle-split {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+} 

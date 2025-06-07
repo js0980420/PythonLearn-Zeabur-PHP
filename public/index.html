@@ -41,6 +41,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css" rel="stylesheet">
+    <link href="css/enhanced-slot-ui.css" rel="stylesheet">
     
     <!-- 內嵌基本樣式 (確保即使外部CSS加載失敗或被移除，也有基本框架) -->
     <style>
@@ -123,7 +124,21 @@
                 <div class="col-md-6">
                     <div class="mb-3">
                         <label class="form-label">房間名稱</label>
-                        <input type="text" class="form-control" id="roomInput" placeholder="輸入房間名稱" value="test-room">
+                        <div class="input-group">
+                            <select class="form-select" id="roomSelect" onchange="updateRoomInput()">
+                                <option value="test-room">test-room (預設測試房間)</option>
+                                <option value="class-1">class-1 (第一班)</option>
+                                <option value="class-2">class-2 (第二班)</option>
+                                <option value="class-3">class-3 (第三班)</option>
+                                <option value="advanced">advanced (進階班)</option>
+                                <option value="custom">自定義房間名稱...</option>
+                            </select>
+                        </div>
+                        <input type="text" class="form-control mt-2" id="roomInput" placeholder="或輸入自定義房間名稱" value="test-room" style="display: none;">
+                        <div class="form-text">
+                            <i class="fas fa-info-circle"></i> 
+                            選擇預設房間或輸入自定義房間名稱
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">您的名稱</label>
@@ -184,18 +199,7 @@
                                         </a></li>
                                         <li><hr class="dropdown-divider"></li>
                                         <li><h6 class="dropdown-header">保存槽位</h6></li>
-                                        <li><a class="dropdown-item" href="#" onclick="globalSaveToSlot(1)">
-                                            <i class="fas fa-folder text-info"></i> 保存到槽位 1
-                                        </a></li>
-                                        <li><a class="dropdown-item" href="#" onclick="globalSaveToSlot(2)">
-                                            <i class="fas fa-folder text-info"></i> 保存到槽位 2
-                                        </a></li>
-                                        <li><a class="dropdown-item" href="#" onclick="globalSaveToSlot(3)">
-                                            <i class="fas fa-folder text-info"></i> 保存到槽位 3
-                                        </a></li>
-                                        <li><a class="dropdown-item" href="#" onclick="globalSaveToSlot(4)">
-                                            <i class="fas fa-folder text-info"></i> 保存到槽位 4
-                                        </a></li>
+                                        <!-- 槽位項目將由 SaveLoadManager 動態生成 -->
                                     </ul>
                                     
                                     <!-- 載入按鈕組 -->
@@ -211,8 +215,8 @@
                                             <i class="fas fa-sync-alt text-success"></i> 載入最新
                                         </a></li>
                                         <li><hr class="dropdown-divider"></li>
-                                        <li><h6 class="dropdown-header">歷史版本</h6></li>
-                                        <li id="historyEmptyMessage"><span class="dropdown-item-text text-muted">無歷史版本</span></li>
+                                        <li><h6 class="dropdown-header">已保存版本</h6></li>
+                                        <!-- 已保存的槽位項目將由 SaveLoadManager 動態生成 -->
                                     </ul>
                                     
                                     <button class="btn btn-outline-success btn-sm" onclick="globalRunCode()">
@@ -286,9 +290,27 @@
                             </div>
                         </div>
                         <div id="chatSection" style="display: none;">
-                            <div id="chatContainer" class="p-2 mb-2" style="height: 300px; overflow-y: auto; background: #f8f9fa;"></div>
+                            <div class="mb-2">
+                                <label class="form-label small">聊天房間</label>
+                                <select class="form-select form-select-sm" id="chatRoomSelect" onchange="switchChatRoom()">
+                                    <option value="">選擇聊天房間</option>
+                                    <option value="current">💬 當前房間</option>
+                                    <option value="test-room">test-room (預設測試房間)</option>
+                                    <option value="class-1">class-1 (第一班)</option>
+                                    <option value="class-2">class-2 (第二班)</option>
+                                    <option value="class-3">class-3 (第三班)</option>
+                                    <option value="advanced">advanced (進階班)</option>
+                                    <option value="global">🌐 全域聊天</option>
+                                </select>
+                            </div>
+                            <div id="chatContainer" class="p-2 mb-2" style="height: 250px; overflow-y: auto; background: #f8f9fa;">
+                                <div class="text-center text-muted small">
+                                    <i class="fas fa-comments"></i><br>
+                                    請選擇聊天房間開始對話
+                                </div>
+                            </div>
                             <div class="input-group">
-                                <input type="text" class="form-control" id="chatInput" placeholder="輸入消息...">
+                                <input type="text" class="form-control" id="chatInput" placeholder="選擇房間後輸入消息..." disabled>
                                 <button class="btn btn-primary" onclick="globalSendChat()"><i class="fas fa-paper-plane"></i></button>
                             </div>
                         </div>
@@ -386,17 +408,37 @@
     <script src="js/auto-login.js"></script>
     <script src="js/websocket.js"></script>
     <script src="js/save-load.js"></script>
+    <script src="js/http-history-manager.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/editor.js"></script>
     <script src="js/chat.js"></script>
     <script src="js/ai-assistant.js"></script>
     <script src="js/conflict.js"></script>
+    <script src="js/advanced-conflict-detector.js"></script>
     
     <!-- 歷史記錄顯示修復腳本 -->
     <script>
         // 確保歷史記錄能正確顯示的修復腳本
         document.addEventListener('DOMContentLoaded', function() {
             console.log('🔧 歷史記錄修復腳本啟動');
+            
+            // 初始化房間選擇功能
+            setTimeout(function() {
+                updateChatRoomOptions();
+                
+                // 監聽房間變更事件，自動更新聊天室選項
+                const currentRoomSpan = document.getElementById('currentRoom');
+                if (currentRoomSpan) {
+                    const observer = new MutationObserver(function(mutations) {
+                        mutations.forEach(function(mutation) {
+                            if (mutation.type === 'childList' || mutation.type === 'characterData') {
+                                updateChatRoomOptions();
+                            }
+                        });
+                    });
+                    observer.observe(currentRoomSpan, { childList: true, subtree: true, characterData: true });
+                }
+            }, 1000);
             
             // 等待其他模組載入完成
             setTimeout(function() {
@@ -406,7 +448,7 @@
                     window.wsManager.getHistory();
                 } else {
                     console.log('📜 通過 HTTP API 請求歷史記錄');
-                    fetch('/api/history?room_id=test_room_001')
+                    fetch('/api/history?room_id=test-room')
                         .then(response => response.json())
                         .then(data => {
                             if (data.success && data.history && window.SaveLoadManager) {
@@ -425,8 +467,14 @@
         function globalJoinRoom() { if(UI) UI.joinRoom(); else console.error("UI not ready"); }
         function globalLeaveRoom() { if(UI) UI.leaveRoom(); else console.error("UI not ready"); }
         function globalLoadCode(loadType) { 
-            if(Editor) Editor.loadCode(loadType); 
-            else console.error("Editor not ready"); 
+            console.log(`🎯 globalLoadCode 被調用，類型: ${loadType}`);
+            if (window.SaveLoadManager && typeof window.SaveLoadManager.loadCode === 'function') {
+                window.SaveLoadManager.loadCode(loadType);
+            } else if (window.Editor && typeof window.Editor.loadCode === 'function') {
+                window.Editor.loadCode(loadType);
+            } else {
+                console.error('SaveLoadManager and Editor not ready or loadCode method missing');
+            }
         }
         function globalSaveCode() { if(Editor) Editor.saveCode(); else console.error("Editor not ready"); }
         function globalRunCode() { if(Editor) Editor.runCode(); else console.error("Editor not ready"); }
@@ -445,7 +493,7 @@
             // 顯示衝突分析選項模態框
             showConflictAnalysisOptions();
         }
-        function globalOpenTeacherDashboard() { window.open('/teacher', '_blank'); }
+        function globalOpenTeacherDashboard() { window.open('teacher-dashboard.html', '_blank'); }
         function globalShowTutorial() { if(UI) UI.showTutorial(); else console.error("UI not ready"); }
         
         // 新增的檔案操作功能
@@ -453,6 +501,133 @@
         function globalDownloadCode() { if(Editor) Editor.downloadCode(); else console.error("Editor not ready"); }
         function globalImportCode() { if(Editor) Editor.importCode(); else console.error("Editor not ready"); }
         function globalHandleFileImport(event) { if(Editor) Editor.handleFileImport(event); else console.error("Editor not ready"); }
+
+        // 房間選擇功能
+        function updateRoomInput() {
+            const roomSelect = document.getElementById('roomSelect');
+            const roomInput = document.getElementById('roomInput');
+            
+            if (roomSelect.value === 'custom') {
+                roomInput.style.display = 'block';
+                roomInput.value = '';
+                roomInput.focus();
+            } else {
+                roomInput.style.display = 'none';
+                roomInput.value = roomSelect.value;
+            }
+        }
+
+        // 獲取當前選中的房間名稱
+        function getCurrentRoomName() {
+            const roomSelect = document.getElementById('roomSelect');
+            const roomInput = document.getElementById('roomInput');
+            
+            if (roomSelect.value === 'custom') {
+                return roomInput.value.trim() || 'custom-room';
+            } else {
+                return roomSelect.value;
+            }
+        }
+
+        // 聊天室房間切換功能
+        function switchChatRoom() {
+            const chatRoomSelect = document.getElementById('chatRoomSelect');
+            const chatContainer = document.getElementById('chatContainer');
+            const chatInput = document.getElementById('chatInput');
+            const selectedRoom = chatRoomSelect.value;
+            
+            if (!selectedRoom) {
+                chatContainer.innerHTML = `
+                    <div class="text-center text-muted small">
+                        <i class="fas fa-comments"></i><br>
+                        請選擇聊天房間開始對話
+                    </div>
+                `;
+                chatInput.placeholder = '選擇房間後輸入消息...';
+                chatInput.disabled = true;
+                return;
+            }
+            
+            // 啟用輸入框
+            chatInput.disabled = false;
+            
+            // 清空聊天容器並顯示載入狀態
+            chatContainer.innerHTML = `
+                <div class="text-center text-muted small">
+                    <i class="fas fa-spinner fa-spin"></i><br>
+                    正在載入聊天記錄...
+                </div>
+            `;
+            
+            let targetRoom = selectedRoom;
+            let displayName = selectedRoom;
+            
+            if (selectedRoom === 'current') {
+                // 使用當前房間
+                const currentRoomSpan = document.getElementById('currentRoom');
+                targetRoom = currentRoomSpan ? currentRoomSpan.textContent : 'test-room';
+                displayName = `當前房間 (${targetRoom})`;
+                chatInput.placeholder = `在 ${targetRoom} 中輸入消息...`;
+            } else if (selectedRoom === 'global') {
+                targetRoom = 'global-chat';
+                displayName = '全域聊天';
+                chatInput.placeholder = '在全域聊天中輸入消息...';
+            } else {
+                chatInput.placeholder = `在 ${selectedRoom} 中輸入消息...`;
+            }
+            
+            // 更新聊天系統的目標房間
+            if (window.Chat) {
+                window.Chat.setTargetRoom(targetRoom);
+            }
+            
+            // 載入聊天記錄
+            setTimeout(() => {
+                loadChatHistory(targetRoom, displayName);
+            }, 500);
+            
+            console.log(`💬 切換聊天室到: ${displayName} (${targetRoom})`);
+        }
+
+        // 載入聊天記錄
+        function loadChatHistory(roomId, displayName) {
+            const chatContainer = document.getElementById('chatContainer');
+            
+            // 模擬載入聊天記錄
+            chatContainer.innerHTML = `
+                <div class="text-center text-muted small mb-2">
+                    <i class="fas fa-comment-dots"></i> ${displayName} 聊天室<br>
+                    <small>歡迎加入聊天！開始與其他人對話吧 🎉</small>
+                </div>
+            `;
+            
+            // 如果有WebSocket連接，可以請求真實的聊天記錄
+            if (window.wsManager && window.wsManager.isConnected()) {
+                // 發送聊天記錄請求
+                window.wsManager.sendMessage({
+                    type: 'get_chat_history',
+                    room_id: roomId,
+                    limit: 20
+                });
+            }
+        }
+
+        // 更新聊天室房間選項
+        function updateChatRoomOptions() {
+            const chatRoomSelect = document.getElementById('chatRoomSelect');
+            const currentRoomSpan = document.getElementById('currentRoom');
+            
+            if (!chatRoomSelect || !currentRoomSpan) return;
+            
+            const currentRoomName = currentRoomSpan.textContent;
+            if (currentRoomName && currentRoomName !== '-') {
+                // 更新"當前房間"選項
+                const currentOption = chatRoomSelect.querySelector('option[value="current"]');
+                if (currentOption) {
+                    currentOption.textContent = `💬 當前房間 (${currentRoomName})`;
+                }
+            }
+        }
 
         // 🔍 顯示衝突分析選項
         function showConflictAnalysisOptions() {
@@ -813,57 +988,92 @@
         document.addEventListener('DOMContentLoaded', function() {
             console.log('🚀 Python多人協作教學平台載入完成');
             
-            // 初始化所有模組
-            console.log('🚀 初始化所有模組...');
-            
-            // 初始化UI模組
-            if (typeof UI !== 'undefined' && UI.initialize) {
-                UI.initialize();
-                console.log('✅ UI模組初始化完成');
-            } else {
-                console.error('❌ UI模組初始化失敗');
+            // 等待 CodeMirror 完全加載後再初始化
+            function initializeModules() {
+                console.log('🚀 初始化所有模組...');
+                
+                // 初始化UI模組
+                if (typeof UI !== 'undefined' && UI.initialize) {
+                    UI.initialize();
+                    console.log('✅ UI模組初始化完成');
+                } else {
+                    console.error('❌ UI模組初始化失敗');
+                }
+                
+                // 初始化編輯器模組 - 確保 CodeMirror 已加載
+                if (typeof CodeMirror !== 'undefined' && typeof Editor !== 'undefined' && Editor.initialize) {
+                    try {
+                        Editor.initialize();
+                        console.log('✅ 編輯器模組初始化完成');
+                    } catch (error) {
+                        console.error('❌ 編輯器初始化錯誤:', error);
+                        // 重試一次
+                        setTimeout(() => {
+                            try {
+                                Editor.initialize();
+                                console.log('✅ 編輯器模組重試初始化成功');
+                            } catch (retryError) {
+                                console.error('❌ 編輯器重試初始化失敗:', retryError);
+                            }
+                        }, 1000);
+                    }
+                } else {
+                    console.error('❌ 編輯器模組初始化失敗 - CodeMirror 或 Editor 未定義');
+                }
+                
+                // 初始化WebSocket管理器
+                if (typeof wsManager !== 'undefined' && wsManager.initialize) {
+                    wsManager.initialize();
+                    console.log('✅ WebSocket管理器初始化完成');
+                } else {
+                    console.error('❌ WebSocket管理器初始化失敗');
+                }
+                
+                // 初始化AI助教
+                if (typeof AIAssistant !== 'undefined' && AIAssistant.initialize) {
+                    AIAssistant.initialize();
+                    console.log('✅ AI助教模組初始化完成');
+                } else {
+                    console.error('❌ AI助教模組初始化失敗');
+                }
+                
+                // 初始化聊天系統
+                if (typeof Chat !== 'undefined' && Chat.initialize) {
+                    Chat.initialize();
+                    console.log('✅ 聊天系統初始化完成');
+                } else {
+                    console.error('❌ 聊天系統初始化失敗');
+                }
+                
+                console.log('✨ 模組初始化完成');
+                
+                // 預設顯示AI助教
+                if (typeof UI !== 'undefined' && UI.switchToAI) {
+                    UI.switchToAI();
+                    console.log('✅ AI助教已設為預設顯示');
+                } else {
+                    console.error('❌ 無法設置預設界面，UI未定義');
+                }
             }
             
-            // 初始化編輯器模組
-            if (typeof Editor !== 'undefined' && Editor.initialize) {
-                Editor.initialize();
-                console.log('✅ 編輯器模組初始化完成');
+            // 檢查 CodeMirror 是否已加載
+            if (typeof CodeMirror !== 'undefined') {
+                initializeModules();
             } else {
-                console.error('❌ 編輯器模組初始化失敗');
-            }
-            
-            // 初始化WebSocket管理器
-            if (typeof wsManager !== 'undefined' && wsManager.initialize) {
-                wsManager.initialize();
-                console.log('✅ WebSocket管理器初始化完成');
-            } else {
-                console.error('❌ WebSocket管理器初始化失敗');
-            }
-            
-            // 初始化AI助教
-            if (typeof AIAssistant !== 'undefined' && AIAssistant.initialize) {
-                AIAssistant.initialize();
-                console.log('✅ AI助教模組初始化完成');
-            } else {
-                console.error('❌ AI助教模組初始化失敗');
-            }
-            
-            // 初始化聊天系統
-            if (typeof Chat !== 'undefined' && Chat.initialize) {
-                Chat.initialize();
-                console.log('✅ 聊天系統初始化完成');
-            } else {
-                console.error('❌ 聊天系統初始化失敗');
-            }
-            
-            console.log('✨ 模組初始化完成');
-            
-            // 預設顯示AI助教
-            if (typeof UI !== 'undefined' && UI.switchToAI) {
-                UI.switchToAI();
-                console.log('✅ AI助教已設為預設顯示');
-            } else {
-                console.error('❌ 無法設置預設界面，UI未定義');
+                // 等待 CodeMirror 加載
+                let checkCount = 0;
+                const checkInterval = setInterval(() => {
+                    checkCount++;
+                    if (typeof CodeMirror !== 'undefined') {
+                        clearInterval(checkInterval);
+                        console.log('✅ CodeMirror 已加載，開始初始化模組');
+                        initializeModules();
+                    } else if (checkCount > 50) { // 5秒超時
+                        clearInterval(checkInterval);
+                        console.error('❌ CodeMirror 加載超時，嘗試初始化其他模組');
+                        initializeModules();
+                    }
+                }, 100);
             }
         });
     </script>

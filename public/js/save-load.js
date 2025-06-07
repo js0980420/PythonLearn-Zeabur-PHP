@@ -1,4 +1,4 @@
-// save-load.js - 保存載入功能管理器
+// save-load.js - 保存載入功能管理器（簡化版 + 槽位命名優化）
 console.log('📄 載入 save-load.js 模組');
 
 class SaveLoadManager {
@@ -7,29 +7,143 @@ class SaveLoadManager {
         this.roomId = null;
         this.isInitialized = false;
         
-        console.log('💾 SaveLoadManager 初始化');
+        // 內存保存系統 - 優化版本
+        this.memorySlots = {
+            0: { code: '', name: '最新', timestamp: null, isCustomNamed: false },
+            1: { code: '', name: '槽位 1', timestamp: null, isCustomNamed: false },
+            2: { code: '', name: '槽位 2', timestamp: null, isCustomNamed: false },
+            3: { code: '', name: '槽位 3', timestamp: null, isCustomNamed: false },
+            4: { code: '', name: '槽位 4', timestamp: null, isCustomNamed: false }
+        };
+        
+        console.log('💾 SaveLoadManager 初始化（槽位命名版）');
+        this.initializeEventListeners();
+        
+        // 立即嘗試載入本地數據並更新UI
+        this.loadSlotsFromStorage();
+        this.updateAllDropdownsUI();
+        
+        // 設置為已初始化狀態，允許基本功能使用
+        this.isInitialized = true;
+        this.currentUser = 'LocalUser';
+        this.roomId = 'local-room';
+    }
+
+    // 初始化事件監聽器
+    initializeEventListeners() {
+        // 監聽頁面載入完成
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                this.loadSlotsFromStorage();
+                this.updateAllDropdownsUI();
+            });
+        } else {
+            // 頁面已載入完成，延遲更新UI確保DOM元素存在
+            setTimeout(() => {
+                this.loadSlotsFromStorage();
+                this.updateAllDropdownsUI();
+            }, 500);
+        }
+        
+        // 定期更新UI，確保下拉選單正確顯示
+        setInterval(() => {
+            this.loadSlotsFromStorage();
+            this.updateAllDropdownsUI();
+        }, 5000);
+        
+        // 監聽存儲變化事件，確保多標籤頁同步
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'python_code_slots' || e.key === 'python_code_latest') {
+                console.log('📦 檢測到存儲變化，重新載入數據');
+                this.loadSlotsFromStorage();
+                this.updateAllDropdownsUI();
+            }
+        });
     }
 
     // 顯示提示訊息的備用函數
     showMessage(message, type = 'info') {
-        if (window.UI && window.UI.showMessage) {
-            window.UI.showMessage(message, type);
+        if (window.UI) {
+            // 使用 UI 模組的提示方法
+            if (type === 'success') {
+                window.UI.showSuccessToast(message);
+            } else if (type === 'error') {
+                window.UI.showErrorToast(message);
+            } else if (type === 'warning') {
+                window.UI.showWarningToast(message);
+            } else {
+                window.UI.showInfoToast(message);
+            }
         } else {
             // 備用方案：使用 console 和 alert
             console.log(`${type.toUpperCase()}: ${message}`);
             if (type === 'error' || type === 'warning') {
                 alert(message);
+            } else if (type === 'success') {
+                console.log(`✅ ${message}`);
             }
         }
     }
 
     // 初始化
-    init(user, roomId) {
-        this.currentUser = user;
+    init(userId, roomId) {
+        this.currentUser = userId;
+        this.userId = userId;
         this.roomId = roomId;
         this.isInitialized = true;
+        console.log(`💾 SaveLoadManager 已初始化 - 用戶: ${userId}, 房間: ${roomId}`);
         
-        console.log(`💾 SaveLoadManager 已初始化 - 用戶: ${user.name}, 房間: ${roomId}`);
+        // 從 localStorage 載入槽位數據
+        this.loadSlotsFromStorage();
+        
+        // 更新UI
+        this.updateAllDropdownsUI();
+        
+        console.log('💾 SaveLoadManager 使用內存模式，跳過歷史記錄載入');
+    }
+
+    // 從本地存儲載入槽位數據
+    loadSlotsFromStorage() {
+        try {
+            const savedSlots = localStorage.getItem('python_code_slots');
+            if (savedSlots) {
+                const slots = JSON.parse(savedSlots);
+                // 合併保存的數據，保持結構完整性
+                for (let i = 0; i <= 4; i++) {
+                    if (slots[i]) {
+                        this.memorySlots[i] = {
+                            ...this.memorySlots[i],
+                            ...slots[i]
+                        };
+                    }
+                }
+                console.log('💾 已從本地存儲載入槽位數據');
+            }
+            
+            // 特別處理最新版本
+            const latestCode = localStorage.getItem('python_code_latest');
+            const latestTimestamp = localStorage.getItem('python_code_latest_timestamp');
+            if (latestCode) {
+                this.memorySlots[0] = {
+                    ...this.memorySlots[0],
+                    code: latestCode,
+                    timestamp: latestTimestamp ? parseInt(latestTimestamp) : Date.now()
+                };
+                console.log('💾 已載入最新版本代碼');
+            }
+        } catch (error) {
+            console.error('載入槽位數據失敗:', error);
+        }
+    }
+
+    // 保存槽位數據到本地存儲
+    saveSlotsToStorage() {
+        try {
+            localStorage.setItem('python_code_slots', JSON.stringify(this.memorySlots));
+            console.log('💾 槽位數據已保存到本地存儲');
+        } catch (error) {
+            console.error('保存槽位數據失敗:', error);
+        }
     }
 
     // 檢查是否已初始化
@@ -43,348 +157,123 @@ class SaveLoadManager {
         return true;
     }
 
-    // 保存當前代碼
+    // 保存當前代碼到最新
     saveCode() {
-        console.log("💾 開始保存代碼");
-        if (!this.checkInitialized() || !window.Editor) {
-            this.showMessage("編輯器未準備好或未加入房間，無法保存。", "error");
-            return;
-        }
-        
-        const code = window.Editor.getCode();
-        if (!code || code.trim() === '') {
-            this.showMessage('程式碼內容為空，無法保存', 'warning');
-            return;
-        }
-
-        // 顯示保存對話框
-        this.showSaveDialog(code);
-    }
-
-    // 顯示保存對話框
-    showSaveDialog(code) {
-        const modalHTML = `
-            <div class="modal fade" id="saveCodeModal" tabindex="-1" aria-labelledby="saveCodeModalLabel" aria-hidden="true">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <div class="modal-header bg-success text-white">
-                            <h5 class="modal-title" id="saveCodeModalLabel">
-                                <i class="fas fa-save"></i> 保存程式碼到槽位
-                            </h5>
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="mb-3">
-                                <p class="text-muted">選擇一個槽位來保存您的程式碼：</p>
-                                <div class="row g-2" id="slotButtons">
-                                    <!-- 槽位按鈕將在這裡動態生成 -->
-                                        </div>
-                                    </div>
-                            
-                            <div class="mb-3">
-                                <label class="form-label">程式碼預覽</label>
-                                <pre class="bg-light p-2 rounded border" style="max-height: 150px; overflow-y: auto; font-size: 0.9em;">${this.escapeHtml(code)}</pre>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        // 移除舊的模態框
-        const existingModal = document.getElementById('saveCodeModal');
-        if (existingModal) {
-            existingModal.remove();
-        }
-
-        // 添加新的模態框
-        document.body.insertAdjacentHTML('beforeend', modalHTML);
-
-        // 載入並顯示槽位
-        this.loadAndDisplaySlots();
-
-        // 顯示模態框
-        const modal = new bootstrap.Modal(document.getElementById('saveCodeModal'));
-        modal.show();
-    }
-
-    // 載入並顯示5個槽位
-    loadAndDisplaySlots() {
-        console.log("📋 載入5槽位系統...");
-        
-        // 首先顯示5個預設槽位
-        this.displaySlotButtons([
-            { slot_id: 0, save_name: '最新', is_empty: false, description: '自動保存最新版本' },
-            { slot_id: 1, save_name: '槽位 1', is_empty: true, description: '點擊保存到此槽位' },
-            { slot_id: 2, save_name: '槽位 2', is_empty: true, description: '點擊保存到此槽位' },
-            { slot_id: 3, save_name: '槽位 3', is_empty: true, description: '點擊保存到此槽位' },
-            { slot_id: 4, save_name: '槽位 4', is_empty: true, description: '點擊保存到此槽位' }
-        ]);
-
-        // 然後請求真實數據更新槽位
-        this.requestHistory((history) => {
-            if (history && Array.isArray(history)) {
-                this.updateSlotsWithHistory(history);
-            }
-        });
-    }
-
-    // 顯示槽位按鈕
-    displaySlotButtons(slots) {
-        const slotContainer = document.getElementById('slotButtons');
-        if (!slotContainer) return;
-
-        slotContainer.innerHTML = '';
-
-        slots.forEach(slot => {
-            const isLatest = slot.slot_id === 0;
-            const isEmpty = slot.is_empty && slot.slot_id !== 0;
-            const slotName = isEmpty ? `槽位 ${slot.slot_id}` : slot.save_name;
-            
-            const slotButton = document.createElement('div');
-            slotButton.className = 'col-12';
-            slotButton.innerHTML = `
-                <button type="button" 
-                        class="btn ${isLatest ? 'btn-primary' : (isEmpty ? 'btn-outline-secondary' : 'btn-outline-success')} w-100 p-3 text-start slot-btn" 
-                        data-slot-id="${slot.slot_id}"
-                        onclick="window.SaveLoadManager.selectSlot(${slot.slot_id})">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <strong>${slotName}</strong>
-                            <br><small class="text-muted">${slot.description || (isEmpty ? '空槽位' : '已保存')}</small>
-                        </div>
-                        <div>
-                            ${isLatest ? '<i class="fas fa-star text-warning"></i>' : 
-                              isEmpty ? '<i class="fas fa-plus-circle"></i>' : '<i class="fas fa-save"></i>'}
-                        </div>
-                    </div>
-                </button>
-            `;
-            
-            slotContainer.appendChild(slotButton);
-        });
-    }
-
-    // 更新槽位顯示（使用從服務器獲取的歷史數據）
-    updateSlotsWithHistory(history) {
-        const slots = [
-            { slot_id: 0, save_name: '最新', is_empty: false, description: '自動保存最新版本' },
-            { slot_id: 1, save_name: '槽位 1', is_empty: true, description: '點擊保存到此槽位' },
-            { slot_id: 2, save_name: '槽位 2', is_empty: true, description: '點擊保存到此槽位' },
-            { slot_id: 3, save_name: '槽位 3', is_empty: true, description: '點擊保存到此槽位' },
-            { slot_id: 4, save_name: '槽位 4', is_empty: true, description: '點擊保存到此槽位' }
-        ];
-
-        // 更新槽位信息
-        history.forEach(item => {
-            const slotIndex = slots.findIndex(s => s.slot_id === item.slot_id);
-            if (slotIndex !== -1 && item.slot_id !== 0) {
-                slots[slotIndex] = {
-                    slot_id: item.slot_id,
-                    save_name: item.save_name || `槽位 ${item.slot_id}`,
-                    is_empty: false,
-                    description: `保存於 ${item.created_at || '未知時間'}`
-                };
-            }
-        });
-
-        this.displaySlotButtons(slots);
-    }
-
-    // 選擇槽位
-    selectSlot(slotId) {
-        console.log(`🎯 選擇槽位 ${slotId}`);
-        
-        if (slotId === 0) {
-            // 槽位0直接保存
-            this.executeSaveToSlot(0, '最新');
-        } else {
-            // 槽位1-4需要命名
-            this.promptSlotName(slotId);
-        }
-    }
-
-    // 提示輸入槽位名稱
-    promptSlotName(slotId) {
-        const currentName = this.getCurrentSlotName(slotId);
-        const slotName = prompt(`請為槽位 ${slotId} 輸入名稱：`, currentName || `我的保存 ${slotId}`);
-        
-        if (slotName !== null && slotName.trim() !== '') {
-            this.executeSaveToSlot(slotId, slotName.trim());
-        }
-    }
-
-    // 獲取當前槽位名稱
-    getCurrentSlotName(slotId) {
-        const slotButton = document.querySelector(`[data-slot-id="${slotId}"] strong`);
-        if (slotButton) {
-            const currentText = slotButton.textContent;
-            if (currentText && !currentText.startsWith('槽位')) {
-                return currentText;
-            }
-        }
-        return null;
-    }
-
-    // 執行保存到指定槽位
-    executeSaveToSlot(slotId, saveName) {
+        console.log("💾 開始保存代碼到最新");
         if (!window.Editor) {
             this.showMessage("編輯器未準備好，無法保存。", "error");
             return;
         }
-
+        
         const code = window.Editor.getCode();
         if (!code || code.trim() === '') {
             this.showMessage('程式碼內容為空，無法保存', 'warning');
             return;
         }
 
-        console.log(`💾 保存到槽位 ${slotId}: ${saveName}`);
+        // 直接保存到槽位 0（最新）
+        this.saveToLatest(code);
+    }
 
-        // 關閉保存對話框
-        const modal = bootstrap.Modal.getInstance(document.getElementById('saveCodeModal'));
-        if (modal) {
-            modal.hide();
-        }
-
-        // 獲取用戶信息，優先使用AutoLogin的用戶信息
-        let userInfo = this.currentUser;
-        if (window.AutoLogin) {
-            const autoLoginUser = window.AutoLogin.getCurrentUser();
-            if (autoLoginUser) {
-                userInfo = {
-                    id: autoLoginUser.id,
-                    name: autoLoginUser.username
-                };
-            }
-        }
-
-        // 如果還是沒有用戶信息，使用默認的"Alex Wang"
-        if (!userInfo) {
-            userInfo = {
-                id: 1,
-                name: 'Alex Wang'
+    // 保存到最新槽位
+    saveToLatest(code) {
+        try {
+            // 保存到內存槽位 0
+            this.memorySlots[0] = {
+                ...this.memorySlots[0],
+                code: code,
+                timestamp: Date.now()
             };
-        }
 
-        // 發送保存請求
-        const saveData = {
-            type: 'save_code',
-            room_id: this.roomId || 'test_room_001',
-            user_id: userInfo.id,
-            username: userInfo.name,
-            code: code,
-            slot_id: slotId,
-            save_name: saveName,
-            timestamp: Date.now()
-        };
-
-        if (window.wsManager && window.wsManager.isConnected()) {
-            window.wsManager.sendMessage(saveData);
-            this.showMessage(`正在保存到槽位 ${slotId}...`, 'info');
-        } else {
-            this.showMessage('WebSocket 未連接，無法保存', 'error');
-        }
-    }
-
-    // 載入槽位信息
-    // 載入槽位信息並顯示載入對話框
-    loadSlotInfo() {
-        console.log("📋 載入槽位信息...");
-        
-        // 請求歷史記錄來創建載入對話框
-        this.requestHistory((history) => {
-            this.displayLoadSlotDialog(history);
-        });
-    }
-
-    // 顯示槽位保存對話框
-    displaySaveSlotDialog() {
-        console.log("💾 顯示保存槽位對話框...");
-        
-        // 請求歷史記錄來創建保存對話框
-        this.requestHistory((history) => {
-            this.showSaveSlotDialog(history);
-        });
-    }
-
-    // 顯示保存槽位選擇對話框
-    showSaveSlotDialog(history) {
-        // 初始化5個槽位
-        const slots = [
-            { id: 0, name: '最新版本', hasData: false, timestamp: null, description: '自動保存，無法手動選擇' },
-            { id: 1, name: '空槽位 1', hasData: false, timestamp: null, description: '可自定義命名' },
-            { id: 2, name: '空槽位 2', hasData: false, timestamp: null, description: '可自定義命名' },
-            { id: 3, name: '空槽位 3', hasData: false, timestamp: null, description: '可自定義命名' },
-            { id: 4, name: '空槽位 4', hasData: false, timestamp: null, description: '可自定義命名' }
-        ];
-
-        // 用歷史記錄更新槽位信息
-            if (history && Array.isArray(history)) {
-                history.forEach(item => {
-                    const slotId = item.slot_id;
-                if (slotId >= 0 && slotId <= 4) {
-                    slots[slotId].hasData = true;
-                    slots[slotId].name = item.save_name || (slotId === 0 ? '最新版本' : `槽位 ${slotId}`);
-                    slots[slotId].timestamp = item.created_at;
-                    }
-                });
-            }
-
-        // 生成槽位HTML（保存版本，不包含槽位0）
-        const slotsHTML = slots.slice(1).map(slot => {
-            const hasData = slot.hasData;
-            const timeDisplay = slot.timestamp ? 
-                `<small class="text-muted d-block"><i class="fas fa-clock"></i> ${new Date(slot.timestamp).toLocaleString()}</small>` :
-                '<small class="text-muted d-block">此槽位為空</small>';
+            // 也保存到 localStorage 作為備份
+            localStorage.setItem('python_code_latest', code);
+            localStorage.setItem('python_code_latest_timestamp', Date.now().toString());
             
-            return `
-                <div class="card mb-2 ${hasData ? 'border-warning' : 'border-light'} save-slot-card" style="cursor: pointer;" onclick="window.SaveLoadManager.selectSaveSlot(${slot.id})">
-                    <div class="card-body py-2">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div class="flex-grow-1">
-                                <h6 class="mb-1">
-                                    <i class="fas ${hasData ? 'fa-file-code' : 'fa-folder-open'} text-${hasData ? 'warning' : 'muted'}"></i>
-                                    ${this.escapeHtml(slot.name)}
-                                    ${hasData ? '<i class="fas fa-exclamation-triangle text-warning ms-2" title="覆蓋現有內容"></i>' : ''}
-                                </h6>
-                                ${timeDisplay}
-                                <small class="text-info">${slot.description}</small>
-                            </div>
-                            <div>
-                                <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); window.SaveLoadManager.selectSaveSlot(${slot.id})" 
-                                        title="${hasData ? '覆蓋此槽位' : '保存到此槽位'}">
-                                    <i class="fas ${hasData ? 'fa-sync-alt' : 'fa-save'}"></i> 
-                                    ${hasData ? '覆蓋' : '保存'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }).join('');
+            // 保存所有槽位數據
+            this.saveSlotsToStorage();
+            
+            console.log(`💾 代碼已保存到最新版本，長度: ${code.length} 字符`);
+            this.showMessage('✅ 代碼已保存到最新版本', 'success');
+            
+            // 立即更新UI並強制刷新
+            setTimeout(() => {
+                this.updateAllDropdownsUI();
+            }, 100);
+            
+            // 再次延遲更新確保同步
+            setTimeout(() => {
+                this.updateAllDropdownsUI();
+            }, 1000);
+        } catch (error) {
+            console.error('保存失敗:', error);
+            this.showMessage('❌ 保存失敗: ' + error.message, 'error');
+        }
+    }
 
+    // 保存到指定槽位（從下拉選單調用）
+    saveToSlot(slotId) {
+        console.log(`💾 開始保存到槽位 ${slotId}`);
+        
+        if (!window.Editor) {
+            this.showMessage("編輯器未準備好，無法保存。", "error");
+            return;
+        }
+        
+        const code = window.Editor.getCode();
+        if (!code || code.trim() === '') {
+            this.showMessage('程式碼內容為空，無法保存', 'warning');
+            return;
+        }
+
+        const currentSlot = this.memorySlots[slotId];
+        const isEmpty = !currentSlot.code || currentSlot.code.trim() === '';
+        
+        if (isEmpty && !currentSlot.isCustomNamed) {
+            // 空槽位且未自定義命名，提示用戶命名
+            this.promptSlotNaming(slotId, code);
+        } else {
+            // 已有內容或已命名，直接保存
+            this.executeSaveToSlot(slotId, currentSlot.name, code);
+        }
+    }
+
+    // 提示用戶為槽位命名
+    promptSlotNaming(slotId, code) {
+        const defaultName = `我的程式 ${new Date().toLocaleDateString()}`;
+        
+        // 創建美化的命名對話框
         const modalHTML = `
-            <div class="modal fade" id="saveCodeModal" tabindex="-1" aria-labelledby="saveCodeModalLabel" aria-hidden="true">
+            <div class="modal fade" id="slotNamingModal" tabindex="-1" aria-labelledby="slotNamingModalLabel" aria-hidden="true">
                 <div class="modal-dialog">
                     <div class="modal-content">
-                        <div class="modal-header bg-success text-white">
-                            <h5 class="modal-title" id="saveCodeModalLabel">
-                                <i class="fas fa-save"></i> 保存程式碼
+                        <div class="modal-header bg-primary text-white">
+                            <h5 class="modal-title" id="slotNamingModalLabel">
+                                <i class="fas fa-edit"></i> 為槽位 ${slotId} 命名
                             </h5>
                             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body">
-                            <div class="alert alert-info">
-                                <i class="fas fa-info-circle"></i> 選擇要保存的槽位（槽位0為自動保存，不可手動選擇）
+                            <div class="mb-3">
+                                <label for="slotNameInput" class="form-label">槽位名稱</label>
+                                <input type="text" class="form-control" id="slotNameInput" 
+                                       value="${defaultName}" 
+                                       placeholder="輸入一個有意義的名稱..."
+                                       maxlength="30">
+                                <div class="form-text">
+                                    建議使用描述性名稱，例如：「作業1完成版」、「測試版本」等
+                                </div>
                             </div>
-                            <h6 class="mb-3">選擇保存槽位：</h6>
-                            ${slotsHTML}
+                            
+                            <div class="mb-3">
+                                <label class="form-label">程式碼預覽</label>
+                                <pre class="bg-light p-2 rounded border" style="max-height: 120px; overflow-y: auto; font-size: 0.85em;">${this.escapeHtml(code.substring(0, 200))}${code.length > 200 ? '...' : ''}</pre>
+                                <small class="text-muted">共 ${code.split('\n').length} 行，${code.length} 字符</small>
+                            </div>
                         </div>
                         <div class="modal-footer">
+                            <button type="button" class="btn btn-primary" onclick="window.SaveLoadManager.confirmSlotNaming(${slotId})">
+                                <i class="fas fa-save"></i> 保存
+                            </button>
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
                         </div>
                     </div>
@@ -393,7 +282,7 @@ class SaveLoadManager {
         `;
 
         // 移除舊的模態框
-        const existingModal = document.getElementById('saveCodeModal');
+        const existingModal = document.getElementById('slotNamingModal');
         if (existingModal) {
             existingModal.remove();
         }
@@ -402,739 +291,294 @@ class SaveLoadManager {
         document.body.insertAdjacentHTML('beforeend', modalHTML);
 
         // 顯示模態框
-        const modal = new bootstrap.Modal(document.getElementById('saveCodeModal'));
+        const modal = new bootstrap.Modal(document.getElementById('slotNamingModal'));
         modal.show();
-    }
-
-    // 選擇保存槽位
-    selectSaveSlot(slotId) {
-        if (slotId < 1 || slotId > 4) {
-            this.showMessage('只能選擇槽位1-4進行手動保存', 'warning');
-            return;
-        }
-
-        // 關閉保存模態框
-        const modalElement = document.getElementById('saveCodeModal');
-        if (modalElement) {
-            const modal = bootstrap.Modal.getInstance(modalElement);
-            if (modal) modal.hide();
-        }
-
-        // 詢問保存名稱
-        const saveName = prompt(`請為槽位 ${slotId} 輸入保存名稱：`, `手動保存 ${new Date().toLocaleString('zh-TW', { hour12: false })}`);
         
-        if (saveName === null) {
-            console.log('用戶取消保存操作');
+        // 自動選中輸入框內容
+        setTimeout(() => {
+            const input = document.getElementById('slotNameInput');
+            if (input) {
+                input.select();
+                input.focus();
+            }
+        }, 300);
+    }
+
+    // 確認槽位命名
+    confirmSlotNaming(slotId) {
+        const nameInput = document.getElementById('slotNameInput');
+        const slotName = nameInput ? nameInput.value.trim() : '';
+        
+        if (!slotName) {
+            this.showMessage('請輸入槽位名稱', 'warning');
             return;
         }
-
-        if (!saveName.trim()) {
-            this.showMessage('保存名稱不能為空', 'warning');
+        
+        // 關閉模態框
+        const modal = bootstrap.Modal.getInstance(document.getElementById('slotNamingModal'));
+        if (modal) {
+            modal.hide();
+        }
+        
+        // 直接從編輯器獲取當前代碼
+        let actualCode = '';
+        if (window.Editor && typeof window.Editor.getCode === 'function') {
+            actualCode = window.Editor.getCode();
+        }
+        
+        if (!actualCode || actualCode.trim() === '') {
+            this.showMessage('程式碼內容為空，無法保存', 'warning');
             return;
         }
+        
+        // 執行保存
+        this.executeSaveToSlot(slotId, slotName, actualCode, true);
+    }
 
-        // 獲取當前代碼並保存
-        const code = window.editorManager ? window.editorManager.getCode() : '';
-
-        const saveData = {
-            type: 'save_code',
-            room_id: window.wsManager ? window.wsManager.currentRoom : '',
-            user_id: window.wsManager ? window.wsManager.currentUser : '',
-            code: code,
-            save_name: saveName.trim(),
-            slot_id: slotId
-        };
-
-        console.log('💾 保存到槽位:', saveData);
-
-        if (window.wsManager && window.wsManager.isConnected()) {
-            window.wsManager.sendMessage(saveData);
-            this.showMessage(`正在保存到槽位 ${slotId}...`, 'info');
-        } else {
-            this.showMessage('WebSocket 未連接，無法保存', 'error');
+    // 執行保存到槽位
+    executeSaveToSlot(slotId, saveName, code, isCustomNamed = false) {
+        console.log(`💾 執行保存到槽位 ${slotId}: ${saveName}`);
+        
+        try {
+            // 保存到內存
+            this.memorySlots[slotId] = {
+                code: code,
+                name: saveName,
+                timestamp: Date.now(),
+                isCustomNamed: isCustomNamed || (this.memorySlots[slotId] && this.memorySlots[slotId].isCustomNamed)
+            };
+            
+            // 保存到本地存儲
+            this.saveSlotsToStorage();
+            
+            console.log(`✅ 已保存到內存槽位 ${slotId}，代碼長度: ${code.length} 字符`);
+            this.showMessage(`已保存到「${saveName}」`, 'success');
+            
+            // 立即更新UI並強制刷新
+            setTimeout(() => {
+                this.updateAllDropdownsUI();
+            }, 100);
+            
+            // 再次延遲更新確保同步
+            setTimeout(() => {
+                this.updateAllDropdownsUI();
+            }, 1000);
+            
+            // 如果有 WebSocket 連接，也同步到服務器
+            if (window.WebSocketManager && window.WebSocketManager.isConnected()) {
+                const saveData = {
+                    type: 'save_code',
+                    room_id: this.roomId,
+                    user_id: this.currentUser,
+                    username: this.currentUser,
+                    code: code,
+                    slot_id: slotId,
+                    save_name: saveName,
+                    timestamp: Date.now()
+                };
+                window.WebSocketManager.sendMessage(saveData);
+                console.log('📤 同步保存到服務器');
+            }
+        } catch (error) {
+            console.error('保存失敗:', error);
+            this.showMessage('❌ 保存失敗: ' + error.message, 'error');
         }
     }
 
-    // 顯示槽位載入對話框
-    displayLoadSlotDialog(history) {
-        // 初始化5個空槽位
-        const slots = [
-            { id: 0, name: '最新版本', hasData: false, timestamp: null, deletable: false },
-            { id: 1, name: '空槽位 1', hasData: false, timestamp: null, deletable: true },
-            { id: 2, name: '空槽位 2', hasData: false, timestamp: null, deletable: true },
-            { id: 3, name: '空槽位 3', hasData: false, timestamp: null, deletable: true },
-            { id: 4, name: '空槽位 4', hasData: false, timestamp: null, deletable: true }
-        ];
-
-        // 用歷史記錄更新槽位信息
-        if (history && Array.isArray(history)) {
-            history.forEach(item => {
-                const slotId = item.slot_id;
-                if (slotId >= 0 && slotId <= 4) {
-                    slots[slotId].hasData = true;
-                    slots[slotId].name = item.save_name || (slotId === 0 ? '最新版本' : `槽位 ${slotId}`);
-                    slots[slotId].timestamp = item.created_at;
-                }
-            });
+    // 更新保存下拉選單UI
+    updateSaveDropdownUI() {
+        const saveDropdown = document.getElementById('saveCodeOptions');
+        if (!saveDropdown) {
+            console.log('📋 保存下拉選單元素未找到，延遲更新');
+            return;
         }
-
-        // 生成槽位HTML
-        const slotsHTML = slots.map(slot => {
-            const hasData = slot.hasData;
-            const timeDisplay = slot.timestamp ? 
-                `<small class="text-muted d-block"><i class="fas fa-clock"></i> ${new Date(slot.timestamp).toLocaleString()}</small>` :
-                '<small class="text-muted d-block">此槽位為空</small>';
+        
+        // 清空現有槽位項目
+        const existingSlots = saveDropdown.querySelectorAll('.slot-item');
+        existingSlots.forEach(item => item.remove());
+        
+        // 強制重新載入本地數據確保同步
+        this.loadSlotsFromStorage();
+        
+        // 重新生成槽位項目
+        for (let i = 1; i <= 4; i++) {
+            const slot = this.memorySlots[i];
+            const isEmpty = !slot.code || slot.code.trim() === '';
+            const isCustomNamed = slot.isCustomNamed;
             
-            return `
-                <div class="card mb-2 ${hasData ? 'border-success' : 'border-light'}">
-                    <div class="card-body py-2">
+            const slotItem = document.createElement('li');
+            slotItem.className = 'slot-item';
+            
+            const iconClass = isEmpty ? 'fas fa-plus-circle text-muted' : 
+                             isCustomNamed ? 'fas fa-bookmark text-warning' : 'fas fa-folder text-info';
+            const slotText = isEmpty ? `保存到槽位 ${i}` : slot.name;
+            const slotSubtext = isEmpty ? '空槽位' : 
+                               `${new Date(slot.timestamp).toLocaleDateString()} · ${slot.code.split('\n').length}行`;
+            
+            slotItem.innerHTML = `
+                <a class="dropdown-item ${isEmpty ? '' : 'fw-bold'}" href="#" onclick="window.SaveLoadManager.saveToSlot(${i}); event.preventDefault(); return false;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="${iconClass}"></i> ${slotText}
+                            ${isEmpty ? '' : `<br><small class="text-muted">${slotSubtext}</small>`}
+                        </div>
+                        ${isEmpty ? '<i class="fas fa-plus text-success ms-2"></i>' : 
+                                   '<i class="fas fa-check text-success ms-2"></i>'}
+                    </div>
+                </a>
+            `;
+            
+            saveDropdown.appendChild(slotItem);
+        }
+        
+        console.log(`📋 保存下拉選單已更新，共 ${4} 個槽位`);
+    }
+
+    // 更新載入下拉選單UI
+    updateLoadDropdownUI() {
+        const loadDropdown = document.getElementById('loadCodeOptions');
+        if (!loadDropdown) {
+            console.log('📋 載入下拉選單元素未找到，延遲更新');
+            return;
+        }
+        
+        // 清空現有槽位項目
+        const existingSlots = loadDropdown.querySelectorAll('.load-slot-item');
+        existingSlots.forEach(item => item.remove());
+        
+        // 檢查是否有可載入的槽位
+        let hasLoadableSlots = false;
+        
+        // 強制重新載入本地數據確保同步
+        this.loadSlotsFromStorage();
+        
+        // 檢查所有槽位（包括槽位0-最新）
+        for (let i = 0; i <= 4; i++) {
+            const slot = this.memorySlots[i];
+            const hasCode = slot.code && slot.code.trim() !== '';
+            
+            if (hasCode) {
+                hasLoadableSlots = true;
+                
+                const slotItem = document.createElement('li');
+                slotItem.className = 'load-slot-item';
+                
+                const iconClass = i === 0 ? 'fas fa-star text-warning' : 
+                                 slot.isCustomNamed ? 'fas fa-bookmark text-primary' : 'fas fa-folder text-info';
+                const slotText = slot.name;
+                const slotSubtext = `${new Date(slot.timestamp).toLocaleDateString()} · ${slot.code.split('\n').length}行`;
+                
+                slotItem.innerHTML = `
+                    <a class="dropdown-item" href="#" onclick="window.SaveLoadManager.loadCode(${i}); event.preventDefault(); return false;">
                         <div class="d-flex justify-content-between align-items-center">
-                            <div class="flex-grow-1">
-                                <h6 class="mb-1">
-                                    <i class="fas ${hasData ? 'fa-file-code' : 'fa-folder-open'} text-${hasData ? 'success' : 'muted'}"></i>
-                                    ${this.escapeHtml(slot.name)}
-                                </h6>
-                                ${timeDisplay}
+                            <div>
+                                <i class="${iconClass}"></i> ${slotText}
+                                <br><small class="text-muted">${slotSubtext}</small>
                             </div>
-                            <div class="btn-group">
-                                ${hasData ? `
-                                    <button class="btn btn-outline-primary btn-sm" 
-                                            onclick="SaveLoadManager.loadSlot(${slot.id})"
-                                            title="載入此槽位">
-                                        <i class="fas fa-download"></i> 載入
-                                    </button>
-                                    ${slot.deletable ? `
-                                        <button class="btn btn-outline-danger btn-sm" 
-                                                onclick="SaveLoadManager.deleteSlot(${slot.id})"
-                                                title="刪除此槽位">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    ` : ''}
-                                ` : `
-                                    <button class="btn btn-outline-secondary btn-sm" disabled>
-                                        <i class="fas fa-ban"></i> 空槽位
-                                    </button>
-                                `}
-                            </div>
+                            <i class="fas fa-sync-alt text-primary ms-2"></i>
                         </div>
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        const modalHTML = `
-            <div class="modal fade" id="loadCodeModal" tabindex="-1" aria-labelledby="loadCodeModalLabel" aria-hidden="true">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <div class="modal-header bg-info text-white">
-                            <h5 class="modal-title" id="loadCodeModalLabel">
-                                <i class="fas fa-download"></i> 載入程式碼
-                            </h5>
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body">
-                            <h6 class="mb-3">選擇要載入的槽位：</h6>
-                            ${slotsHTML}
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        // 移除舊的模態框
-        const existingModal = document.getElementById('loadCodeModal');
-        if (existingModal) {
-            existingModal.remove();
+                    </a>
+                `;
+                
+                loadDropdown.appendChild(slotItem);
+            }
         }
-
-        // 添加新的模態框
-        document.body.insertAdjacentHTML('beforeend', modalHTML);
-
-        // 顯示模態框
-        const modal = new bootstrap.Modal(document.getElementById('loadCodeModal'));
-        modal.show();
-    }
-
-    // 載入指定槽位
-    loadSlot(slotId) {
-        console.log(`📂 載入槽位 ${slotId}`);
         
-        const loadData = {
-            type: 'load_code',
-            slot_id: slotId
-        };
-
-        if (window.wsManager && window.wsManager.isConnected()) {
-            window.wsManager.sendMessage(loadData);
-            
-            // 關閉模態框
-            const modalElement = document.getElementById('loadCodeModal');
-            if (modalElement) {
-                const modal = bootstrap.Modal.getInstance(modalElement);
-                if (modal) modal.hide();
+        // 如果沒有可載入的槽位，顯示提示
+        if (!hasLoadableSlots) {
+            // 移除現有的空槽位提示
+            const existingEmpty = loadDropdown.querySelector('.empty-slots-message');
+            if (existingEmpty) {
+                existingEmpty.remove();
             }
             
-            this.showMessage(`正在載入槽位 ${slotId}...`, 'info');
-        } else {
-            this.showMessage('WebSocket 連接未建立，無法載入', 'error');
-        }
-    }
-
-    // 刪除槽位
-    deleteSlot(slotId) {
-        if (slotId < 1 || slotId > 4) {
-            this.showMessage('只能刪除槽位1-4', 'warning');
-            return;
-        }
-        
-        if (!confirm(`確定要刪除槽位 ${slotId} 的記錄嗎？此操作無法撤銷。`)) {
-            return;
-        }
-        
-        const deleteData = {
-            type: 'delete_slot',
-            slot_id: slotId
-        };
-        
-        console.log('🗑️ 發送刪除請求:', deleteData);
-        
-        if (window.wsManager && window.wsManager.isConnected()) {
-            window.wsManager.sendMessage(deleteData);
-            this.showMessage(`正在刪除槽位 ${slotId}...`, 'info');
-        } else {
-            this.showMessage('WebSocket 連接未建立，無法刪除', 'error');
-        }
-    }
-
-    // 顯示載入對話框 - 5槽位系統
-    showLoadDialog() {
-        console.log("📂 顯示載入對話框");
-        if (!this.checkInitialized()) {
-            this.showMessage("未加入房間，無法載入歷史記錄。", "error");
-            return;
-        }
-        // 載入槽位信息
-        this.loadSlotInfo();
-    }
-
-    // 顯示載入界面
-    displayLoadDialog(history) {
-        let historyHTML = '';
-        
-        if (history.length === 0) {
-            historyHTML = `
-                <div class="text-center py-4">
-                    <i class="fas fa-inbox text-muted" style="font-size: 2rem;"></i>
-                    <p class="text-muted mt-2">尚無保存的程式碼</p>
-                    <small class="text-muted">請先保存一些程式碼再進行載入</small>
-                </div>
+            const emptyItem = document.createElement('li');
+            emptyItem.className = 'load-slot-item empty-slots-message';
+            emptyItem.innerHTML = `
+                <span class="dropdown-item-text text-muted">
+                    <i class="fas fa-info-circle"></i> 暫無已保存的程式碼
+                </span>
             `;
+            loadDropdown.appendChild(emptyItem);
         } else {
-            historyHTML = history.map(item => `
-                <div class="card mb-2 load-item" data-id="${item.id}">
-                    <div class="card-body py-2">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div class="flex-grow-1">
-                                <h6 class="mb-1">${this.escapeHtml(item.title)}</h6>
-                                <small class="text-muted">
-                                    <i class="fas fa-user"></i> ${this.escapeHtml(item.author)}
-                                    <i class="fas fa-clock ms-2"></i> ${new Date(item.timestamp).toLocaleString()}
-                                    <i class="fas fa-code-branch ms-2"></i> v${item.version}
-                                </small>
-                                <div class="mt-1">
-                                    <small class="text-muted">
-                                        程式碼預覽: ${item.code.split('\\n')[0].substring(0, 50)}...
-                                    </small>
-                                </div>
-                            </div>
-                            <div class="btn-group-vertical btn-group-sm">
-                                <button class="btn btn-outline-primary btn-sm" 
-                                        onclick="SaveLoadManager.loadSpecificCode('${item.id}')"
-                                        title="載入此版本">
-                                    <i class="fas fa-download"></i>
-                                </button>
-                                <button class="btn btn-outline-info btn-sm"
-                                        onclick="SaveLoadManager.previewCode('${item.id}')"
-                                        title="預覽程式碼">
-                                    <i class="fas fa-eye"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        const modalHTML = `
-            <div class="modal fade" id="loadCodeModal" tabindex="-1" aria-labelledby="loadCodeModalLabel" aria-hidden="true">
-                <div class="modal-dialog modal-lg">
-                    <div class="modal-content">
-                        <div class="modal-header bg-info text-white">
-                            <h5 class="modal-title" id="loadCodeModalLabel">
-                                <i class="fas fa-folder-open"></i> 載入程式碼
-                            </h5>
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h6 class="mb-0">選擇要載入的程式碼版本</h6>
-                                <div>
-                                    ${history.length > 0 ? `
-                                        <button class="btn btn-success btn-sm" onclick="SaveLoadManager.loadLatestCode()">
-                                            <i class="fas fa-star"></i> 載入最新版本
-                                        </button>
-                                    ` : ''}
-                                </div>
-                            </div>
-                            <div style="max-height: 400px; overflow-y: auto;">
-                                ${historyHTML}
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        // 移除舊的模態框
-        const existingModal = document.getElementById('loadCodeModal');
-        if (existingModal) {
-            existingModal.remove();
-        }
-
-        // 添加新的模態框
-        document.body.insertAdjacentHTML('beforeend', modalHTML);
-
-        // 顯示模態框
-        const modal = new bootstrap.Modal(document.getElementById('loadCodeModal'));
-        modal.show();
-    }
-
-    // 載入最新版本
-    loadLatestCode() {
-        console.log('📂 載入最新版本');
-        
-        const loadData = {
-            type: 'load_code',
-            roomId: this.roomId,
-            loadLatest: true
-        };
-
-        this.sendLoadRequest(loadData);
-    }
-
-    // 載入特定槽位
-    loadSpecificCode(slotId) {
-        console.log('📂 載入槽位:', slotId);
-        
-        const loadData = {
-            type: 'load_code',
-            roomId: this.roomId,
-            slot_id: slotId
-        };
-
-        this.sendLoadRequest(loadData);
-    }
-
-    // 發送載入請求
-    sendLoadRequest(loadData) {
-        if (window.wsManager && window.wsManager.isConnected()) {
-            window.wsManager.sendMessage(loadData);
-            
-            // 關閉模態框
-            const modalElement = document.getElementById('loadCodeModal');
-            if (modalElement) {
-                const modal = bootstrap.Modal.getInstance(modalElement);
-                if (modal) modal.hide();
+            // 移除空槽位提示
+            const existingEmpty = loadDropdown.querySelector('.empty-slots-message');
+            if (existingEmpty) {
+                existingEmpty.remove();
             }
-            
-            this.showMessage('載入請求已發送...', 'info');
-        } else {
-            this.showMessage('WebSocket 連接未建立，無法載入', 'error');
         }
-    }
-
-    // 預覽程式碼
-    previewCode(saveId) {
-        console.log('👁️ 預覽程式碼:', saveId);
         
-        // 獲取歷史記錄找到對應項目
-        this.requestHistory((history) => {
-            const item = history.find(h => h.id === saveId);
-            if (item) {
-                this.showCodePreview(item);
-            } else {
-                this.showMessage('找不到對應的程式碼版本', 'error');
-            }
-        });
+        console.log(`📋 載入下拉選單已更新，共 ${hasLoadableSlots ? Object.keys(this.memorySlots).filter(k => this.memorySlots[k].code).length : 0} 個可載入槽位`);
     }
 
-    // 顯示程式碼預覽
-    showCodePreview(item) {
-        const modalHTML = `
-            <div class="modal fade" id="codePreviewModal" tabindex="-1" aria-labelledby="codePreviewModalLabel" aria-hidden="true">
-                <div class="modal-dialog modal-lg">
-                    <div class="modal-content">
-                        <div class="modal-header bg-light">
-                            <h5 class="modal-title" id="codePreviewModalLabel">
-                                <i class="fas fa-eye"></i> 程式碼預覽
-                            </h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="mb-3">
-                                <h6>${this.escapeHtml(item.title)}</h6>
-                                <small class="text-muted">
-                                    <i class="fas fa-user"></i> ${this.escapeHtml(item.author)}
-                                    <i class="fas fa-clock ms-2"></i> ${new Date(item.timestamp).toLocaleString()}
-                                    <i class="fas fa-code-branch ms-2"></i> 版本 ${item.version}
-                                </small>
-                            </div>
-                            <div class="border rounded">
-                                <pre class="p-3 mb-0" style="max-height: 400px; overflow-y: auto; background-color: #f8f9fa; font-size: 0.9em;"><code class="language-python">${this.escapeHtml(item.code)}</code></pre>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
-                            <button type="button" class="btn btn-primary" onclick='window.SaveLoadManager.loadSpecificCode("${item.id}")'>
-                                <i class="fas fa-download"></i> 載入此版本
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        // 移除舊的模態框
-        const existingModal = document.getElementById('codePreviewModal');
-        if (existingModal) {
-            existingModal.remove();
-        }
-
-        // 添加新的模態框
-        document.body.insertAdjacentHTML('beforeend', modalHTML);
-
-        // 顯示模態框
-        const modal = new bootstrap.Modal(document.getElementById('codePreviewModal'));
-        modal.show();
+    // 更新所有下拉選單UI
+    updateAllDropdownsUI() {
+        this.updateSaveDropdownUI();
+        this.updateLoadDropdownUI();
     }
 
-    // 顯示歷史記錄對話框
-    showHistoryDialog() {
-        console.log("📜 顯示歷史記錄對話框");
-        if (!this.checkInitialized()) {
-            this.showMessage("未加入房間，無法顯示歷史記錄。", "error");
+    // 載入代碼
+    loadCode(loadType = 'latest') {
+        console.log(`📖 載入代碼: ${loadType}`);
+        
+        if (!window.Editor) {
+            this.showMessage('編輯器未準備好', 'error');
             return;
         }
-        this.requestHistory((history) => {
-            this.displayHistoryDialog(history);
-        });
-    }
 
-    // 顯示歷史記錄界面
-    displayHistoryDialog(history) {
-        const stats = this.calculateStats(history);
+        // 強制重新載入本地數據確保同步
+        this.loadSlotsFromStorage();
+
+        let codeToLoad = '';
+        let sourceName = '';
+        let slotId = loadType;
+
+        if (loadType === 'latest') {
+            slotId = 0;
+        }
+
+        console.log(`📖 嘗試載入槽位 ${slotId}`);
         
-        let historyHTML = '';
-        if (history.length === 0) {
-            historyHTML = `
-                <div class="text-center py-4">
-                    <i class="fas fa-archive text-muted" style="font-size: 2rem;"></i>
-                    <p class="text-muted mt-2">尚無歷史記錄</p>
-                </div>
-            `;
+        if (typeof slotId === 'number' && this.memorySlots[slotId]) {
+            const slot = this.memorySlots[slotId];
+            console.log(`📖 槽位 ${slotId} 數據:`, {
+                hasCode: !!(slot.code && slot.code.trim() !== ''),
+                codeLength: slot.code ? slot.code.length : 0,
+                name: slot.name,
+                timestamp: slot.timestamp
+            });
+            
+            if (slot.code && slot.code.trim() !== '') {
+                codeToLoad = slot.code;
+                sourceName = slot.name;
+            }
         } else {
-            historyHTML = history.map((item, index) => `
-                <div class="card mb-2">
-                    <div class="card-body py-2">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div class="flex-grow-1">
-                                <div class="d-flex align-items-center">
-                                    <span class="badge bg-primary me-2">#${history.length - index}</span>
-                                    <h6 class="mb-1">${this.escapeHtml(item.title)}</h6>
-                                </div>
-                                <small class="text-muted">
-                                    <i class="fas fa-user"></i> ${this.escapeHtml(item.author)}
-                                    <i class="fas fa-clock ms-2"></i> ${new Date(item.timestamp).toLocaleString()}
-                                    <i class="fas fa-code-branch ms-2"></i> v${item.version}
-                                </small>
-                            </div>
-                            <div class="btn-group btn-group-sm">
-                                <button class="btn btn-outline-primary" 
-                                        onclick='window.SaveLoadManager.loadSpecificCode("${item.id}")'
-                                        title="載入">
-                                    <i class="fas fa-download"></i>
-                                </button>
-                                <button class="btn btn-outline-info"
-                                        onclick='window.SaveLoadManager.previewCode("${item.id}")'
-                                        title="預覽">
-                                    <i class="fas fa-eye"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
+            console.log(`📖 槽位 ${slotId} 不存在或無效`);
         }
 
-        const modalHTML = `
-            <div class="modal fade" id="historyModal" tabindex="-1" aria-labelledby="historyModalLabel" aria-hidden="true">
-                <div class="modal-dialog modal-lg">
-                    <div class="modal-content">
-                        <div class="modal-header bg-warning text-dark">
-                            <h5 class="modal-title" id="historyModalLabel">
-                                <i class="fas fa-history"></i> 程式碼歷史記錄
-                            </h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body">
-                            <!-- 統計信息 -->
-                            <div class="row mb-3">
-                                <div class="col-md-4">
-                                    <div class="card bg-light">
-                                        <div class="card-body text-center py-2">
-                                            <h5 class="text-primary mb-1">${stats.total}</h5>
-                                            <small class="text-muted">總保存次數</small>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="card bg-light">
-                                        <div class="card-body text-center py-2">
-                                            <h5 class="text-success mb-1">${stats.authors}</h5>
-                                            <small class="text-muted">參與人數</small>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="card bg-light">
-                                        <div class="card-body text-center py-2">
-                                            <h5 class="text-info mb-1">${stats.latest}</h5>
-                                            <small class="text-muted">最新版本</small>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- 歷史記錄列表 -->
-                            <div style="max-height: 400px; overflow-y: auto;">
-                                ${historyHTML}
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
-                            ${history.length > 0 ? `
-                                <button type="button" class="btn btn-success" onclick="SaveLoadManager.loadLatestCode()">
-                                    <i class="fas fa-star"></i> 載入最新版本
-                                </button>
-                            ` : ''}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        // 移除舊的模態框
-        const existingModal = document.getElementById('historyModal');
-        if (existingModal) {
-            existingModal.remove();
+        if (codeToLoad) {
+            window.Editor.setCode(codeToLoad);
+            this.showMessage(`✅ 已載入「${sourceName}」`, 'success');
+            console.log(`📖 已載入代碼從「${sourceName}」，共 ${codeToLoad.length} 字符`);
+            
+            // 載入後更新UI
+            setTimeout(() => {
+                this.updateAllDropdownsUI();
+            }, 100);
+        } else {
+            this.showMessage('❌ 該槽位沒有已保存的代碼', 'warning');
+            console.log(`📖 槽位 ${slotId} 未找到可載入的代碼`);
+            
+            // 顯示所有槽位狀態用於調試
+            console.log('📖 當前所有槽位狀態:', this.memorySlots);
         }
-
-        // 添加新的模態框
-        document.body.insertAdjacentHTML('beforeend', modalHTML);
-
-        // 顯示模態框
-        const modal = new bootstrap.Modal(document.getElementById('historyModal'));
-        modal.show();
     }
 
-    // 請求歷史記錄
+    // 請求歷史記錄（簡化版）
     requestHistory(callback) {
-        const requestData = {
-            type: 'get_history',
-            roomId: this.roomId
-        };
-
-        console.log('📚 請求歷史記錄:', requestData);
-
-        // 設置回調函數
-        if(callback) {
-            this.requestedHistoryCallback = callback;
-        }
-
-        if (window.wsManager && window.wsManager.isConnected()) {
-            window.wsManager.sendMessage(requestData);
-        } else {
-            this.showMessage('WebSocket 連接未建立，無法獲取歷史記錄', 'error');
-            if(callback) callback([]);
-        }
-    }
-
-    // 處理來自服務器的消息
-    handleMessage(message) {
-        console.log('💾 SaveLoadManager 收到消息:', message.type);
-
-        switch (message.type) {
-            case 'save_success':
-                this.handleSaveSuccess(message);
-                break;
-            case 'save_error':
-                this.handleSaveError(message);
-                break;
-            case 'code_loaded':
-            case 'load_success':  // 向後兼容
-                this.handleLoadSuccess(message);
-                break;
-            case 'load_error':
-                this.handleLoadError(message);
-                break;
-            case 'history_data':
-                this.handleHistoryData(message);
-                break;
-            case 'code_saved_notification':
-                this.handleCodeSavedNotification(message);
-                break;
-            case 'code_loaded_notification':
-                this.handleCodeLoadedNotification(message);
-                break;
-            case 'slot_deleted':
-                this.handleSlotDeleted(message);
-                break;
-            case 'slot_deleted_notification':
-                this.handleSlotDeletedNotification(message);
-                break;
-        }
-    }
-
-    // 處理保存成功
-    handleSaveSuccess(message) {
-        console.log('✅ 程式碼保存成功:', message);
-        this.showMessage(message.message || `程式碼已成功保存 (版本 ${message.version || '未知'})`, 'success');
-        
-        // 自動刷新歷史紀錄
-        this.requestHistory((history) => {
-            // 如果歷史紀錄對話框是開啟的，就刷新它
-            if (document.getElementById('historyModal')?.classList.contains('show')) {
-                this.displayHistoryDialog(history);
-            }
-             // 你可以在這裡更新下拉選單
-        });
-
-        // 關閉保存對話框
-        const modalElement = document.getElementById('saveCodeModal');
-        if (modalElement) {
-            const modal = bootstrap.Modal.getInstance(modalElement);
-            if (modal) modal.hide();
-        }
-    }
-
-    // 處理保存錯誤
-    handleSaveError(message) {
-        console.error('❌ 程式碼保存失敗:', message);
-        this.showMessage(message.error || '保存程式碼時發生錯誤。', 'error');
-    }
-
-    // 處理載入成功
-    handleLoadSuccess(message) {
-        console.log('✅ 程式碼載入成功:', message);
-        this.showMessage(message.message || `程式碼已成功載入 (版本 ${message.version || '未知'})`, 'success');
-        
-        // 確保編輯器存在並設置代碼
-        if (window.Editor && typeof window.Editor.setCode === 'function' && message.code !== undefined) {
-            window.Editor.setCode(message.code, message.version);
-            console.log('📝 編輯器代碼已更新:', message.code.length, '字符');
-        } else {
-            console.warn('⚠️ 編輯器不可用或代碼為空');
-        }
-        
-        // 關閉所有相關的模態框
-        ['loadCodeModal', 'historyModal', 'codePreviewModal'].forEach(modalId => {
-            const modalElement = document.getElementById(modalId);
-            if (modalElement) {
-                const modal = bootstrap.Modal.getInstance(modalElement);
-                if (modal) modal.hide();
-            }
-        });
-    }
-
-    // 處理載入錯誤
-    handleLoadError(message) {
-        console.error('❌ 程式碼載入失敗:', message);
-        this.showMessage(message.error || '載入程式碼時發生錯誤。', 'error');
-    }
-
-    // 處理歷史數據
-    handleHistoryData(message) {
-        console.log('📜 收到歷史記錄:', message);
-        if (this.requestedHistoryCallback) {
-            this.requestedHistoryCallback(message.history || []);
-            this.requestedHistoryCallback = null; // Reset callback
-        } else {
-            // 如果沒有回調，可以考慮更新一個全局的歷史紀錄列表
-            this.updateHistoryDropdown(message.history || []);
-        }
-    }
-
-    // 處理程式碼保存通知
-    handleCodeSavedNotification(message) {
-        console.log('🔔 其他用戶保存了代碼:', message);
-        const notificationMessage = `${message.userName || message.author || '某位用戶'} 保存了代碼版本 "${message.title || '未命名版本'}"`;
-        this.showMessage(notificationMessage, 'info');
-
-        // 其他用戶保存了，也更新一下歷史列表
-        this.requestHistory();
-    }
-
-    // 處理程式碼載入通知
-    handleCodeLoadedNotification(message) {
-        console.log('🔔 其他用戶載入了代碼:', message);
-        const notificationMessage = `${message.userName || message.author || '某位用戶'} 載入了代碼版本 "${message.title || '未命名版本'}"`;
-        this.showMessage(notificationMessage, 'info');
-    }
-
-    // 處理槽位刪除成功
-    handleSlotDeleted(message) {
-        console.log('✅ 槽位刪除成功:', message);
-        this.showMessage(message.message || `槽位 ${message.slot_id} 已成功刪除`, 'success');
-        
-        // 刷新歷史記錄顯示
-        this.requestHistory((history) => {
-            this.updateHistoryDropdown(history);
-            
-            // 如果保存對話框是開啟的，也刷新槽位信息
-            if (document.getElementById('saveCodeModal')?.classList.contains('show')) {
-                this.loadSlotInfo();
-            }
-        });
-    }
-
-    // 處理槽位刪除通知（其他用戶刪除）
-    handleSlotDeletedNotification(message) {
-        console.log('🔔 其他用戶刪除了槽位:', message);
-        const notificationMessage = `${message.username || '某位用戶'} 刪除了槽位 ${message.slot_id}`;
-        this.showMessage(notificationMessage, 'info');
-        
-        // 刷新歷史記錄顯示
-        this.requestHistory((history) => {
-            this.updateHistoryDropdown(history);
-        });
-    }
-
-    // 計算統計信息
-    calculateStats(history) {
-        const authors = new Set(history.map(item => item.author));
-        const latestVersion = Math.max(...history.map(item => item.version), 0);
-        
-        return {
-            total: history.length,
-            authors: authors.size,
-            latest: latestVersion
-        };
+        console.log("📜 使用內存模式，跳過歷史記錄請求");
+        // 直接返回空數據，避免 API 調用
+        if (callback) callback([]);
     }
 
     // HTML 轉義
@@ -1144,98 +588,60 @@ class SaveLoadManager {
         return div.innerHTML;
     }
 
+    // 更新歷史記錄下拉選單
     updateHistoryDropdown(history) {
-        const dropdownMenu = document.getElementById('loadCodeOptions');
-        if (!dropdownMenu) {
-            console.warn('未找到歷史紀錄下拉選單 (loadCodeOptions)');
+        console.log('📋 更新歷史記錄下拉選單', history);
+        
+        // 查找歷史記錄下拉選單元素
+        const historySelect = document.getElementById('historySelect');
+        if (!historySelect) {
+            console.log('📋 未找到歷史記錄下拉選單元素');
             return;
         }
-
-        // 保留載入選項的頭部
-        const headerHTML = `
-            <li><h6 class="dropdown-header">載入選項</h6></li>
-            <li><a class="dropdown-item" href="#" onclick="globalLoadCode('latest')">
-                <i class="fas fa-sync-alt text-success"></i> 載入最新
-            </a></li>
-            <li><hr class="dropdown-divider"></li>
-            <li><h6 class="dropdown-header">保存槽位 (5槽位系統)</h6></li>
-        `;
-
-        dropdownMenu.innerHTML = headerHTML;
-
+        
+        // 清空現有選項
+        historySelect.innerHTML = '<option value="">選擇歷史記錄...</option>';
+        
+        // 如果沒有歷史記錄，顯示提示
         if (!history || history.length === 0) {
-            dropdownMenu.innerHTML += '<li><span class="dropdown-item-text text-muted">尚無保存記錄</span></li>';
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = '暫無歷史記錄';
+            option.disabled = true;
+            historySelect.appendChild(option);
             return;
         }
-
-        // 移除空歷史消息（如果存在）
-        const emptyMessage = document.getElementById('historyEmptyMessage');
-        if (emptyMessage) {
-            emptyMessage.remove();
-        }
-
-        // 顯示5個槽位
-        history.forEach(item => {
-            const li = document.createElement('li');
-            const a = document.createElement('a');
-            a.className = 'dropdown-item';
-            a.href = '#';
+        
+        // 添加歷史記錄選項
+        history.forEach((item, index) => {
+            const option = document.createElement('option');
+            option.value = index;
             
-            const slotId = item.slot_id;
-            const isEmpty = item.is_empty;
-            const saveName = item.save_name || `記錄 ${slotId}`;
+            // 格式化顯示文本
+            const timestamp = item.timestamp ? new Date(item.timestamp).toLocaleString() : '未知時間';
+            const title = item.title || `記錄 ${index + 1}`;
+            const author = item.author || '未知作者';
             
-            if (isEmpty) {
-                // 空槽位
-                a.innerHTML = `
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div class="text-muted">
-                            <span class="badge bg-secondary me-2">槽位 ${slotId}</span>
-                            ${slotId === 0 ? '最新 (空)' : saveName + ' (空)'}
-                        </div>
-                        <small class="text-muted">空槽位</small>
-                    </div>
-                `;
-                a.classList.add('disabled');
-            } else {
-                // 有內容的槽位
-                a.innerHTML = `
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                            <span class="badge ${slotId === 0 ? 'bg-primary' : 'bg-info'} me-2">槽位 ${slotId}</span>
-                            ${this.escapeHtml(saveName)}
-                            <br>
-                            <small class="text-muted">
-                                <i class="fas fa-user"></i> ${this.escapeHtml(item.username || '未知')}
-                                <i class="fas fa-clock ms-2"></i> ${new Date(item.created_at).toLocaleString()}
-                            </small>
-                        </div>
-                    </div>
-                `;
-                
-                a.onclick = (e) => {
-                    e.preventDefault();
-                    this.loadSpecificCode(slotId);
-                };
-            }
-            
-            li.appendChild(a);
-            dropdownMenu.appendChild(li);
+            option.textContent = `${title} - ${author} (${timestamp})`;
+            historySelect.appendChild(option);
         });
-
-        console.log(`📚 更新歷史下拉選單，顯示5個槽位`);
     }
 }
 
-// 創建全域實例
-window.SaveLoadManager = new SaveLoadManager();
+// 創建全局實例
+const saveLoadManagerInstance = new SaveLoadManager();
 
-document.addEventListener('DOMContentLoaded', () => {
-    // 頁面載入後，如果已在房間，可以嘗試獲取一次歷史紀錄
-    if (window.wsManager && window.wsManager.isConnected() && window.wsManager.roomId) {
-        window.SaveLoadManager.init(window.wsManager.currentUser, window.wsManager.roomId);
-        window.SaveLoadManager.requestHistory();
+// 確保全局訪問
+if (typeof window !== 'undefined') {
+    window.SaveLoadManager = saveLoadManagerInstance;
+    
+    // 確保在頁面載入完成後初始化
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            window.SaveLoadManager = saveLoadManagerInstance;
+            console.log('✅ SaveLoadManager 在DOM載入後重新綁定');
+        });
     }
-});
+}
 
 console.log('✅ SaveLoadManager 模組載入完成'); 

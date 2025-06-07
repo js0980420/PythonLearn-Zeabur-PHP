@@ -54,12 +54,10 @@ class Database {
         
         foreach ($xamppPaths as $path) {
             if (file_exists($path)) {
-                echo "   ✅ 偵測到 XAMPP 安裝: $path\n";
                 return 'localhost'; // XAMPP 固定使用 localhost
             }
         }
         
-        echo "   ⚠️ 未偵測到 XAMPP，使用預設 localhost\n";
         return 'localhost'; // 預設值
     }
     
@@ -70,22 +68,12 @@ class Database {
         // 智能端口檢測：優先避免與系統MySQL衝突
         $xamppPorts = [3307, 3308, 3309, 3306]; // 3306最後嘗試
         
-        echo "   🔍 智能掃描 MySQL 端口（避免系統衝突）...\n";
         foreach ($xamppPorts as $port) {
             if ($this->testMySQLPort('localhost', $port)) {
-                echo "   ✅ 發現可用的 MySQL 端口: $port\n";
-                if ($port == 3306) {
-                    echo "   ⚠️ 使用標準端口 3306 (可能是系統MySQL)\n";
-                } else {
-                    echo "   🎯 使用 XAMPP 專用端口: $port (避免衝突)\n";
-                }
                 return $port;
-            } else {
-                echo "   ❌ 端口 $port 無響應\n";
             }
         }
         
-        echo "   ⚠️ 所有端口掃描失敗，使用預設 3307 (XAMPP推薦)\n";
         return 3307; // 預設使用3307，這是常見的XAMPP替代端口
     }
     
@@ -133,18 +121,12 @@ class Database {
             ];
         }
         
-        echo "   🔐 嘗試常見密碼組合...\n";
         foreach ($commonPasswords as $password) {
-            $passwordDisplay = empty($password) ? '(空密碼)' : $password;
-            echo "   🔑 嘗試密碼: $passwordDisplay\n";
-            
             if ($this->testMySQLCredentials($host, $port, 'root', $password)) {
-                echo "   ✅ 認證成功: $passwordDisplay\n";
                 return $password;
             }
         }
         
-        echo "   ❌ 所有密碼嘗試失敗\n";
         return ''; // 預設空密碼
     }
     
@@ -181,22 +163,15 @@ class Database {
      * 初始化資料庫連接
      */
     private function initializeConnection() {
-        // 記錄到日誌而不是輸出到響應
-        error_log("正在初始化資料庫連接...");
-        
-        // 優先嘗試 MySQL 連接
-        error_log("MySQL 連接嘗試: {$this->dbConfig['mysql']['host']}:{$this->dbConfig['mysql']['port']}");
+        // 靜默初始化，避免輸出干擾WebSocket
         
         // 執行多階段 MySQL 連接測試
         if ($this->attemptMySQLConnection()) {
             $this->isMySQL = true;
             $this->initializeMySQLTables();
-            error_log("MySQL 模式已啟用");
         } else {
-            error_log("MySQL 連接失敗，啟用 SQLite 降級模式");
             $this->connectToSQLite();
             $this->initializeSQLiteTables();
-            error_log("SQLite 模式已啟用");
         }
     }
     

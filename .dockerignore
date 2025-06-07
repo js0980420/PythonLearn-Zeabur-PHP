@@ -1,39 +1,31 @@
+# Docker 構建忽略文件
+# 減少構建上下文大小，提高構建速度
+
 # Git 相關
 .git
 .gitignore
 
 # 開發工具
-.cursor
 .vscode
+.cursor
+*.mdc
 
-# 日誌檔案
+# 日誌和臨時文件
 *.log
-logs/
-
-# 臨時檔案
 *.tmp
+logs/
 temp/
+storage/
 
-# 測試檔案
+# 測試文件
 test-*
 *test*
 debug_*
 
-# 文檔檔案
+# 文檔和指南
 *.md
 指南/
-
-# 本地配置
-.env
-ai_config.json
-
-# 系統檔案
-.DS_Store
-Thumbs.db
-
-# 備份檔案
-*.bak
-*.backup
+*.png
 
 # 開發腳本
 *.bat
@@ -41,12 +33,38 @@ Thumbs.db
 *.sh
 start*
 stop*
-launch*
-manage-*
-setup-*
+manage*
 
-# PHP 開發檔案
-php/
+# Composer 依賴 (讓 Docker 重新安裝)
+vendor/
+
+# Composer 開發依賴
+vendor/phpunit/
+vendor/bin/
+
+# 系統文件
+.DS_Store
+Thumbs.db
+
+# 備份文件
+*.bak
+*.backup
+
+# IDE 文件
+*.swp
+*.swo
+*~
+
+# 環境配置
+.env
+.env.*
+config.env
 
 # 其他 Dockerfile
-Dockerfile.* 
+Dockerfile
+Dockerfile.caddy
+
+# 部署相關
+zeabur.json
+supervisor.conf
+Caddyfile 

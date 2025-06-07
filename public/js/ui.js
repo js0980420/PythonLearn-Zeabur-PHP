@@ -24,6 +24,7 @@ class UIManager {
     // 加入房間
     joinRoom() {
         const roomInput = document.getElementById('roomInput');
+        const roomSelect = document.getElementById('roomSelect');
         const nameInput = document.getElementById('nameInput');
         const loginSection = document.getElementById('loginSection');
         const workspaceSection = document.getElementById('workspaceSection');
@@ -36,7 +37,14 @@ class UIManager {
             return;
         }
 
-        const roomName = roomInput.value.trim();
+        // 使用新的房間選擇功能獲取房間名稱
+        let roomName;
+        if (typeof getCurrentRoomName === 'function') {
+            roomName = getCurrentRoomName();
+        } else {
+            roomName = roomInput.value.trim();
+        }
+
         const userName = nameInput.value.trim();
         
         if (!roomName || !userName) {
@@ -490,19 +498,21 @@ function clearOutput() {
 // 新增缺失的全域函數
 function globalSaveToSlot(slotId) {
     console.log(`🎯 globalSaveToSlot 被調用，槽位: ${slotId}`);
-    if (window.SaveLoadManager) {
-        window.SaveLoadManager.selectSlot(slotId);
+    if (window.SaveLoadManager && typeof window.SaveLoadManager.saveToSlot === 'function') {
+        window.SaveLoadManager.saveToSlot(slotId);
     } else {
-        console.error('SaveLoadManager not ready');
+        console.error('SaveLoadManager not ready or saveToSlot method missing');
     }
 }
 
 function globalLoadCode(loadType) {
     console.log(`🎯 globalLoadCode 被調用，類型: ${loadType}`);
-    if (window.Editor && typeof window.Editor.loadCode === 'function') {
+    if (window.SaveLoadManager && typeof window.SaveLoadManager.loadCode === 'function') {
+        window.SaveLoadManager.loadCode(loadType);
+    } else if (window.Editor && typeof window.Editor.loadCode === 'function') {
         window.Editor.loadCode(loadType);
     } else {
-        console.error('Editor not ready or loadCode method missing');
+        console.error('SaveLoadManager and Editor not ready or loadCode method missing');
     }
 }
 
@@ -687,11 +697,13 @@ function globalLeaveRoom() {
     }
 }
 
-function globalSaveCode() {
-    console.log('🎯 globalSaveCode 被調用');
-    if (window.Editor && typeof window.Editor.saveCode === 'function') {
-        window.Editor.saveCode();
+function globalSaveCode(isAutoSave = false) {
+    console.log(`🎯 globalSaveCode 被調用，自動保存: ${isAutoSave}`);
+    if (window.SaveLoadManager && typeof window.SaveLoadManager.saveCode === 'function') {
+        window.SaveLoadManager.saveCode();
+    } else if (window.Editor && typeof window.Editor.saveCode === 'function') {
+        window.Editor.saveCode(isAutoSave);
     } else {
-        console.error('Editor not ready or saveCode method missing');
+        console.error('SaveLoadManager and Editor not ready or saveCode method missing');
     }
 }

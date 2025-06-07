@@ -1,0 +1,7 @@
+{
+    "name": "class-2",
+    "code": "# 第二班 - 物件導向練習\nclass Student:\n    def __init__(self, name, age):\n        self.name = name\n        self.age = age\n        self.grades = []\n    \n    def add_grade(self, grade):\n        self.grades.append(grade)\n    \n    def get_average(self):\n        if not self.grades:\n            return 0\n        return sum(self.grades) / len(self.grades)\n    \n    def __str__(self):\n        return f'學生: {self.name}, 年齡: {self.age}'\n\n# 創建學生物件\nstudent1 = Student('小王', 17)\nstudent1.add_grade(85)\nstudent1.add_grade(92)\nstudent1.add_grade(78)\n\nprint(student1)\nprint(f'平均成績: {student1.get_average():.2f}')",
+    "version": 1,
+    "created_at": "2025-06-07T21:45:00Z",
+    "last_activity": 1733687700
+} 

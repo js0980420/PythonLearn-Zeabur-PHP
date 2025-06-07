@@ -1,0 +1,13 @@
+RewriteEngine On
+
+# API 路由重寫
+RewriteRule ^api/auth$ api/auth.php [L]
+RewriteRule ^api/history$ api/history.php [L]
+
+# 其他靜態文件直接提供
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.html [L]
+
+# Apache重寫規則 (僅供參考，PHP內建服務器不支援)
+RewriteRule ^api/(.*)$ api/$1.php [L] 

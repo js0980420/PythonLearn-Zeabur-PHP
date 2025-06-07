@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高級衝突檢測系統測試</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .test-container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+        
+        .scenario-card {
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .scenario-card:hover {
+            border-color: #007bff;
+            box-shadow: 0 5px 15px rgba(0,123,255,0.2);
+        }
+        
+        .scenario-card.active {
+            border-color: #28a745;
+            background-color: #f8fff9;
+        }
+        
+        .log-area {
+            background: #1a202c;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 8px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        
+        .status-ready { background-color: #28a745; }
+        .status-testing { background-color: #ffc107; }
+        .status-error { background-color: #dc3545; }
+        
+        .user-simulator {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .conflict-preview {
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 0 8px 8px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-12">
+                <div class="test-container">
+                    <h1 class="text-center mb-4">
+                        <i class="fas fa-shield-alt text-primary"></i>
+                        高級衝突檢測系統測試
+                    </h1>
+                    
+                    <!-- 系統狀態 -->
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h6>系統狀態</h6>
+                                    <span class="status-indicator" id="systemStatus"></span>
+                                    <span id="systemStatusText">初始化中...</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h6>WebSocket連接</h6>
+                                    <span class="status-indicator" id="wsStatus"></span>
+                                    <span id="wsStatusText">未連接</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h6>衝突檢測器</h6>
+                                    <span class="status-indicator" id="detectorStatus"></span>
+                                    <span id="detectorStatusText">未就緒</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 用戶模擬器 -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="user-simulator">
+                                <h6><i class="fas fa-user-edit"></i> 主改方 (Alex Wang)</h6>
+                                <div class="mb-2">
+                                    <label class="form-label">當前代碼:</label>
+                                    <textarea class="form-control" id="mainUserCode" rows="4" placeholder="主改方的代碼...">
+# Python 學習範例
+print("Hello, World!")
+x = 10
+y = 20
+print(f"x + y = {x + y}")
+                                    </textarea>
+                                </div>
+                                <button class="btn btn-primary btn-sm" onclick="setAsMainEditor()">
+                                    <i class="fas fa-crown"></i> 設為主改方
+                                </button>
+                                <button class="btn btn-success btn-sm" onclick="simulateCodeChange()">
+                                    <i class="fas fa-edit"></i> 模擬代碼變更
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="user-simulator">
+                                <h6><i class="fas fa-users"></i> 其他協作者</h6>
+                                <div class="mb-2">
+                                    <label class="form-label">協作者代碼:</label>
+                                    <textarea class="form-control" id="otherUserCode" rows="4" placeholder="其他用戶的代碼...">
+# Python 學習範例 - 修改版
+print("Hello, Python!")
+x = 15
+y = 25
+print(f"結果: {x + y}")
+                                    </textarea>
+                                </div>
+                                <button class="btn btn-info btn-sm" onclick="addCollaborator()">
+                                    <i class="fas fa-user-plus"></i> 添加協作者
+                                </button>
+                                <button class="btn btn-warning btn-sm" onclick="simulateConflict()">
+                                    <i class="fas fa-exclamation-triangle"></i> 模擬衝突
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 測試場景 -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h5><i class="fas fa-flask"></i> 測試場景</h5>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="scenario-card" onclick="testScenario('paste')">
+                                        <h6><i class="fas fa-clipboard"></i> 大量貼上操作</h6>
+                                        <p class="text-muted mb-0">模擬用戶貼上大量代碼的情況</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="scenario-card" onclick="testScenario('import')">
+                                        <h6><i class="fas fa-download"></i> 導入操作</h6>
+                                        <p class="text-muted mb-0">模擬用戶導入外部代碼的情況</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="scenario-card" onclick="testScenario('mass_delete')">
+                                        <h6><i class="fas fa-trash"></i> 大量刪除</h6>
+                                        <p class="text-muted mb-0">模擬用戶刪除大量代碼的情況</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="scenario-card" onclick="testScenario('same_line')">
+                                        <h6><i class="fas fa-code"></i> 同行衝突</h6>
+                                        <p class="text-muted mb-0">模擬多用戶修改同一行代碼</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 衝突解決選項測試 -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h5><i class="fas fa-tools"></i> 衝突解決選項測試</h5>
+                            <div class="btn-group" role="group">
+                                <button class="btn btn-danger" onclick="testResolution('force')">
+                                    <i class="fas fa-bolt"></i> 強制修改
+                                </button>
+                                <button class="btn btn-primary" onclick="testResolution('vote')">
+                                    <i class="fas fa-vote-yea"></i> 投票系統
+                                </button>
+                                <button class="btn btn-info" onclick="testResolution('chat')">
+                                    <i class="fas fa-comments"></i> 聊天討論
+                                </button>
+                                <button class="btn btn-success" onclick="testResolution('ai')">
+                                    <i class="fas fa-robot"></i> AI協助
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 衝突預覽 -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h5><i class="fas fa-eye"></i> 衝突預覽</h5>
+                            <div class="conflict-preview" id="conflictPreview">
+                                <p class="mb-0 text-muted">選擇測試場景以查看衝突預覽...</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 測試日誌 -->
+                    <div class="row">
+                        <div class="col-12">
+                            <h5><i class="fas fa-terminal"></i> 測試日誌</h5>
+                            <div class="log-area" id="testLog"></div>
+                            <div class="mt-2">
+                                <button class="btn btn-secondary btn-sm" onclick="clearLog()">
+                                    <i class="fas fa-broom"></i> 清空日誌
+                                </button>
+                                <button class="btn btn-info btn-sm" onclick="exportLog()">
+                                    <i class="fas fa-download"></i> 導出日誌
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- 高級衝突檢測器 -->
+    <script src="js/advanced-conflict-detector.js"></script>
+    
+    <script>
+        // 測試系統狀態
+        let testState = {
+            systemReady: false,
+            wsConnected: false,
+            detectorReady: false,
+            isMainEditor: false,
+            collaborators: [],
+            currentScenario: null
+        };
+        
+        // 日誌函數
+        function log(message, type = 'info') {
+            const logArea = document.getElementById('testLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            
+            const typeColors = {
+                info: '#4299e1',
+                success: '#48bb78',
+                warning: '#ed8936',
+                error: '#f56565'
+            };
+            
+            logEntry.innerHTML = `
+                <span style="color: #a0aec0;">[${timestamp}]</span>
+                <span style="color: ${typeColors[type] || typeColors.info};">${message}</span>
+            `;
+            
+            logArea.appendChild(logEntry);
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+        
+        // 更新狀態指示器
+        function updateStatus(element, status, text) {
+            const indicator = document.getElementById(element);
+            const textElement = document.getElementById(element + 'Text');
+            
+            indicator.className = 'status-indicator status-' + status;
+            textElement.textContent = text;
+        }
+        
+        // 初始化系統
+        function initializeSystem() {
+            log('🚀 開始初始化高級衝突檢測測試系統...', 'info');
+            
+            // 檢查 AdvancedConflictDetector
+            if (window.AdvancedConflictDetector) {
+                testState.detectorReady = true;
+                updateStatus('detectorStatus', 'ready', '已就緒');
+                log('✅ AdvancedConflictDetector 已載入', 'success');
+                
+                // 設為主改方
+                testState.isMainEditor = true;
+                window.AdvancedConflictDetector.setMainEditor(true);
+                log('👑 已設置為主改方', 'success');
+                
+                // 添加模擬協作者
+                testState.collaborators = [
+                    { username: '學生123', userId: '學生123', isActive: true },
+                    { username: '學生456', userId: '學生456', isActive: true }
+                ];
+                log('👥 已添加模擬協作者', 'info');
+                
+            } else {
+                updateStatus('detectorStatus', 'error', '未載入');
+                log('❌ AdvancedConflictDetector 未找到', 'error');
+            }
+            
+            // 模擬 WebSocket 連接
+            setTimeout(() => {
+                testState.wsConnected = true;
+                updateStatus('wsStatus', 'ready', '已連接');
+                log('✅ WebSocket 連接模擬成功', 'success');
+                
+                // 系統就緒
+                testState.systemReady = true;
+                updateStatus('systemStatus', 'ready', '系統就緒');
+                log('🎯 測試系統初始化完成', 'success');
+            }, 1000);
+        }
+        
+        // 設為主改方
+        function setAsMainEditor() {
+            if (!testState.detectorReady) {
+                log('❌ 衝突檢測器未就緒', 'error');
+                return;
+            }
+            
+            testState.isMainEditor = true;
+            window.AdvancedConflictDetector.setMainEditor(true);
+            log('👑 已設置為主改方', 'success');
+        }
+        
+        // 添加協作者
+        function addCollaborator() {
+            const collaboratorName = `學生${Math.floor(Math.random() * 1000)}`;
+            testState.collaborators.push({
+                username: collaboratorName,
+                userId: collaboratorName,
+                isActive: true
+            });
+            log(`👤 添加協作者: ${collaboratorName}`, 'info');
+        }
+        
+        // 模擬代碼變更
+        function simulateCodeChange() {
+            if (!testState.detectorReady) {
+                log('❌ 衝突檢測器未就緒', 'error');
+                return;
+            }
+            
+            const oldCode = document.getElementById('mainUserCode').value;
+            const newCode = oldCode + '\n# 新增的代碼\nprint("新功能")';
+            
+            document.getElementById('mainUserCode').value = newCode;
+            
+            // 更新代碼快照
+            window.AdvancedConflictDetector.updateCodeSnapshot(newCode);
+            log('📝 模擬代碼變更完成', 'info');
+        }
+        
+        // 模擬衝突
+        function simulateConflict() {
+            if (!testState.isMainEditor) {
+                log('⚠️ 請先設置為主改方', 'warning');
+                return;
+            }
+            
+            if (testState.collaborators.length === 0) {
+                log('⚠️ 請先添加協作者', 'warning');
+                return;
+            }
+            
+            const oldCode = window.AdvancedConflictDetector.lastCodeSnapshot || '';
+            const newCode = document.getElementById('mainUserCode').value;
+            
+            // 檢測衝突
+            const shouldTrigger = window.AdvancedConflictDetector.shouldTriggerConflictWarning(
+                oldCode, newCode, testState.collaborators
+            );
+            
+            if (shouldTrigger) {
+                const changeInfo = window.AdvancedConflictDetector.detectChangeType(oldCode, newCode);
+                window.AdvancedConflictDetector.showMainEditorConflictWarning(changeInfo, testState.collaborators);
+                log('🚨 衝突警告已觸發', 'warning');
+            } else {
+                log('ℹ️ 未檢測到需要警告的衝突', 'info');
+            }
+        }
+        
+        // 測試場景
+        function testScenario(scenario) {
+            // 移除之前的活躍狀態
+            document.querySelectorAll('.scenario-card').forEach(card => {
+                card.classList.remove('active');
+            });
+            
+            // 設置當前場景為活躍
+            event.target.closest('.scenario-card').classList.add('active');
+            testState.currentScenario = scenario;
+            
+            log(`🧪 開始測試場景: ${scenario}`, 'info');
+            
+            let oldCode = '# 原始代碼\nprint("Hello")';
+            let newCode = '';
+            let description = '';
+            
+            switch (scenario) {
+                case 'paste':
+                    newCode = oldCode + `
+# 大量貼上的代碼
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+def complex_function():
+    data = np.random.randn(1000)
+    df = pd.DataFrame(data, columns=['values'])
+    plt.figure(figsize=(10, 6))
+    plt.hist(df['values'], bins=50)
+    plt.title('Random Data Distribution')
+    plt.show()
+    return df
+
+result = complex_function()
+print(result.describe())`;
+                    description = '檢測到大量貼上操作 (超過100字符)';
+                    break;
+                    
+                case 'import':
+                    newCode = `import tensorflow as tf
+import keras
+from sklearn import datasets
+${oldCode}`;
+                    description = '檢測到導入操作 (包含import語句)';
+                    break;
+                    
+                case 'mass_delete':
+                    newCode = '# 只剩這一行';
+                    description = '檢測到大量刪除操作 (代碼減少50%以上)';
+                    break;
+                    
+                case 'same_line':
+                    // 模擬同行衝突
+                    const myCode = 'print("我的版本")';
+                    const otherCode = 'print("其他人的版本")';
+                    window.AdvancedConflictDetector.updateCodeSnapshot('print("原始版本")');
+                    const conflicts = window.AdvancedConflictDetector.detectSameLineConflict(
+                        myCode, otherCode, { username: '學生123' }
+                    );
+                    description = conflicts ? '檢測到同行衝突' : '未檢測到同行衝突';
+                    log(`🔍 同行衝突檢測結果: ${conflicts ? '有衝突' : '無衝突'}`, conflicts ? 'warning' : 'info');
+                    return;
+            }
+            
+            // 執行檢測
+            window.AdvancedConflictDetector.updateCodeSnapshot(oldCode);
+            const changeInfo = window.AdvancedConflictDetector.detectChangeType(oldCode, newCode);
+            log(`📊 變更分析: 類型=${changeInfo.type}, 嚴重性=${changeInfo.severity}, 影響行數=${changeInfo.affectedLines.length}`, 'info');
+            
+            if (testState.isMainEditor && testState.collaborators.length > 0) {
+                const shouldTrigger = window.AdvancedConflictDetector.shouldTriggerConflictWarning(
+                    oldCode, newCode, testState.collaborators
+                );
+                
+                if (shouldTrigger) {
+                    setTimeout(() => {
+                        window.AdvancedConflictDetector.showMainEditorConflictWarning(changeInfo, testState.collaborators);
+                    }, 500);
+                    log('🚨 衝突警告已觸發', 'warning');
+                } else {
+                    log('ℹ️ 未達到衝突警告閾值', 'info');
+                }
+            }
+        }
+        
+        // 測試解決方案
+        function testResolution(type) {
+            log(`🔧 測試解決方案: ${type}`, 'info');
+            
+            // 創建模擬的衝突數據
+            const mockConflictData = {
+                type: 'paste',
+                severity: 'high',
+                affectedLines: 10,
+                otherUsers: testState.collaborators,
+                timestamp: Date.now()
+            };
+            
+            switch (type) {
+                case 'force':
+                    log('⚡ 執行強制修改...', 'warning');
+                    // 模擬強制修改
+                    setTimeout(() => {
+                        log('✅ 強制修改已完成', 'success');
+                    }, 1000);
+                    break;
+                    
+                case 'vote':
+                    log('🗳️ 啟動投票系統...', 'info');
+                    // 模擬投票
+                    setTimeout(() => {
+                        log('📊 投票請求已發送給協作者', 'info');
+                        setTimeout(() => {
+                            log('✅ 投票通過，修改已應用', 'success');
+                        }, 2000);
+                    }, 1000);
+                    break;
+                    
+                case 'chat':
+                    log('💬 分享到聊天室...', 'info');
+                    setTimeout(() => {
+                        log('📤 衝突信息已分享到聊天室', 'success');
+                    }, 500);
+                    break;
+                    
+                case 'ai':
+                    log('🤖 請求AI協助...', 'info');
+                    setTimeout(() => {
+                        log('🧠 AI分析中...', 'info');
+                        setTimeout(() => {
+                            log('💡 AI建議: 建議保留兩個版本的功能，並進行合併', 'success');
+                        }, 2000);
+                    }, 1000);
+                    break;
+            }
+        }
+        
+        // 清空日誌
+        function clearLog() {
+            document.getElementById('testLog').innerHTML = '';
+            log('🧹 日誌已清空', 'info');
+        }
+        
+        // 導出日誌
+        function exportLog() {
+            const logContent = document.getElementById('testLog').textContent;
+            const blob = new Blob([logContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `conflict-test-log-${new Date().toISOString().slice(0, 19)}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+            log('📥 日誌已導出', 'success');
+        }
+        
+        // 頁面載入完成後初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            log('📄 頁面載入完成', 'info');
+            initializeSystem();
+        });
+    </script>
+</body>
+</html> 

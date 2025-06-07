@@ -18,6 +18,24 @@ class EditorManager {
 
     // 初始化 CodeMirror 編輯器
     initialize() {
+        console.log('🔧 開始初始化編輯器...');
+        
+        // 檢查 CodeMirror 是否可用
+        if (typeof CodeMirror === 'undefined') {
+            console.error('❌ CodeMirror 未定義，無法初始化編輯器');
+            return;
+        }
+        
+        // 檢查 textarea 元素是否存在
+        const textareaElement = document.getElementById('codeEditor');
+        if (!textareaElement) {
+            console.error('❌ 找不到 codeEditor textarea 元素');
+            return;
+        }
+        
+        console.log('✅ 找到 textarea 元素:', textareaElement);
+        
+        try {
         this.editor = CodeMirror.fromTextArea(document.getElementById('codeEditor'), {
             mode: 'python',
             theme: 'default',
@@ -26,6 +44,8 @@ class EditorManager {
             autoCloseBrackets: true,
             matchBrackets: true,
             lineWrapping: true,
+            readOnly: false,
+            autofocus: true,
             extraKeys: {
                 "Ctrl-S": (cm) => {
                     this.saveCode();
@@ -42,6 +62,25 @@ class EditorManager {
                 "Cmd-/": "toggleComment"
             }
         });
+        
+        if (!this.editor) {
+            console.error('❌ CodeMirror 編輯器創建失敗');
+            return;
+        }
+        
+        console.log('✅ CodeMirror 編輯器創建成功');
+        
+        // 手動刷新編輯器，確保正確渲染
+        setTimeout(() => {
+            this.editor.refresh();
+            this.editor.focus();
+            console.log('🔄 編輯器已刷新並獲得焦點');
+        }, 100);
+        
+        } catch (error) {
+            console.error('❌ 編輯器初始化過程中發生錯誤:', error);
+            return;
+        }
 
         // 動態設置編輯器樣式
         this.setupEditorStyles();
@@ -52,6 +91,9 @@ class EditorManager {
         // 設置自動保存 - 5分鐘一次
         this.setupAutoSave();
         
+        // 初始化高級衝突檢測
+        this.initializeAdvancedConflictDetection();
+        
         // 載入歷史記錄
         this.loadHistoryFromStorage();
         
@@ -60,6 +102,9 @@ class EditorManager {
         
         // 設置代碼變更時自動保存到localStorage
         this.setupAutoCodeSave();
+
+        // 測試編輯器是否正常工作
+        this.testEditor();
 
         console.log('✅ 編輯器初始化完成');
     }
@@ -83,6 +128,8 @@ class EditorManager {
             border: 1px solid #ddd !important;
             background: #FFFFFF !important; /* 強制白色背景 */
             color: #333333 !important; /* 預設深色文字 */
+            pointer-events: auto !important; /* 確保可以點擊和輸入 */
+            user-select: text !important; /* 確保可以選擇文字 */
         `;
         
         // 設置行號區域樣式
@@ -185,68 +232,54 @@ class EditorManager {
         console.log('✅ 代碼變更自動保存已設置');
     }
 
-    // 保存代碼
+    // 保存代碼（簡化版 - 直接保存到最新）
     saveCode(isAutoSave = false) {
-        if (!wsManager.isConnected()) {
-            UI.showErrorToast("無法保存代碼：請先加入房間。");
-            return;
-        }
-        
         const code = this.editor.getValue();
-
-        // 如果是自動保存，直接保存到槽位0（最新）
-        if (isAutoSave) {
-            const now = new Date();
-            const autoSaveName = `自動保存 ${now.toLocaleString('zh-TW', { hour12: false })}`;
-            
-            this.saveToHistory(code, autoSaveName);
-
-            wsManager.sendMessage({
-                type: 'save_code',
-                room_id: wsManager.currentRoom,
-                user_id: wsManager.currentUser,
-                code: code,
-                save_name: autoSaveName,
-                slot_id: 0 // 自動保存到槽位0
-            });
-
-            this.resetEditingState();
-            console.log('🔄 自動保存到槽位0: ' + autoSaveName);
+        
+        if (!code || code.trim() === '') {
+            UI.showErrorToast('程式碼內容為空，無法保存');
             return;
         }
 
-        // 手動保存：顯示5槽位選擇對話框
+        // 使用 SaveLoadManager 保存到最新
         if (window.SaveLoadManager) {
-            // 先保存到本地歷史記錄
-            const now = new Date();
-            const tempName = `手動保存 ${now.toLocaleString('zh-TW', { hour12: false })}`;
-            this.saveToHistory(code, tempName);
-            
-            // 顯示槽位選擇對話框
-            window.SaveLoadManager.displaySaveSlotDialog();
-            this.resetEditingState();
+            window.SaveLoadManager.saveToLatest(code);
         } else {
-            // 回退方案：使用舊的prompt方式
-            let name = prompt("請為您的代碼版本命名 (留空則自動命名): ");
-            if (name === null) {
-                console.log("用戶取消保存操作。");
-                return;
+            // 備用方案：直接保存到 localStorage
+            try {
+                localStorage.setItem('python_code_latest', code);
+                localStorage.setItem('python_code_latest_timestamp', Date.now().toString());
+                UI.showSuccessToast('✅ 代碼已保存到最新版本');
+                console.log('💾 代碼已保存到最新版本');
+            } catch (error) {
+                console.error('保存失敗:', error);
+                UI.showErrorToast('❌ 保存失敗: ' + error.message);
             }
-            
-            const customName = name.trim() || `手動保存 ${new Date().toLocaleString('zh-TW', { hour12: false })}`;
-            this.saveToHistory(code, customName);
+        }
 
+        // 保存到本地歷史記錄
+        const now = new Date();
+        const saveName = isAutoSave ? 
+            `自動保存 ${now.toLocaleString('zh-TW', { hour12: false })}` :
+            `手動保存 ${now.toLocaleString('zh-TW', { hour12: false })}`;
+        
+        this.saveToHistory(code, saveName);
+
+        // 如果有 WebSocket 連接，也同步到服務器
+        if (wsManager.isConnected() && wsManager.currentRoom) {
             wsManager.sendMessage({
                 type: 'save_code',
                 room_id: wsManager.currentRoom,
                 user_id: wsManager.currentUser,
                 code: code,
-                save_name: customName
+                save_name: saveName,
+                slot_id: 0 // 保存到槽位0（最新）
             });
-
-            this.resetEditingState();
-            UI.showSuccessToast(`代碼已保存: ${customName}`);
+            console.log('📤 同時同步到服務器');
         }
+
+        this.resetEditingState();
+        console.log(`🔄 ${saveName}`);
     }
 
     // 重置編輯狀態
@@ -290,30 +323,36 @@ class EditorManager {
         }
     }
 
-    // 載入 - 修改為智能載入最新版本
+    // 載入最新代碼（簡化版）
     loadCode(loadType = 'latest') {
-        if (!wsManager.isConnected()) {
-            UI.showErrorToast('未連接到服務器，無法載入');
-            return;
+        console.log(`📖 載入代碼: ${loadType}`);
+        
+        // 使用 SaveLoadManager 載入
+        if (window.SaveLoadManager) {
+            window.SaveLoadManager.loadCode(loadType);
+        } else {
+            // 備用方案：從 localStorage 載入
+            const savedCode = localStorage.getItem('python_code_latest');
+            if (savedCode) {
+                this.editor.setValue(savedCode);
+                UI.showSuccessToast('✅ 已載入最新版本（本地存儲）');
+                console.log('📖 已從 localStorage 載入最新代碼');
+            } else {
+                UI.showErrorToast('❌ 沒有找到可載入的代碼');
+                console.log('📖 未找到可載入的代碼');
+            }
         }
-        
-        if (!wsManager.currentRoom) {
-            UI.showErrorToast('請先加入房間');
-            return;
+
+        // 如果有 WebSocket 連接，也嘗試從服務器載入
+        if (wsManager.isConnected() && wsManager.currentRoom) {
+            console.log('📡 同時從服務器檢查最新版本...');
+            wsManager.sendMessage({
+                type: 'load_code',
+                room_id: wsManager.currentRoom,
+                user_id: wsManager.currentUser,
+                current_version: this.codeVersion
+            });
         }
-        
-        // 智能載入邏輯：先檢查是否已是最新版本
-        console.log('🔍 檢查代碼版本狀態...');
-        
-        // 請求載入房間最新代碼（服務器會返回最新版本信息）
-        wsManager.sendMessage({
-            type: 'load_code',
-            room_id: wsManager.currentRoom,
-            user_id: wsManager.currentUser,
-            current_version: this.codeVersion // 發送當前版本號給服務器比較
-        });
-        
-        UI.showSuccessToast('正在檢查最新代碼...');
     }
 
     // 運行代碼
@@ -326,10 +365,15 @@ class EditorManager {
         }
         
         // 顯示運行中狀態
-        this.showOutput('正在運行代碼...', 'info');
+        this.showOutput('正在通過AI解釋器運行代碼...', 'info');
         
-        // 發送運行請求到服務器
-        if (wsManager.isConnected()) {
+        // 🆕 使用 AI 來執行代碼
+        if (window.AIAssistant && typeof window.AIAssistant.runCodeWithAI === 'function') {
+            console.log('🤖 使用 AI 執行代碼');
+            window.AIAssistant.runCodeWithAI(code);
+        } else if (wsManager.isConnected()) {
+            // 備用：發送到 WebSocket 服務器處理
+            console.log('📡 發送到服務器執行');
             wsManager.sendMessage({
                 type: 'run_code',
                 code: code,
@@ -337,7 +381,7 @@ class EditorManager {
                 userName: wsManager.currentUser
             });
         } else {
-            this.showOutput('錯誤：未連接到服務器', 'error');
+            this.showOutput('錯誤：無法執行代碼，請檢查AI助教連接或服務器連接', 'error');
         }
     }
 
@@ -751,31 +795,46 @@ class EditorManager {
 
     // 設置代碼
     setCode(code, version = null) {
-        if (this.editor) {
-            // 暫時停用編輯狀態檢測，避免觸發遠程更新
-            const wasEditing = this.isEditing;
-            this.isEditing = false;
-            
-            // 設置代碼內容
+        console.log('📝 設置編輯器代碼:', { codeLength: code ? code.length : 0, version });
+        
+        if (!this.editor) {
+            console.error('❌ 編輯器未初始化，無法設置代碼');
+            return;
+        }
+        
+        try {
+        // 暫時移除事件監聽，避免觸發變更事件
+        const currentValue = this.editor.getValue();
+        if (currentValue !== code) {
             this.editor.setValue(code || '');
             
-            // 更新版本號
             if (version !== null) {
                 this.codeVersion = version;
                 this.updateVersionDisplay();
-                console.log(`✅ 代碼已設置 - 長度: ${(code || '').length}, 版本: ${this.codeVersion}`);
             }
             
-            // 恢復編輯狀態（如果之前在編輯）
-            setTimeout(() => {
-                this.isEditing = wasEditing;
-            }, 100);
+            console.log(`📝 代碼已設置，版本: ${this.codeVersion}`);
+        }
+        } catch (error) {
+            console.error('❌ 設置代碼時發生錯誤:', error);
         }
     }
 
     // 獲取代碼
     getCode() {
-        return this.editor ? this.editor.getValue() : '';
+        if (!this.editor) {
+            console.error('❌ 編輯器未初始化，無法獲取代碼');
+            return '';
+        }
+        
+        try {
+            const code = this.editor.getValue();
+            console.log('📖 獲取編輯器代碼:', { codeLength: code ? code.length : 0 });
+            return code;
+        } catch (error) {
+            console.error('❌ 獲取代碼時發生錯誤:', error);
+            return '';
+        }
     }
 
     // 設置版本號（移除版本號顯示功能）
@@ -1147,6 +1206,121 @@ class EditorManager {
             }
         } catch (error) {
             console.error('❌ 恢復代碼時發生錯誤:', error);
+        }
+    }
+
+    // 初始化高級衝突檢測
+    initializeAdvancedConflictDetection() {
+        console.log('🔧 初始化高級衝突檢測系統...');
+        
+        if (window.AdvancedConflictDetector) {
+            // 設置初始代碼快照
+            const currentCode = this.getCode();
+            window.AdvancedConflictDetector.updateCodeSnapshot(currentCode);
+            
+            // 監聽代碼變化，檢測衝突
+            this.editor.on('change', (cm, change) => {
+                this.handleAdvancedConflictDetection(change);
+            });
+            
+            console.log('✅ 高級衝突檢測系統初始化完成');
+        } else {
+            console.warn('⚠️ AdvancedConflictDetector 未找到，跳過高級衝突檢測初始化');
+        }
+    }
+
+    // 處理高級衝突檢測
+    handleAdvancedConflictDetection(change) {
+        if (!window.AdvancedConflictDetector) return;
+        
+        const oldCode = window.AdvancedConflictDetector.lastCodeSnapshot;
+        const newCode = this.getCode();
+        
+        // 獲取當前房間的其他用戶
+        const otherUsers = this.getOtherActiveUsers();
+        
+        // 檢測是否需要觸發衝突警告
+        if (window.AdvancedConflictDetector.shouldTriggerConflictWarning(oldCode, newCode, otherUsers)) {
+            const changeInfo = window.AdvancedConflictDetector.detectChangeType(oldCode, newCode);
+            
+            console.log('🚨 檢測到潛在衝突:', changeInfo);
+            
+            // 顯示主改方衝突警告
+            window.AdvancedConflictDetector.showMainEditorConflictWarning(changeInfo, otherUsers);
+        }
+        
+        // 更新代碼快照
+        window.AdvancedConflictDetector.updateCodeSnapshot(newCode);
+    }
+
+    // 獲取其他活躍用戶
+    getOtherActiveUsers() {
+        const otherUsers = [];
+        
+        // 從WebSocket管理器獲取房間用戶
+        if (window.wsManager && window.wsManager.roomUsers) {
+            window.wsManager.roomUsers.forEach(user => {
+                if (user.username !== window.wsManager.currentUser) {
+                    otherUsers.push({
+                        username: user.username,
+                        userId: user.userId || user.username,
+                        isActive: true
+                    });
+                }
+            });
+        }
+        
+        return otherUsers;
+    }
+
+    // 設置主改方狀態
+    setMainEditor(isMain) {
+        if (window.AdvancedConflictDetector) {
+            window.AdvancedConflictDetector.setMainEditor(isMain);
+            console.log(`🎯 編輯器設置主改方狀態: ${isMain ? '是' : '否'}`);
+        }
+    }
+
+    // 檢測同行衝突
+    detectSameLineConflict(otherUserCode, otherUserInfo) {
+        if (!window.AdvancedConflictDetector) return null;
+        
+        const myCode = this.getCode();
+        return window.AdvancedConflictDetector.detectSameLineConflict(myCode, otherUserCode, otherUserInfo);
+    }
+
+    // 處理衝突相關消息
+    handleConflictMessage(message) {
+        if (window.AdvancedConflictDetector) {
+            window.AdvancedConflictDetector.handleConflictMessage(message);
+        }
+    }
+
+    // 測試編輯器功能
+    testEditor() {
+        console.log('🧪 開始測試編輯器功能...');
+        
+        try {
+            // 測試設置和獲取代碼
+            const testCode = '# 測試代碼\nprint("Hello, World!")';
+            this.setCode(testCode);
+            
+            setTimeout(() => {
+                const retrievedCode = this.getCode();
+                if (retrievedCode === testCode) {
+                    console.log('✅ 編輯器功能測試通過');
+                    
+                    // 清空測試代碼，設置歡迎信息
+                    this.setCode('# 歡迎使用 Python 協作編輯器\n# 在這裡輸入您的 Python 代碼\nprint("Hello from test room!")');
+                } else {
+                    console.error('❌ 編輯器功能測試失敗 - 代碼不匹配');
+                    console.log('期望:', testCode);
+                    console.log('實際:', retrievedCode);
+                }
+            }, 100);
+            
+        } catch (error) {
+            console.error('❌ 編輯器功能測試發生錯誤:', error);
         }
     }
 }

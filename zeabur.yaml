@@ -1,51 +1,45 @@
-# Zeabur 部署配置 - Python協作教學平台 (簡化版)
+# Zeabur 部署配置 - 簡化版
 name: pythonlearn-collaboration
 
 services:
+  # 主要 PHP 應用服務
   web:
-    # 🏗️ 使用 Dockerfile 構建
+    # 使用簡化的構建命令
     build:
-      dockerfile: Dockerfile
+      buildCommand: |
+        echo "🔧 開始構建 PHP 應用..."
+        composer install --no-dev --no-interaction --ignore-platform-reqs --no-scripts || echo "Composer 完成"
+        echo "✅ 構建完成"
     
-    # 🌐 端口配置
+    # 啟動命令
+    start: php -S 0.0.0.0:8080 -t public router.php
+    
+    # 端口配置
     ports:
       - 8080
     
-    # ⚙️ 環境變數
+    # 基本環境變數
     envs:
-      # 運行環境
       ENVIRONMENT: production
-      
-      # AI 配置 (可選)
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENAI_MODEL: gpt-3.5-turbo
-      OPENAI_MAX_TOKENS: 1000
-      OPENAI_TEMPERATURE: 0.3
-      
-      # 應用配置
-      MAX_CONCURRENT_USERS: 100
-      MAX_ROOMS: 50
-      MAX_USERS_PER_ROOM: 8
-      
-      # WebSocket 配置
-      WEBSOCKET_ENABLED: true
-      WEBSOCKET_PORT: 8081
+      MAX_CONCURRENT_USERS: 50
+      MAX_ROOMS: 20
     
-    # 🏥 健康檢查
+    # 健康檢查
     healthcheck:
       path: /health.php
       interval: 30s
       timeout: 10s
-      retries: 3
     
-    # 🔄 重啟策略
+    # 重啟策略
     restart: unless-stopped
 
-# 🚀 部署配置
+# 部署配置
 deploy:
   auto: true
   
-  # 環境變數需求 (OPENAI_API_KEY 為可選)
+  # 環境變數 (全部可選)
   envs:
     optional:
       - OPENAI_API_KEY
@@ -54,8 +48,8 @@ deploy:
 logging:
   driver: json-file
   options:
-    max-size: "100m"
-    max-file: "3"
+    max-size: "50m"
+    max-file: "2"
 
 # 🌐 網路配置
 networks:
@@ -111,7 +105,6 @@ healthcheck:
     path: /health.php
     interval: 30s
     timeout: 10s
-    retries: 3
     
   websocket:
     port: 8081

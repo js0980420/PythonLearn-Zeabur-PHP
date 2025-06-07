@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高級衝突檢測系統測試</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .test-container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .test-section {
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .test-section h4 {
+            color: #495057;
+            margin-bottom: 15px;
+        }
+        
+        .code-editor {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            min-height: 200px;
+            white-space: pre-wrap;
+        }
+        
+        .user-simulation {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+        }
+        
+        .conflict-demo {
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+        }
+        
+        .status-display {
+            background: #f1f8e9;
+            border-left: 4px solid #4caf50;
+        }
+        
+        .btn-test {
+            margin: 5px;
+        }
+        
+        .log-output {
+            background: #263238;
+            color: #e0e0e0;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1 class="text-center mb-4">
+            <i class="fas fa-exclamation-triangle text-warning"></i>
+            高級衝突檢測系統測試
+        </h1>
+        
+        <!-- 系統狀態 -->
+        <div class="test-section status-display">
+            <h4><i class="fas fa-info-circle"></i> 系統狀態</h4>
+            <div class="row">
+                <div class="col-md-4">
+                    <p><strong>主改方狀態:</strong> <span id="mainEditorStatus" class="badge bg-secondary">未設置</span></p>
+                </div>
+                <div class="col-md-4">
+                    <p><strong>其他用戶:</strong> <span id="otherUsersCount" class="badge bg-info">0</span></p>
+                </div>
+                <div class="col-md-4">
+                    <p><strong>衝突檢測:</strong> <span id="conflictDetectionStatus" class="badge bg-success">已啟用</span></p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 用戶模擬 -->
+        <div class="test-section user-simulation">
+            <h4><i class="fas fa-users"></i> 用戶模擬</h4>
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>主改方 (Alex Wang)</h6>
+                    <button class="btn btn-primary btn-test" onclick="setMainEditor(true)">
+                        <i class="fas fa-crown"></i> 設為主改方
+                    </button>
+                    <button class="btn btn-outline-primary btn-test" onclick="setMainEditor(false)">
+                        <i class="fas fa-user"></i> 設為普通用戶
+                    </button>
+                </div>
+                <div class="col-md-6">
+                    <h6>模擬其他用戶</h6>
+                    <button class="btn btn-success btn-test" onclick="addSimulatedUser('學生A')">
+                        <i class="fas fa-user-plus"></i> 添加學生A
+                    </button>
+                    <button class="btn btn-success btn-test" onclick="addSimulatedUser('學生B')">
+                        <i class="fas fa-user-plus"></i> 添加學生B
+                    </button>
+                    <button class="btn btn-outline-danger btn-test" onclick="clearSimulatedUsers()">
+                        <i class="fas fa-user-times"></i> 清空用戶
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 代碼編輯器模擬 -->
+        <div class="test-section">
+            <h4><i class="fas fa-code"></i> 代碼編輯器模擬</h4>
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>當前代碼</h6>
+                    <textarea id="currentCode" class="form-control" rows="8" placeholder="在這裡輸入代碼...">
+# Python 示例代碼
+def hello_world():
+    print("Hello, World!")
+    return True
+
+if __name__ == "__main__":
+    hello_world()
+                    </textarea>
+                </div>
+                <div class="col-md-6">
+                    <h6>操作按鈕</h6>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-warning" onclick="simulatePasteOperation()">
+                            <i class="fas fa-paste"></i> 模擬大量貼上
+                        </button>
+                        <button class="btn btn-info" onclick="simulateImportOperation()">
+                            <i class="fas fa-file-import"></i> 模擬導入代碼
+                        </button>
+                        <button class="btn btn-danger" onclick="simulateMassDelete()">
+                            <i class="fas fa-trash"></i> 模擬大量刪除
+                        </button>
+                        <button class="btn btn-secondary" onclick="updateCodeSnapshot()">
+                            <i class="fas fa-camera"></i> 更新代碼快照
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 衝突測試 -->
+        <div class="test-section conflict-demo">
+            <h4><i class="fas fa-exclamation-triangle"></i> 衝突測試</h4>
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>衝突場景測試</h6>
+                    <button class="btn btn-warning btn-test" onclick="testSameLineConflict()">
+                        <i class="fas fa-code-branch"></i> 同行修改衝突
+                    </button>
+                    <button class="btn btn-danger btn-test" onclick="testMassiveChangeConflict()">
+                        <i class="fas fa-bomb"></i> 大量修改衝突
+                    </button>
+                    <button class="btn btn-info btn-test" onclick="testVotingSystem()">
+                        <i class="fas fa-vote-yea"></i> 投票系統測試
+                    </button>
+                </div>
+                <div class="col-md-6">
+                    <h6>AI協助測試</h6>
+                    <button class="btn btn-success btn-test" onclick="testAIAssistance()">
+                        <i class="fas fa-robot"></i> AI衝突分析
+                    </button>
+                    <button class="btn btn-primary btn-test" onclick="testChatDiscussion()">
+                        <i class="fas fa-comments"></i> 聊天室討論
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 日誌輸出 -->
+        <div class="test-section">
+            <h4><i class="fas fa-terminal"></i> 系統日誌</h4>
+            <div class="log-output" id="logOutput">
+                [系統] 高級衝突檢測系統測試頁面已載入
+            </div>
+            <div class="mt-2">
+                <button class="btn btn-outline-secondary btn-sm" onclick="clearLog()">
+                    <i class="fas fa-broom"></i> 清空日誌
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- 高級衝突檢測系統 -->
+    <script src="js/advanced-conflict-detector.js"></script>
+    
+    <script>
+        // 模擬的用戶列表
+        let simulatedUsers = [];
+        
+        // 日誌函數
+        function log(message, type = 'info') {
+            const logOutput = document.getElementById('logOutput');
+            const timestamp = new Date().toLocaleTimeString();
+            const typeIcon = {
+                'info': 'ℹ️',
+                'success': '✅',
+                'warning': '⚠️',
+                'error': '❌'
+            };
+            
+            logOutput.innerHTML += `\n[${timestamp}] ${typeIcon[type] || 'ℹ️'} ${message}`;
+            logOutput.scrollTop = logOutput.scrollHeight;
+        }
+        
+        // 清空日誌
+        function clearLog() {
+            document.getElementById('logOutput').innerHTML = '[系統] 日誌已清空';
+        }
+        
+        // 設置主改方狀態
+        function setMainEditor(isMain) {
+            if (window.AdvancedConflictDetector) {
+                window.AdvancedConflictDetector.setMainEditor(isMain);
+                document.getElementById('mainEditorStatus').textContent = isMain ? '是' : '否';
+                document.getElementById('mainEditorStatus').className = `badge ${isMain ? 'bg-warning' : 'bg-secondary'}`;
+                log(`設置主改方狀態: ${isMain ? '是' : '否'}`, 'success');
+            } else {
+                log('AdvancedConflictDetector 未找到', 'error');
+            }
+        }
+        
+        // 添加模擬用戶
+        function addSimulatedUser(username) {
+            if (!simulatedUsers.find(u => u.username === username)) {
+                simulatedUsers.push({
+                    username: username,
+                    userId: username.toLowerCase(),
+                    isActive: true
+                });
+                updateUserDisplay();
+                log(`添加模擬用戶: ${username}`, 'success');
+            } else {
+                log(`用戶 ${username} 已存在`, 'warning');
+            }
+        }
+        
+        // 清空模擬用戶
+        function clearSimulatedUsers() {
+            simulatedUsers = [];
+            updateUserDisplay();
+            log('已清空所有模擬用戶', 'info');
+        }
+        
+        // 更新用戶顯示
+        function updateUserDisplay() {
+            document.getElementById('otherUsersCount').textContent = simulatedUsers.length;
+        }
+        
+        // 更新代碼快照
+        function updateCodeSnapshot() {
+            const code = document.getElementById('currentCode').value;
+            if (window.AdvancedConflictDetector) {
+                window.AdvancedConflictDetector.updateCodeSnapshot(code);
+                log('代碼快照已更新', 'success');
+            } else {
+                log('AdvancedConflictDetector 未找到', 'error');
+            }
+        }
+        
+        // 模擬貼上操作
+        function simulatePasteOperation() {
+            const currentCode = document.getElementById('currentCode').value;
+            const pastedCode = `
+# 大量貼上的代碼
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+def complex_function():
+    data = np.random.randn(1000)
+    df = pd.DataFrame(data, columns=['values'])
+    plt.figure(figsize=(10, 6))
+    plt.hist(df['values'], bins=50)
+    plt.title('Random Data Distribution')
+    plt.show()
+    return df
+
+# 更多複雜的代碼...
+class DataProcessor:
+    def __init__(self):
+        self.data = []
+    
+    def process(self, input_data):
+        # 處理邏輯
+        return input_data * 2
+`;
+            
+            const newCode = currentCode + pastedCode;
+            document.getElementById('currentCode').value = newCode;
+            
+            if (window.AdvancedConflictDetector) {
+                const changeInfo = window.AdvancedConflictDetector.detectChangeType(currentCode, newCode);
+                log(`檢測到變更類型: ${changeInfo.type}, 嚴重性: ${changeInfo.severity}`, 'info');
+                
+                if (window.AdvancedConflictDetector.shouldTriggerConflictWarning(currentCode, newCode, simulatedUsers)) {
+                    window.AdvancedConflictDetector.showMainEditorConflictWarning(changeInfo, simulatedUsers);
+                    log('觸發衝突警告', 'warning');
+                }
+            }
+        }
+        
+        // 模擬導入操作
+        function simulateImportOperation() {
+            const importCode = `
+# 導入的新模組
+import tensorflow as tf
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+
+# 機器學習相關代碼
+def train_model(X, y):
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+    model = RandomForestClassifier()
+    model.fit(X_train, y_train)
+    return model
+`;
+            
+            const currentCode = document.getElementById('currentCode').value;
+            const newCode = importCode + currentCode;
+            document.getElementById('currentCode').value = newCode;
+            
+            if (window.AdvancedConflictDetector) {
+                const changeInfo = window.AdvancedConflictDetector.detectChangeType(currentCode, newCode);
+                log(`檢測到導入操作: ${changeInfo.type}`, 'info');
+                
+                if (window.AdvancedConflictDetector.shouldTriggerConflictWarning(currentCode, newCode, simulatedUsers)) {
+                    window.AdvancedConflictDetector.showMainEditorConflictWarning(changeInfo, simulatedUsers);
+                    log('觸發導入衝突警告', 'warning');
+                }
+            }
+        }
+        
+        // 模擬大量刪除
+        function simulateMassDelete() {
+            const currentCode = document.getElementById('currentCode').value;
+            const lines = currentCode.split('\n');
+            const newCode = lines.slice(0, Math.max(1, Math.floor(lines.length / 3))).join('\n');
+            
+            document.getElementById('currentCode').value = newCode;
+            
+            if (window.AdvancedConflictDetector) {
+                const changeInfo = window.AdvancedConflictDetector.detectChangeType(currentCode, newCode);
+                log(`檢測到大量刪除: ${changeInfo.type}`, 'warning');
+                
+                if (window.AdvancedConflictDetector.shouldTriggerConflictWarning(currentCode, newCode, simulatedUsers)) {
+                    window.AdvancedConflictDetector.showMainEditorConflictWarning(changeInfo, simulatedUsers);
+                    log('觸發刪除衝突警告', 'warning');
+                }
+            }
+        }
+        
+        // 測試同行衝突
+        function testSameLineConflict() {
+            const myCode = `def hello():
+    print("Hello from Alex")
+    return True`;
+            
+            const otherCode = `def hello():
+    print("Hello from Student")
+    return False`;
+            
+            if (window.AdvancedConflictDetector) {
+                const conflicts = window.AdvancedConflictDetector.detectSameLineConflict(
+                    myCode, 
+                    otherCode, 
+                    { username: '學生A', userId: 'student_a' }
+                );
+                
+                if (conflicts) {
+                    log(`檢測到 ${conflicts.length} 個同行衝突`, 'warning');
+                    conflicts.forEach((conflict, index) => {
+                        log(`衝突 ${index + 1}: 第 ${conflict.lineNumber} 行`, 'info');
+                    });
+                } else {
+                    log('未檢測到同行衝突', 'info');
+                }
+            }
+        }
+        
+        // 測試大量修改衝突
+        function testMassiveChangeConflict() {
+            if (simulatedUsers.length === 0) {
+                log('請先添加模擬用戶', 'warning');
+                return;
+            }
+            
+            const currentCode = document.getElementById('currentCode').value;
+            const massiveCode = currentCode + '\n'.repeat(10) + '# 大量新增的代碼\n'.repeat(20);
+            
+            if (window.AdvancedConflictDetector) {
+                const changeInfo = window.AdvancedConflictDetector.detectChangeType(currentCode, massiveCode);
+                log(`大量修改測試 - 類型: ${changeInfo.type}, 嚴重性: ${changeInfo.severity}`, 'info');
+                
+                window.AdvancedConflictDetector.showMainEditorConflictWarning(changeInfo, simulatedUsers);
+                log('顯示大量修改衝突警告', 'warning');
+            }
+        }
+        
+        // 測試投票系統
+        function testVotingSystem() {
+            if (window.AdvancedConflictDetector) {
+                // 模擬投票請求
+                const mockMessage = {
+                    type: 'voting_request',
+                    voting_id: Date.now(),
+                    requested_by: 'Alex Wang',
+                    change_description: '大量貼上操作，影響 15 行代碼'
+                };
+                
+                window.AdvancedConflictDetector.handleConflictMessage(mockMessage);
+                log('模擬投票請求已發送', 'info');
+            }
+        }
+        
+        // 測試AI協助
+        function testAIAssistance() {
+            if (window.AdvancedConflictDetector) {
+                // 模擬衝突數據
+                window.AdvancedConflictDetector.activeConflict = {
+                    warningData: {
+                        changeType: 'paste',
+                        affectedLines: 15,
+                        otherUsers: simulatedUsers
+                    }
+                };
+                
+                window.AdvancedConflictDetector.requestAIAssistance();
+                log('AI協助請求已發送', 'success');
+            }
+        }
+        
+        // 測試聊天室討論
+        function testChatDiscussion() {
+            if (window.AdvancedConflictDetector) {
+                // 模擬聊天室功能
+                window.Chat = {
+                    addSystemMessage: function(message) {
+                        log(`[聊天室] ${message}`, 'info');
+                    }
+                };
+                
+                window.AdvancedConflictDetector.activeConflict = {
+                    warningData: {
+                        changeType: 'import',
+                        affectedLines: 8,
+                        otherUsers: simulatedUsers
+                    }
+                };
+                
+                window.AdvancedConflictDetector.shareToChat();
+                log('聊天室討論已啟動', 'success');
+            }
+        }
+        
+        // 頁面載入完成後初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            log('高級衝突檢測系統測試頁面已載入', 'success');
+            
+            // 檢查系統是否正常
+            if (window.AdvancedConflictDetector) {
+                log('AdvancedConflictDetector 已載入', 'success');
+                
+                // 初始化代碼快照
+                updateCodeSnapshot();
+            } else {
+                log('AdvancedConflictDetector 未找到', 'error');
+            }
+            
+            // 模擬showToast函數
+            window.showToast = function(message, type) {
+                log(`[Toast] ${message}`, type);
+            };
+        });
+    </script>
+</body>
+</html> 

@@ -1,0 +1,7 @@
+{
+    "name": "test-room",
+    "code": "# Python 基礎練習\nprint('Hello, World!')\n\n# 變數宣告\nname = '學生'\nage = 18\n\n# 條件判斷\nif age >= 18:\n    print(f'{name} 已成年')\nelse:\n    print(f'{name} 未成年')\n\n# 迴圈練習\nfor i in range(5):\n    print(f'數字: {i}')",
+    "version": 1,
+    "created_at": "2025-06-07T22:00:00Z",
+    "last_activity": 1733688000
+} 

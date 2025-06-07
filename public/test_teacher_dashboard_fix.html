@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教師監控面板修復測試</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: bold;
+            text-align: center;
+        }
+        
+        .status.disconnected {
+            background: #fed7d7;
+            color: #c53030;
+            border: 2px solid #fc8181;
+        }
+        
+        .status.connected {
+            background: #c6f6d5;
+            color: #2f855a;
+            border: 2px solid #68d391;
+        }
+        
+        button {
+            background: #4299e1;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background: #3182ce;
+        }
+        
+        .log {
+            background: #1a202c;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎓 教師監控面板修復測試</h1>
+        
+        <div id="status" class="status disconnected">
+            ❌ 未連接到WebSocket服務器
+        </div>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="totalRooms">0</div>
+                <div class="stat-label">活躍房間</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="totalStudents">0</div>
+                <div class="stat-label">在線學生</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="wsStatus">❌</div>
+                <div class="stat-label">WebSocket狀態</div>
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+            <button onclick="connectWebSocket()">🔗 連接WebSocket</button>
+            <button onclick="disconnectWebSocket()">🔌 斷開連接</button>
+            <button onclick="testAPI()">🧪 測試API</button>
+            <button onclick="clearLog()">🗑️ 清空日誌</button>
+        </div>
+    </div>
+    
+    <div class="container">
+        <h2>📊 測試日誌</h2>
+        <div class="log" id="logContainer">
+            <div>🚀 教師監控面板修復測試已載入</div>
+            <div>📡 WebSocket地址: ws://localhost:8081</div>
+            <div>📡 API端點: /api/teacher.php</div>
+            <div>⏰ 時間: <span id="currentTime"></span></div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let isConnected = false;
+        
+        // 更新當前時間
+        function updateTime() {
+            document.getElementById('currentTime').textContent = new Date().toLocaleString();
+        }
+        updateTime();
+        setInterval(updateTime, 1000);
+        
+        // 日誌函數
+        function log(message, type = 'info') {
+            const logContainer = document.getElementById('logContainer');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.style.marginBottom = '5px';
+            
+            let icon = '📝';
+            if (type === 'success') icon = '✅';
+            if (type === 'error') icon = '❌';
+            if (type === 'warning') icon = '⚠️';
+            
+            logEntry.innerHTML = `<span style="color: #a0aec0;">[${timestamp}]</span> ${icon} ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        // 清空日誌
+        function clearLog() {
+            document.getElementById('logContainer').innerHTML = '';
+            log('日誌已清空');
+        }
+        
+        // 更新狀態
+        function updateStatus(connected) {
+            const statusEl = document.getElementById('status');
+            const wsStatusEl = document.getElementById('wsStatus');
+            
+            isConnected = connected;
+            
+            if (connected) {
+                statusEl.className = 'status connected';
+                statusEl.innerHTML = '✅ 已連接到WebSocket服務器';
+                wsStatusEl.textContent = '✅';
+            } else {
+                statusEl.className = 'status disconnected';
+                statusEl.innerHTML = '❌ 未連接到WebSocket服務器';
+                wsStatusEl.textContent = '❌';
+            }
+        }
+        
+        // 連接WebSocket
+        function connectWebSocket() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                log('已經連接到WebSocket服務器', 'warning');
+                return;
+            }
+            
+            log('正在連接到 ws://localhost:8081...');
+            
+            ws = new WebSocket('ws://localhost:8081');
+            
+            ws.onopen = function(event) {
+                log('WebSocket連接已建立', 'success');
+                updateStatus(true);
+                
+                // 註冊為教師監控
+                sendMessage({
+                    type: 'teacher_monitor',
+                    data: { action: 'register' }
+                });
+            };
+            
+            ws.onmessage = function(event) {
+                try {
+                    const message = JSON.parse(event.data);
+                    handleMessage(message);
+                } catch (e) {
+                    log(`收到無效消息: ${event.data}`, 'error');
+                }
+            };
+            
+            ws.onclose = function(event) {
+                log(`WebSocket連接已關閉 (代碼: ${event.code})`, 'warning');
+                updateStatus(false);
+            };
+            
+            ws.onerror = function(error) {
+                log('WebSocket錯誤: ' + error, 'error');
+                updateStatus(false);
+            };
+        }
+        
+        // 斷開WebSocket
+        function disconnectWebSocket() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+            updateStatus(false);
+            log('手動斷開連接');
+        }
+        
+        // 發送消息
+        function sendMessage(message) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(message));
+                log(`發送消息: ${message.type}`);
+            } else {
+                log('WebSocket未連接，無法發送消息', 'error');
+            }
+        }
+        
+        // 處理收到的消息
+        function handleMessage(message) {
+            const type = message.type;
+            
+            switch (type) {
+                case 'connection_established':
+                    log(`✅ 連接已建立: ${message.message || '成功連接到WebSocket服務器'}`, 'success');
+                    if (message.test_id) {
+                        log(`🆔 測試ID: ${message.test_id}`);
+                    }
+                    break;
+                    
+                case 'welcome':
+                    log(`🎉 歡迎消息: ${message.message}`, 'success');
+                    if (message.userId) {
+                        log(`👤 教師ID: ${message.userId}`);
+                    }
+                    break;
+                    
+                case 'error':
+                    log(`❌ 服務器錯誤: ${message.error || message.message || '未知錯誤'}`, 'error');
+                    break;
+                    
+                case 'statistics_update':
+                case 'stats_update':
+                    log(`📊 統計更新: 房間=${message.data?.activeRooms || 0}, 學生=${message.data?.onlineStudents || 0}`, 'success');
+                    updateStats(message.data);
+                    break;
+                    
+                case 'room_update':
+                    log(`🏠 房間更新: ${message.data?.roomName}`, 'success');
+                    break;
+                    
+                case 'code_change':
+                    log(`📝 代碼變更: ${message.data?.userName} 在 ${message.data?.roomName}`, 'success');
+                    break;
+                    
+                case 'user_activity':
+                    log(`👤 用戶活動: ${message.data?.userName}`, 'success');
+                    break;
+                    
+                case 'conflict_detected':
+                    log(`⚠️ 衝突檢測: ${message.data?.description}`, 'warning');
+                    break;
+                    
+                case 'chat_message':
+                    log(`💬 聊天消息: ${message.username}: ${message.message}`, 'success');
+                    break;
+                    
+                default:
+                    log(`📨 收到未處理的消息: ${type}`, 'warning');
+                    console.log('完整消息:', message);
+            }
+        }
+        
+        // 更新統計信息
+        function updateStats(data) {
+            if (data) {
+                document.getElementById('totalRooms').textContent = data.activeRooms || 0;
+                document.getElementById('totalStudents').textContent = data.onlineStudents || 0;
+            }
+        }
+        
+        // 測試API
+        async function testAPI() {
+            try {
+                log('正在測試API端點...');
+                
+                const response = await fetch('/api/teacher.php/rooms');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                log(`✅ API測試成功: 載入了 ${data.rooms?.length || 0} 個房間`, 'success');
+                
+                // 更新統計信息
+                document.getElementById('totalRooms').textContent = data.totalRooms || 0;
+                document.getElementById('totalStudents').textContent = data.totalUsers || 0;
+                
+            } catch (error) {
+                log(`❌ API測試失敗: ${error.message}`, 'error');
+            }
+        }
+        
+        // 頁面載入完成後自動測試
+        window.onload = function() {
+            log('頁面載入完成');
+            setTimeout(() => {
+                log('自動測試API...');
+                testAPI();
+            }, 1000);
+        };
+    </script>
+</body>
+</html> 

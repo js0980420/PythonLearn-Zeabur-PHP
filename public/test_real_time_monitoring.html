@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>實時監控測試 - 教師監控台</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #4a5568;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        
+        .test-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .test-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+        }
+        
+        .test-section h3 {
+            color: #495057;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            font-weight: bold;
+            text-align: center;
+        }
+        
+        .status.disconnected {
+            background: #fed7d7;
+            color: #c53030;
+            border: 2px solid #fc8181;
+        }
+        
+        .status.connected {
+            background: #c6f6d5;
+            color: #2f855a;
+            border: 2px solid #68d391;
+        }
+        
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(45deg, #4299e1, #3182ce);
+            color: white;
+        }
+        
+        .btn-success {
+            background: linear-gradient(45deg, #48bb78, #38a169);
+            color: white;
+        }
+        
+        .btn-warning {
+            background: linear-gradient(45deg, #ed8936, #dd6b20);
+            color: white;
+        }
+        
+        .btn-danger {
+            background: linear-gradient(45deg, #f56565, #e53e3e);
+            color: white;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #e2e8f0;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #4299e1;
+            box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+        }
+        
+        .log-container {
+            background: #1a202c;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 8px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 3px;
+            border-radius: 3px;
+        }
+        
+        .log-entry.info {
+            background: rgba(66, 153, 225, 0.1);
+            border-left: 3px solid #4299e1;
+        }
+        
+        .log-entry.success {
+            background: rgba(72, 187, 120, 0.1);
+            border-left: 3px solid #48bb78;
+        }
+        
+        .log-entry.error {
+            background: rgba(245, 101, 101, 0.1);
+            border-left: 3px solid #f56565;
+        }
+        
+        .log-entry.warning {
+            background: rgba(237, 137, 54, 0.1);
+            border-left: 3px solid #ed8936;
+        }
+        
+        .timestamp {
+            color: #a0aec0;
+            font-size: 11px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: #f7fafc;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 2px solid #e2e8f0;
+        }
+        
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #4299e1;
+        }
+        
+        .stat-label {
+            color: #718096;
+            font-size: 0.9em;
+        }
+        
+        .room-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 5px;
+            padding: 10px;
+        }
+        
+        .room-item {
+            padding: 8px;
+            margin-bottom: 5px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border-left: 4px solid #4299e1;
+        }
+        
+        .room-name {
+            font-weight: bold;
+            color: #2d3748;
+        }
+        
+        .room-users {
+            font-size: 0.9em;
+            color: #718096;
+        }
+        
+        .full-width {
+            grid-column: 1 / -1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 實時監控測試 - 教師監控台</h1>
+        
+        <div class="test-grid">
+            <!-- 教師監控台測試 -->
+            <div class="test-section">
+                <h3>👨‍🏫 教師監控台</h3>
+                <div id="teacherStatus" class="status disconnected">
+                    ❌ 教師監控台未連接
+                </div>
+                
+                <div class="controls">
+                    <button class="btn-primary" onclick="connectTeacher()">🔗 連接教師監控</button>
+                    <button class="btn-danger" onclick="disconnectTeacher()">🔌 斷開連接</button>
+                    <button class="btn-success" onclick="openTeacherDashboard()">📊 打開監控台</button>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number" id="teacherRooms">0</div>
+                        <div class="stat-label">活躍房間</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="teacherStudents">0</div>
+                        <div class="stat-label">在線學生</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="teacherEdits">0</div>
+                        <div class="stat-label">代碼編輯</div>
+                    </div>
+                </div>
+                
+                <h4>📋 監控到的房間</h4>
+                <div id="teacherRoomList" class="room-list">
+                    <div style="text-align: center; color: #718096;">暫無房間數據</div>
+                </div>
+            </div>
+            
+            <!-- 學生模擬器 -->
+            <div class="test-section">
+                <h3>👨‍🎓 學生模擬器</h3>
+                <div id="studentStatus" class="status disconnected">
+                    ❌ 學生未連接
+                </div>
+                
+                <div class="input-group">
+                    <input type="text" id="studentRoom" placeholder="房間ID" value="test-room">
+                    <input type="text" id="studentName" placeholder="學生姓名" value="測試學生">
+                </div>
+                
+                <div class="controls">
+                    <button class="btn-primary" onclick="connectStudent()">🔗 連接學生</button>
+                    <button class="btn-success" onclick="joinRoom()">🏠 加入房間</button>
+                    <button class="btn-warning" onclick="simulateCodeEdit()">📝 模擬編輯</button>
+                    <button class="btn-warning" onclick="sendChat()">💬 發送聊天</button>
+                    <button class="btn-danger" onclick="disconnectStudent()">🔌 斷開連接</button>
+                </div>
+                
+                <div class="input-group">
+                    <input type="text" id="chatMessage" placeholder="聊天消息" value="Hello from student!">
+                </div>
+                
+                <h4>📝 當前代碼</h4>
+                <textarea id="studentCode" style="width: 100%; height: 100px; font-family: monospace;">
+# Python 測試代碼
+print("Hello, World!")
+
+def test_function():
+    return "This is a test"
+
+# 學生正在編輯...
+                </textarea>
+            </div>
+        </div>
+        
+        <!-- 測試日誌 -->
+        <div class="test-section full-width">
+            <h3>📋 測試日誌</h3>
+            <div class="controls">
+                <button class="btn-warning" onclick="clearLogs()">🗑️ 清空日誌</button>
+                <button class="btn-success" onclick="runFullTest()">🚀 運行完整測試</button>
+                <button class="btn-primary" onclick="exportLogs()">💾 導出日誌</button>
+            </div>
+            <div id="logContainer" class="log-container"></div>
+        </div>
+    </div>
+
+    <script>
+        let teacherWs = null;
+        let studentWs = null;
+        let isTeacherConnected = false;
+        let isStudentConnected = false;
+        let currentRoom = null;
+        let testLogs = [];
+        
+        // 日誌函數
+        function log(message, type = 'info') {
+            const logContainer = document.getElementById('logContainer');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            logEntry.innerHTML = `<span class="timestamp">[${timestamp}]</span> ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            
+            testLogs.push({ timestamp, message, type });
+        }
+        
+        // 更新狀態
+        function updateTeacherStatus(connected) {
+            const statusEl = document.getElementById('teacherStatus');
+            isTeacherConnected = connected;
+            
+            if (connected) {
+                statusEl.className = 'status connected';
+                statusEl.innerHTML = '✅ 教師監控台已連接 (ws://localhost:8081)';
+            } else {
+                statusEl.className = 'status disconnected';
+                statusEl.innerHTML = '❌ 教師監控台未連接';
+            }
+        }
+        
+        function updateStudentStatus(connected) {
+            const statusEl = document.getElementById('studentStatus');
+            isStudentConnected = connected;
+            
+            if (connected) {
+                statusEl.className = 'status connected';
+                statusEl.innerHTML = '✅ 學生已連接 (ws://localhost:8081)';
+            } else {
+                statusEl.className = 'status disconnected';
+                statusEl.innerHTML = '❌ 學生未連接';
+            }
+        }
+        
+        // 教師監控台連接
+        function connectTeacher() {
+            if (teacherWs && teacherWs.readyState === WebSocket.OPEN) {
+                log('教師監控台已經連接', 'warning');
+                return;
+            }
+            
+            log('正在連接教師監控台...', 'info');
+            
+            teacherWs = new WebSocket('ws://localhost:8081');
+            
+            teacherWs.onopen = function() {
+                log('教師監控台WebSocket連接已建立', 'success');
+                updateTeacherStatus(true);
+                
+                // 註冊為教師監控
+                teacherWs.send(JSON.stringify({
+                    type: 'teacher_monitor',
+                    data: { action: 'register' }
+                }));
+            };
+            
+            teacherWs.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleTeacherMessage(data);
+                } catch (e) {
+                    log(`教師端收到無效消息: ${event.data}`, 'error');
+                }
+            };
+            
+            teacherWs.onclose = function() {
+                log('教師監控台連接已關閉', 'warning');
+                updateTeacherStatus(false);
+            };
+            
+            teacherWs.onerror = function(error) {
+                log('教師監控台連接錯誤: ' + error, 'error');
+                updateTeacherStatus(false);
+            };
+        }
+        
+        // 學生連接
+        function connectStudent() {
+            if (studentWs && studentWs.readyState === WebSocket.OPEN) {
+                log('學生已經連接', 'warning');
+                return;
+            }
+            
+            log('正在連接學生...', 'info');
+            
+            studentWs = new WebSocket('ws://localhost:8081');
+            
+            studentWs.onopen = function() {
+                log('學生WebSocket連接已建立', 'success');
+                updateStudentStatus(true);
+            };
+            
+            studentWs.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleStudentMessage(data);
+                } catch (e) {
+                    log(`學生端收到無效消息: ${event.data}`, 'error');
+                }
+            };
+            
+            studentWs.onclose = function() {
+                log('學生連接已關閉', 'warning');
+                updateStudentStatus(false);
+            };
+            
+            studentWs.onerror = function(error) {
+                log('學生連接錯誤: ' + error, 'error');
+                updateStudentStatus(false);
+            };
+        }
+        
+        // 處理教師消息
+        function handleTeacherMessage(data) {
+            const type = data.type;
+            
+            switch (type) {
+                case 'connection_established':
+                    log(`教師端: 連接已建立 - ${data.message}`, 'success');
+                    break;
+                    
+                case 'welcome':
+                    log(`教師端: 歡迎消息 - ${data.message}`, 'success');
+                    break;
+                    
+                case 'stats_update':
+                    log(`教師端: 統計更新 - 房間:${data.data.activeRooms}, 學生:${data.data.onlineStudents}`, 'info');
+                    updateTeacherStats(data.data);
+                    break;
+                    
+                case 'room_update':
+                    log(`教師端: 房間更新 - ${data.data.roomName} (${data.data.users?.length || 0}人)`, 'info');
+                    updateTeacherRoomList(data.data);
+                    break;
+                    
+                case 'code_change':
+                    log(`教師端: 代碼變更 - ${data.data.userName} 在 ${data.data.roomName}`, 'success');
+                    break;
+                    
+                case 'error':
+                    log(`教師端錯誤: ${data.error}`, 'error');
+                    break;
+                    
+                default:
+                    log(`教師端: 未處理的消息類型 - ${type}`, 'warning');
+            }
+        }
+        
+        // 處理學生消息
+        function handleStudentMessage(data) {
+            const type = data.type;
+            
+            switch (type) {
+                case 'connection_established':
+                    log(`學生端: 連接已建立 - ${data.message}`, 'success');
+                    break;
+                    
+                case 'room_joined':
+                    log(`學生端: 成功加入房間 ${data.room_id}`, 'success');
+                    currentRoom = data.room_id;
+                    break;
+                    
+                case 'code_sync':
+                    log(`學生端: 收到代碼同步 - ${data.username}`, 'info');
+                    break;
+                    
+                case 'chat_message':
+                    log(`學生端: 聊天消息 - ${data.username}: ${data.message}`, 'info');
+                    break;
+                    
+                case 'error':
+                    log(`學生端錯誤: ${data.error}`, 'error');
+                    break;
+                    
+                default:
+                    log(`學生端: 未處理的消息類型 - ${type}`, 'warning');
+            }
+        }
+        
+        // 更新教師統計
+        function updateTeacherStats(data) {
+            document.getElementById('teacherRooms').textContent = data.activeRooms || 0;
+            document.getElementById('teacherStudents').textContent = data.onlineStudents || 0;
+            document.getElementById('teacherEdits').textContent = data.editCount || 0;
+        }
+        
+        // 更新教師房間列表
+        function updateTeacherRoomList(roomData) {
+            const roomList = document.getElementById('teacherRoomList');
+            
+            // 查找現有房間項目
+            let roomItem = roomList.querySelector(`[data-room="${roomData.roomName}"]`);
+            
+            if (!roomItem) {
+                roomItem = document.createElement('div');
+                roomItem.className = 'room-item';
+                roomItem.setAttribute('data-room', roomData.roomName);
+                roomList.appendChild(roomItem);
+                
+                // 移除"暫無房間數據"提示
+                const emptyMsg = roomList.querySelector('div[style*="text-align: center"]');
+                if (emptyMsg) {
+                    emptyMsg.remove();
+                }
+            }
+            
+            roomItem.innerHTML = `
+                <div class="room-name">${roomData.roomName}</div>
+                <div class="room-users">${roomData.users?.length || 0} 人在線</div>
+                <div style="font-size: 0.8em; color: #a0aec0;">代碼: ${roomData.code?.length || 0} 字符</div>
+            `;
+        }
+        
+        // 學生操作
+        function joinRoom() {
+            if (!studentWs || studentWs.readyState !== WebSocket.OPEN) {
+                log('請先連接學生', 'error');
+                return;
+            }
+            
+            const roomId = document.getElementById('studentRoom').value.trim() || 'test-room';
+            const studentName = document.getElementById('studentName').value.trim() || '測試學生';
+            
+            studentWs.send(JSON.stringify({
+                type: 'join_room',
+                room_id: roomId,
+                user_id: studentName,
+                username: studentName
+            }));
+            
+            log(`學生 ${studentName} 嘗試加入房間 ${roomId}`, 'info');
+        }
+        
+        function simulateCodeEdit() {
+            if (!studentWs || studentWs.readyState !== WebSocket.OPEN) {
+                log('請先連接學生並加入房間', 'error');
+                return;
+            }
+            
+            const code = document.getElementById('studentCode').value;
+            
+            studentWs.send(JSON.stringify({
+                type: 'code_change',
+                code: code
+            }));
+            
+            log('學生發送代碼變更', 'info');
+        }
+        
+        function sendChat() {
+            if (!studentWs || studentWs.readyState !== WebSocket.OPEN) {
+                log('請先連接學生並加入房間', 'error');
+                return;
+            }
+            
+            const message = document.getElementById('chatMessage').value.trim();
+            if (!message) {
+                log('請輸入聊天消息', 'warning');
+                return;
+            }
+            
+            studentWs.send(JSON.stringify({
+                type: 'chat_message',
+                message: message
+            }));
+            
+            log(`學生發送聊天消息: ${message}`, 'info');
+        }
+        
+        // 斷開連接
+        function disconnectTeacher() {
+            if (teacherWs) {
+                teacherWs.close();
+                teacherWs = null;
+            }
+            updateTeacherStatus(false);
+            log('教師監控台已斷開連接', 'info');
+        }
+        
+        function disconnectStudent() {
+            if (studentWs) {
+                studentWs.close();
+                studentWs = null;
+            }
+            updateStudentStatus(false);
+            currentRoom = null;
+            log('學生已斷開連接', 'info');
+        }
+        
+        // 打開教師監控台
+        function openTeacherDashboard() {
+            window.open('/teacher-dashboard.html', '_blank');
+            log('已打開教師監控台頁面', 'info');
+        }
+        
+        // 清空日誌
+        function clearLogs() {
+            document.getElementById('logContainer').innerHTML = '';
+            testLogs = [];
+            log('日誌已清空', 'info');
+        }
+        
+        // 運行完整測試
+        async function runFullTest() {
+            log('🚀 開始運行完整測試...', 'success');
+            
+            // 1. 連接教師監控台
+            log('步驟 1: 連接教師監控台', 'info');
+            connectTeacher();
+            await sleep(2000);
+            
+            // 2. 連接學生
+            log('步驟 2: 連接學生', 'info');
+            connectStudent();
+            await sleep(2000);
+            
+            // 3. 學生加入房間
+            log('步驟 3: 學生加入房間', 'info');
+            joinRoom();
+            await sleep(2000);
+            
+            // 4. 模擬代碼編輯
+            log('步驟 4: 模擬代碼編輯', 'info');
+            simulateCodeEdit();
+            await sleep(1000);
+            
+            // 5. 發送聊天消息
+            log('步驟 5: 發送聊天消息', 'info');
+            sendChat();
+            await sleep(1000);
+            
+            log('✅ 完整測試完成！請檢查教師監控台是否收到所有更新', 'success');
+        }
+        
+        // 導出日誌
+        function exportLogs() {
+            const logData = testLogs.map(log => `[${log.timestamp}] ${log.type.toUpperCase()}: ${log.message}`).join('\n');
+            const blob = new Blob([logData], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `teacher_monitoring_test_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.log`;
+            a.click();
+            URL.revokeObjectURL(url);
+            log('測試日誌已導出', 'success');
+        }
+        
+        // 輔助函數
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+        
+        // 頁面載入完成
+        window.onload = function() {
+            log('🎯 實時監控測試頁面已載入', 'success');
+            log('請按照以下步驟測試:', 'info');
+            log('1. 點擊"連接教師監控"按鈕', 'info');
+            log('2. 點擊"打開監控台"按鈕打開教師監控台', 'info');
+            log('3. 點擊"連接學生"按鈕', 'info');
+            log('4. 點擊"加入房間"讓學生加入房間', 'info');
+            log('5. 點擊"模擬編輯"和"發送聊天"測試實時同步', 'info');
+            log('6. 觀察教師監控台是否實時顯示學生活動', 'info');
+        };
+    </script>
+</body>
+</html> 
