@@ -40,11 +40,18 @@ COPY supervisor.conf /etc/supervisor/conf.d/pythonlearn.conf
 # 創建啟動腳本
 RUN echo '#!/bin/bash\n\
 echo "🚀 Starting PythonLearn Collaboration Platform..."\n\
-echo "📊 Environment: ${ENVIRONMENT:-production}"\n\
+echo "📊 Environment: production"\n\
 echo "🗄️ Database: ${MYSQL_HOST:-mysql}:${MYSQL_PORT:-3306}"\n\
-echo "🌐 Domain: ${ZEABUR_DOMAIN:-localhost}"\n\
+echo "🌐 Domain: ${ZEABUR_WEB_DOMAIN:-localhost}"\n\
 \n\
-# 啟動 Supervisor 來管理多個服務\n\
+# 啟動 WebSocket 服務器（背景執行）\n\
+echo "🔌 Starting WebSocket server on port 8081..."\n\
+php websocket/server.php > /app/logs/websocket.log 2>&1 &\n\
+\n\
+# 等待 WebSocket 服務器啟動\n\
+sleep 3\n\
+\n\
+# 啟動 Supervisor 來管理 PHP 服務器\n\
 exec /usr/bin/supervisord -c /etc/supervisor/supervisord.conf -n\n\
 ' > /usr/local/bin/start.sh && chmod +x /usr/local/bin/start.sh
 
