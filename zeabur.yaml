@@ -1,4 +1,4 @@
-# Zeabur 部署配置 - 雙服務架構 (穩定版)
+# Zeabur 部署配置 - 單服務架構 (穩定版)
 name: python-learn
 
 services:
@@ -33,7 +33,7 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_PORT: ${MYSQL_PORT}
     
-    # 暴露端口 (內部通信)
+    # 暴露端口
     ports:
       - 8080  # HTTP 服務
       - 8081  # WebSocket 服務
@@ -45,48 +45,19 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
-
-  # Caddy 反向代理服務
-  caddy:
-    build:
-      dockerfile: Dockerfile.caddy
     
-    # 環境變數
-    env:
-      # Zeabur 會自動設置這個變數
-      ZEABUR_WEB_DOMAIN: ${ZEABUR_WEB_DOMAIN}
-    
-    # 暴露端口 (對外服務)
-    ports:
-      - 80
-      - 443
-    
-    # 依賴 web 服務
-    depends_on:
-      - web
-    
-    # 健康檢查
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:2019/metrics"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
+    # 域名配置
+    domains:
+      - domain: ${ZEABUR_WEB_DOMAIN}
+        redirects:
+          - from: /ws
+            to: ws://localhost:8081
+            type: websocket
 
 # 全域配置
-configs:
-  # 自動重啟配置
-  restart_policy:
-    condition: on-failure
-    max_attempts: 3
-    delay: 10s
-  
-  # 日誌配置
-  logging:
-    driver: json-file
-    options:
-      max-size: "10m"
-      max-file: "3"
+networks:
+  default:
+    driver: bridge
 
 # 🌐 網路配置
 networks:
