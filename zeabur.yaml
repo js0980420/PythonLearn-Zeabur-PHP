@@ -1,11 +1,11 @@
-# Zeabur 部署配置 - 簡化單服務架構
+# Zeabur 部署配置 - 雙服務架構 (穩定版)
 name: python-learn
 
 services:
   # 主要 Web 服務 (PHP + WebSocket)
   web:
     build:
-      dockerfile: Dockerfile.simple
+      dockerfile: Dockerfile.zeabur
     
     # 環境變數配置
     env:
@@ -33,30 +33,45 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_PORT: ${MYSQL_PORT}
     
-    # 暴露端口
+    # 暴露端口 (內部通信)
     ports:
-      - 8080
-      - 8081
+      - 8080  # HTTP 服務
+      - 8081  # WebSocket 服務
     
     # 健康檢查
     healthcheck:
-      path: /health.php
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health.php"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 10s
+
+  # Caddy 反向代理服務
+  caddy:
+    build:
+      dockerfile: Dockerfile.caddy
     
-    # 資源配置
-    resources:
-      cpu: 1000m      # 1 CPU core
-      memory: 512Mi   # 512MB RAM
+    # 環境變數
+    env:
+      # Zeabur 會自動設置這個變數
+      ZEABUR_WEB_DOMAIN: ${ZEABUR_WEB_DOMAIN}
     
-    # 域名配置
-    domains:
-      - domain: ${ZEABUR_WEB_DOMAIN}
-        redirects:
-          - from: /ws
-            to: ws://localhost:8081
-            type: websocket
+    # 暴露端口 (對外服務)
+    ports:
+      - 80
+      - 443
+    
+    # 依賴 web 服務
+    depends_on:
+      - web
+    
+    # 健康檢查
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:2019/metrics"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
 
 # 全域配置
 configs:

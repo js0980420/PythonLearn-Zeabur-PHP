@@ -1,4 +1,4 @@
-# Caddyfile - Zeabur 反向代理配置
+# Caddyfile - Zeabur 反向代理配置 (穩定版)
 {
     # 全域配置
     admin :2019
@@ -35,18 +35,40 @@
             header_up X-Forwarded-Proto {scheme}
             header_up X-Forwarded-Host {host}
             
-            # WebSocket 升級標頭
+            # WebSocket 升級標頭 - 關鍵
             header_up Connection {>Connection}
             header_up Upgrade {>Upgrade}
             header_up Sec-WebSocket-Key {>Sec-WebSocket-Key}
             header_up Sec-WebSocket-Version {>Sec-WebSocket-Version}
             header_up Sec-WebSocket-Protocol {>Sec-WebSocket-Protocol}
             header_up Sec-WebSocket-Extensions {>Sec-WebSocket-Extensions}
+            
+            # 健康檢查
+            health_uri /
+            health_interval 30s
+            health_timeout 5s
+        }
+        
+        # 記錄 WebSocket 連接
+        log {
+            output stdout
+            format console
         }
     }
     
-    # API 請求代理
-    handle /api.php* {
+    # API 路由代理
+    handle /api/* {
+        reverse_proxy web:8080 {
+            header_up Host {host}
+            header_up X-Real-IP {remote}
+            header_up X-Forwarded-For {remote}
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Forwarded-Host {host}
+        }
+    }
+    
+    # 健康檢查端點
+    handle /health.php {
         reverse_proxy web:8080 {
             header_up Host {host}
             header_up X-Real-IP {remote}
@@ -55,25 +77,43 @@
         }
     }
     
-    # 靜態檔案和其他請求
+    # 靜態檔案和其他 HTTP 請求
     handle {
         reverse_proxy web:8080 {
+            # 標準 HTTP 標頭
             header_up Host {host}
             header_up X-Real-IP {remote}
             header_up X-Forwarded-For {remote}
             header_up X-Forwarded-Proto {scheme}
+            header_up X-Forwarded-Host {host}
+            
+            # 健康檢查
+            health_uri /health.php
+            health_interval 30s
+            health_timeout 5s
         }
     }
     
-    # 錯誤處理
+    # 錯誤頁面
     handle_errors {
         @websocket_error expression {http.error.status_code} == 502 && {http.request.uri.path} == "/ws"
-        respond @websocket_error "WebSocket 服務暫時不可用" 503
+        respond @websocket_error "WebSocket service unavailable" 503
         
-        @api_error expression {http.error.status_code} >= 500 && {http.request.uri.path} =~ "^/api"
-        respond @api_error "API 服務暫時不可用" 503
+        @api_error expression {http.error.status_code} == 502 && {http.request.uri.path} matches "^/api/"
+        respond @api_error "API service unavailable" 503
         
-        respond "服務暫時不可用，請稍後再試" 503
+        respond "Service temporarily unavailable" 503
+    }
+    
+    # CORS 標頭 (如果需要)
+    header {
+        # 安全標頭
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        X-XSS-Protection "1; mode=block"
+        
+        # 移除服務器標識
+        -Server
     }
 }
 

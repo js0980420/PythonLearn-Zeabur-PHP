@@ -52,10 +52,10 @@ class WebSocketManager {
             wsUrl = `${protocol}//${hostname.replace(/:\d+/, '')}:9082`;
             console.log('🔧 Replit 環境，WebSocket 連接: ' + wsUrl);
         } else if (hostname.includes('zeabur.app') || hostname.includes('python-learn')) {
-            // Zeabur 雲端環境 - 使用代理路徑
-            // 通過 /ws 路徑連接，由代理轉發到內部 WebSocket 服務器
+            // Zeabur 雲端環境 - Caddy 反向代理模式
+            // Caddy 將 /ws 請求代理到 web:8081 (Ratchet WebSocket 服務器)
             wsUrl = `wss://${hostname}/ws`;
-            console.log('☁️ Zeabur 雲端環境 (代理模式)，WebSocket 連接: ' + wsUrl);
+            console.log('☁️ Zeabur 雲端環境 (Caddy 代理)，WebSocket 連接: ' + wsUrl);
         } else {
             // 其他生產環境 - 直接連接 WebSocket 端口
             const wsProtocol = protocol === 'https:' ? 'wss:' : 'ws:';
