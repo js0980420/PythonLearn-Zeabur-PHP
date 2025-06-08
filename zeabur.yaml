@@ -1,18 +1,15 @@
-# Zeabur 部署配置 - 純 PHP 單服務架構
+# Zeabur 部署配置 - 標準 PHP Web 服務器
 name: pythonlearn-php-collaboration
 
 services:
   web:
-    # 🏗️ 建構設定 - 明確指定不使用 Composer
+    # 🏗️ 建構設定 - 標準 PHP 項目
     build:
       env: php
       command: |
-        echo "🚀 純 PHP 項目構建開始..."
+        echo "🚀 PHP Web 項目構建開始..."
         echo "📦 跳過 Composer 安裝 (零依賴項目)"
-        echo "✅ 構建完成 - 無需額外依賴"
-    
-    # 🚀 啟動指令 - 使用整合服務器
-    start: php test-servers/integrated-server.php
+        echo "✅ 構建完成 - 使用標準 PHP 運行時"
     
     # 🌐 環境變數
     env:
@@ -30,13 +27,13 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENAI_MODEL: ${OPENAI_MODEL}
     
-    # 🔌 端口配置 - 只使用一個端口
+    # 🔌 端口配置
     ports:
       - 8080
     
     # 🏥 健康檢查
     healthcheck:
-      path: /
+      path: /api/status
       interval: 30s
       timeout: 10s
       retries: 3
