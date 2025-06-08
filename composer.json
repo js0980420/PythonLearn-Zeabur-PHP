@@ -5,13 +5,14 @@
     "license": "MIT",
     "require": {
         "php": ">=8.1",
-        "ratchet/pawl": "^0.4",
-        "ratchet/rfc6455": "^1.4",
-        "react/socket": "^1.12",
         "ext-sockets": "*",
         "ext-json": "*",
-        "ext-mbstring": "*",
-        "ext-curl": "*"
+        "ext-mbstring": "*"
+    },
+    "suggest": {
+        "ratchet/pawl": "^0.4",
+        "ratchet/rfc6455": "^1.4",
+        "react/socket": "^1.12"
     },
     "autoload": {
         "psr-4": {
@@ -21,11 +22,13 @@
     "config": {
         "optimize-autoloader": true,
         "platform-check": false,
-        "allow-plugins": true
+        "allow-plugins": {
+            "*": true
+        }
     },
     "scripts": {
         "post-install-cmd": [
-            "echo '✅ 依賴安裝完成'"
+            "echo '✅ 基礎依賴安裝完成'"
         ]
     }
 }

@@ -27,8 +27,9 @@ WORKDIR /app
 # 複製應用檔案
 COPY . .
 
-# 安裝 PHP 依賴
-RUN composer install --no-dev --optimize-autoloader
+# 安裝 PHP 依賴 (容錯處理)
+RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts || \
+    echo "⚠️ Composer 安裝失敗，使用原生 WebSocket 服務器"
 
 # 創建必要目錄
 RUN mkdir -p /var/log/supervisor \

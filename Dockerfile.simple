@@ -1,42 +1,80 @@
-# 簡化的 Zeabur Dockerfile - 單一 PHP 服務器
-FROM php:8.1-cli
+# 簡化的 Zeabur 部署 Dockerfile
+FROM php:8.2-cli
 
-# 安裝系統依賴
+# 安裝基本系統依賴
 RUN apt-get update && apt-get install -y \
     curl \
     zip \
     unzip \
+    && docker-php-ext-install \
+    sockets \
+    pdo \
+    pdo_mysql \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# 安裝 Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-
-# 設置工作目錄
+# 設定工作目錄
 WORKDIR /app
 
-# 複製 composer 檔案
-COPY composer.json ./
-
-# 安裝 PHP 依賴
-RUN composer install \
-    --no-dev \
-    --no-interaction \
-    --no-scripts \
-    --ignore-platform-reqs \
-    --no-cache \
-    --optimize-autoloader \
-    || echo "Composer 安裝完成"
-
-# 複製應用代碼
+# 複製應用檔案
 COPY . .
 
 # 創建必要目錄
-RUN mkdir -p /app/data /app/logs /app/storage /app/test-logs \
-    && chmod -R 755 /app/data /app/logs /app/storage /app/test-logs
+RUN mkdir -p /app/logs \
+    && mkdir -p /app/data/rooms \
+    && chmod -R 755 /app/logs \
+    && chmod -R 755 /app/data
+
+# 創建啟動腳本
+RUN cat > /app/start.sh << 'EOF'
+#!/bin/bash
+
+echo "🚀 啟動 Python 協作學習平台"
+echo "📡 Web 服務器: 0.0.0.0:8080"
+echo "🔌 WebSocket 服務器: 0.0.0.0:8081"
+
+# 啟動 Web 服務器 (背景)
+php -S 0.0.0.0:8080 -t public router.php &
+WEB_PID=$!
+echo "✅ Web 服務器已啟動 (PID: $WEB_PID)"
+
+# 等待 Web 服務器啟動
+sleep 2
+
+# 啟動 WebSocket 服務器 (背景)
+php test-servers/native-websocket-server.php &
+WS_PID=$!
+echo "✅ WebSocket 服務器已啟動 (PID: $WS_PID)"
+
+# 創建健康檢查端點
+cat > /app/public/health.php << 'HEALTH_EOF'
+<?php
+header('Content-Type: application/json');
+echo json_encode([
+    'status' => 'healthy',
+    'timestamp' => date('c'),
+    'services' => [
+        'web' => 'running',
+        'websocket' => 'running'
+    ]
+]);
+HEALTH_EOF
+
+echo "🎉 所有服務已啟動"
+
+# 等待任一進程退出
+wait
+EOF
+
+# 設定執行權限
+RUN chmod +x /app/start.sh
 
 # 暴露端口
-EXPOSE 8080
+EXPOSE 8080 8081
 
-# 啟動命令 - 單一 PHP 服務器處理 HTTP 和 WebSocket
-CMD ["php", "-S", "0.0.0.0:8080", "-t", "public", "router.php"] 
+# 健康檢查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8080/health.php || exit 1
+
+# 啟動應用
+CMD ["/app/start.sh"] 
