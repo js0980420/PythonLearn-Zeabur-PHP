@@ -1,25 +1,18 @@
-# Zeabur 部署配置 - 單服務架構 (穩定版)
+# Zeabur 部署配置 - 單服務整合架構 (修復版)
 name: python-learn
 
 services:
-  # 主要 Web 服務 (PHP + WebSocket)
+  # 整合服務 (HTTP + WebSocket 在同一端口)
   web:
     build:
-      dockerfile: Dockerfile.zeabur
+      dockerfile: Dockerfile.simple
     
     # 環境變數配置
     env:
-      # WebSocket 服務器配置
-      WEBSOCKET_HOST: "0.0.0.0"
-      WEBSOCKET_PORT: "8081"
-      
-      # PHP 配置
-      PHP_MEMORY_LIMIT: "256M"
-      PHP_MAX_EXECUTION_TIME: "300"
-      
       # 應用配置
       APP_ENV: "production"
       DEBUG_MODE: "false"
+      PORT: "8080"
       
       # AI 配置 (從 Zeabur 環境變數)
       OPENAI_API_KEY: ${OPENAI_API_KEY}
@@ -33,36 +26,17 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_PORT: ${MYSQL_PORT}
     
-    # 暴露端口
+    # 暴露端口 (只有一個端口)
     ports:
-      - 8080  # HTTP 服務
-      - 8081  # WebSocket 服務
+      - 8080
     
     # 健康檢查
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health.php"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
-    
-    # 域名配置
-    domains:
-      - domain: ${ZEABUR_WEB_DOMAIN}
-        redirects:
-          - from: /ws
-            to: ws://localhost:8081
-            type: websocket
-
-# 全域配置
-networks:
-  default:
-    driver: bridge
-
-# 🌐 網路配置
-networks:
-  default:
-    driver: bridge
 
 # 📊 監控配置
 monitoring:
@@ -76,17 +50,9 @@ monitoring:
       type: gauge
       help: "Active WebSocket connections"
     
-    - name: caddy_requests_total
-      type: counter
-      help: "Total Caddy proxy requests"
-    
     - name: ai_requests_total
       type: counter
       help: "Total AI assistant requests"
-    
-    - name: python_executions_total
-      type: counter
-      help: "Total Python code executions"
 
 # 🔐 密鑰管理
 secrets:

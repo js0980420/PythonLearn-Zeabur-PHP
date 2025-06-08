@@ -187,26 +187,92 @@ class IntegratedServer {
         $client = &$this->clients[$clientId];
         $client['type'] = 'http';
         
-        // 簡單的 HTTP 響應
-        $response = "HTTP/1.1 200 OK\r\n";
-        $response .= "Content-Type: application/json\r\n";
-        $response .= "Access-Control-Allow-Origin: *\r\n";
-        $response .= "\r\n";
+        echo "📄 HTTP 請求: {$path}\n";
         
-        $data = [
-            'service' => 'Python 協作學習平台',
-            'path' => $path,
-            'websocket_endpoint' => '/ws',
-            'status' => 'running',
-            'timestamp' => date('c')
+        // 處理根路徑
+        if ($path === '/' || $path === '') {
+            $path = '/index.html';
+        }
+        
+        // 構建文件路徑
+        $filePath = __DIR__ . '/../public' . $path;
+        
+        // 檢查文件是否存在
+        if (file_exists($filePath) && is_file($filePath)) {
+            // 獲取文件內容
+            $content = file_get_contents($filePath);
+            $fileSize = strlen($content);
+            
+            // 確定 MIME 類型
+            $mimeType = $this->getMimeType($path);
+            
+            // 構建 HTTP 響應
+            $response = "HTTP/1.1 200 OK\r\n";
+            $response .= "Content-Type: {$mimeType}\r\n";
+            $response .= "Content-Length: {$fileSize}\r\n";
+            $response .= "Access-Control-Allow-Origin: *\r\n";
+            $response .= "Cache-Control: no-cache\r\n";
+            $response .= "\r\n";
+            $response .= $content;
+            
+            socket_write($client['socket'], $response);
+            echo "✅ 服務文件: {$path} ({$fileSize} bytes, {$mimeType})\n";
+        } else {
+            // 文件不存在，返回 API 響應或 404
+            if (strpos($path, '/api') === 0) {
+                // API 請求
+                $response = "HTTP/1.1 200 OK\r\n";
+                $response .= "Content-Type: application/json\r\n";
+                $response .= "Access-Control-Allow-Origin: *\r\n";
+                $response .= "\r\n";
+                
+                $data = [
+                    'service' => 'Python 協作學習平台',
+                    'path' => $path,
+                    'websocket_endpoint' => '/ws',
+                    'status' => 'running',
+                    'timestamp' => date('c')
+                ];
+                
+                $response .= json_encode($data, JSON_UNESCAPED_UNICODE);
+                socket_write($client['socket'], $response);
+                echo "📡 API 響應: {$path}\n";
+            } else {
+                // 404 錯誤
+                $response = "HTTP/1.1 404 Not Found\r\n";
+                $response .= "Content-Type: text/html\r\n";
+                $response .= "Access-Control-Allow-Origin: *\r\n";
+                $response .= "\r\n";
+                $response .= "<h1>404 - 文件未找到</h1><p>請求的文件 {$path} 不存在</p>";
+                
+                socket_write($client['socket'], $response);
+                echo "❌ 404: {$path}\n";
+            }
+        }
+        
+        $this->removeClient($clientId);
+    }
+    
+    private function getMimeType($path) {
+        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        
+        $mimeTypes = [
+            'html' => 'text/html; charset=utf-8',
+            'htm' => 'text/html; charset=utf-8',
+            'css' => 'text/css',
+            'js' => 'application/javascript',
+            'json' => 'application/json',
+            'png' => 'image/png',
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'gif' => 'image/gif',
+            'svg' => 'image/svg+xml',
+            'ico' => 'image/x-icon',
+            'txt' => 'text/plain',
+            'php' => 'application/x-httpd-php'
         ];
         
-        $response .= json_encode($data, JSON_UNESCAPED_UNICODE);
-        
-        socket_write($client['socket'], $response);
-        $this->removeClient($clientId);
-        
-        echo "📄 HTTP 請求處理: {$path}\n";
+        return $mimeTypes[$extension] ?? 'application/octet-stream';
     }
     
     private function handleWebSocketMessage($clientId) {

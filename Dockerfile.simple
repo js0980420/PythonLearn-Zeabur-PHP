@@ -1,12 +1,14 @@
-# 簡化的 Zeabur 部署 Dockerfile
+# Zeabur 部署專用 Dockerfile - 單服務整合架構
 FROM php:8.2-cli
 
-# 安裝基本系統依賴
+# 安裝系統依賴
 RUN apt-get update && apt-get install -y \
     curl \
     zip \
     unzip \
+    libzip-dev \
     && docker-php-ext-install \
+    zip \
     sockets \
     pdo \
     pdo_mysql \
@@ -37,24 +39,22 @@ RUN echo '<?php' > /app/public/health.php && \
     echo ']);' >> /app/public/health.php
 
 # 創建啟動腳本
-RUN echo '#!/bin/bash' > /app/start.sh && \
-    echo 'echo "🚀 啟動 Python 協作學習平台"' >> /app/start.sh && \
-    echo 'echo "📡 整合服務器: 0.0.0.0:8080"' >> /app/start.sh && \
-    echo 'echo "🔌 HTTP + WebSocket 同端口服務"' >> /app/start.sh && \
-    echo 'echo "🚀 啟動整合服務器..."' >> /app/start.sh && \
-    echo 'php test-servers/integrated-server.php &' >> /app/start.sh && \
-    echo 'INTEGRATED_PID=$!' >> /app/start.sh && \
-    echo 'echo "✅ 整合服務器已啟動 (PID: $INTEGRATED_PID)"' >> /app/start.sh && \
-    echo 'echo "🎉 所有服務已啟動"' >> /app/start.sh && \
-    echo 'wait' >> /app/start.sh && \
-    chmod +x /app/start.sh
+RUN echo '#!/bin/bash' > /app/start-integrated.sh && \
+    echo 'echo "🚀 啟動 Python 協作學習平台 - 整合服務器"' >> /app/start-integrated.sh && \
+    echo 'echo "📡 監聽端口: 8080"' >> /app/start-integrated.sh && \
+    echo 'echo "🔌 WebSocket 端點: /ws"' >> /app/start-integrated.sh && \
+    echo 'echo "🌐 HTTP 服務: /"' >> /app/start-integrated.sh && \
+    echo 'echo "========================================"' >> /app/start-integrated.sh && \
+    echo 'cd /app' >> /app/start-integrated.sh && \
+    echo 'php test-servers/integrated-server.php' >> /app/start-integrated.sh && \
+    chmod +x /app/start-integrated.sh
 
 # 暴露端口
 EXPOSE 8080
 
 # 健康檢查
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/health.php || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8080/ || exit 1
 
-# 啟動應用
-CMD ["/app/start.sh"] 
+# 啟動整合服務器
+CMD ["/app/start-integrated.sh"] 
