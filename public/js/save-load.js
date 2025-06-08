@@ -592,10 +592,13 @@ class SaveLoadManager {
     updateHistoryDropdown(history) {
         console.log('📋 更新歷史記錄下拉選單', history);
         
-        // 查找歷史記錄下拉選單元素
-        const historySelect = document.getElementById('historySelect');
+        // 查找歷史記錄下拉選單元素 (多種可能的ID)
+        const historySelect = document.getElementById('historySelect') || 
+                             document.getElementById('history-select') ||
+                             document.querySelector('.history-dropdown select');
+        
         if (!historySelect) {
-            console.log('📋 未找到歷史記錄下拉選單元素');
+            console.log('📋 未找到歷史記錄下拉選單元素，跳過更新');
             return;
         }
         

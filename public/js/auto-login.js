@@ -83,14 +83,16 @@ class AutoLoginManager {
             
             const result = await response.json();
             
-            if (result.success) {
+            if (result && result.success) {
                 console.log('✅ 服務器端會話設置成功:', result.data);
                 
-                // 更新用戶ID
-                this.defaultUser.id = result.data.user_id;
-                localStorage.setItem('default_user', JSON.stringify(this.defaultUser));
+                // 安全地更新用戶ID
+                if (result.data && result.data.user_id) {
+                    this.defaultUser.id = result.data.user_id;
+                    localStorage.setItem('default_user', JSON.stringify(this.defaultUser));
+                }
             } else {
-                console.warn('⚠️ 服務器端會話設置失敗:', result.message);
+                console.warn('⚠️ 服務器端會話設置失敗:', result ? result.message : '無響應數據');
             }
         } catch (error) {
             console.warn('⚠️ 無法設置服務器端會話:', error.message);

@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系統狀態檢查 - PythonLearn 協作平台</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .status-card {
+            transition: all 0.3s ease;
+        }
+        .status-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .status-ok { background-color: #28a745; }
+        .status-warning { background-color: #ffc107; }
+        .status-error { background-color: #dc3545; }
+        .status-info { background-color: #17a2b8; }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1><i class="fas fa-heartbeat text-primary"></i> 系統狀態檢查</h1>
+                    <a href="index.html" class="btn btn-outline-primary">
+                        <i class="fas fa-arrow-left"></i> 返回主頁
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 系統概覽 -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card status-card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="fas fa-info-circle"></i> 系統概覽</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>平台名稱:</strong> PythonLearn 協作教學平台</p>
+                                <p><strong>版本:</strong> v2.0 (HTTP 降級模式)</p>
+                                <p><strong>部署環境:</strong> <span id="environment">檢測中...</span></p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>當前時間:</strong> <span id="currentTime">載入中...</span></p>
+                                <p><strong>頁面載入時間:</strong> <span id="loadTime">計算中...</span></p>
+                                <p><strong>瀏覽器:</strong> <span id="browserInfo">檢測中...</span></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 服務狀態檢查 -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card status-card h-100">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="fas fa-server"></i> 基礎服務</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <span class="status-indicator status-ok"></span>
+                            <strong>HTTP 服務器</strong>
+                            <div class="text-muted small">✅ 正常運行</div>
+                        </div>
+                        <div class="mb-3">
+                            <span class="status-indicator status-ok"></span>
+                            <strong>靜態文件服務</strong>
+                            <div class="text-muted small">✅ CSS/JS 文件正常載入</div>
+                        </div>
+                        <div class="mb-3">
+                            <span class="status-indicator" id="apiStatus"></span>
+                            <strong>API 端點</strong>
+                            <div class="text-muted small" id="apiStatusText">檢測中...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card status-card h-100">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0"><i class="fas fa-plug"></i> 連接服務</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <span class="status-indicator" id="wsStatus"></span>
+                            <strong>WebSocket 連接</strong>
+                            <div class="text-muted small" id="wsStatusText">檢測中...</div>
+                        </div>
+                        <div class="mb-3">
+                            <span class="status-indicator status-info"></span>
+                            <strong>HTTP 降級模式</strong>
+                            <div class="text-muted small">✅ 已啟用，提供基本功能</div>
+                        </div>
+                        <div class="mb-3">
+                            <span class="status-indicator status-ok"></span>
+                            <strong>本地存儲</strong>
+                            <div class="text-muted small">✅ 支援代碼本地保存</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 功能狀態 -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card status-card">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="fas fa-cogs"></i> 功能狀態</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <h6>✅ 正常功能</h6>
+                                <ul class="list-unstyled">
+                                    <li><i class="fas fa-check text-success"></i> 代碼編輯器</li>
+                                    <li><i class="fas fa-check text-success"></i> 語法高亮</li>
+                                    <li><i class="fas fa-check text-success"></i> 本地保存/載入</li>
+                                    <li><i class="fas fa-check text-success"></i> 代碼執行</li>
+                                    <li><i class="fas fa-check text-success"></i> 文件下載</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-4">
+                                <h6>⚠️ 受限功能</h6>
+                                <ul class="list-unstyled">
+                                    <li><i class="fas fa-exclamation-triangle text-warning"></i> 實時協作</li>
+                                    <li><i class="fas fa-exclamation-triangle text-warning"></i> 即時聊天</li>
+                                    <li><i class="fas fa-exclamation-triangle text-warning"></i> 衝突檢測</li>
+                                    <li><i class="fas fa-exclamation-triangle text-warning"></i> 在線用戶顯示</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-4">
+                                <h6 id="aiStatusTitle">🤖 AI 助教</h6>
+                                <ul class="list-unstyled" id="aiFeatureList">
+                                    <li id="aiStatus">檢測中...</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 建議和說明 -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card status-card">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0"><i class="fas fa-lightbulb"></i> 使用建議</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            <h6><i class="fas fa-info-circle"></i> 當前模式說明</h6>
+                            <p class="mb-2">系統目前運行在 <strong>HTTP 降級模式</strong>，這意味著：</p>
+                            <ul class="mb-0">
+                                <li>所有基本功能（代碼編輯、保存、執行）都正常工作</li>
+                                <li>代碼會自動保存到瀏覽器本地存儲</li>
+                                <li>無法提供實時多人協作功能</li>
+                                <li>建議在本地開發環境中體驗完整功能</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="alert alert-success">
+                            <h6><i class="fas fa-rocket"></i> 開始使用</h6>
+                            <p class="mb-2">您可以立即開始使用以下功能：</p>
+                            <div class="d-flex gap-2 flex-wrap">
+                                <a href="index.html" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-code"></i> 開始編程
+                                </a>
+                                <button class="btn btn-info btn-sm" onclick="testAPI()">
+                                    <i class="fas fa-vial"></i> 測試 API
+                                </button>
+                                <button class="btn btn-warning btn-sm" onclick="testWebSocket()">
+                                    <i class="fas fa-plug"></i> 測試 WebSocket
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 頁面載入時間
+        const loadStartTime = performance.now();
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            const loadEndTime = performance.now();
+            const loadTime = Math.round(loadEndTime - loadStartTime);
+            document.getElementById('loadTime').textContent = `${loadTime}ms`;
+            
+            // 更新時間
+            updateTime();
+            setInterval(updateTime, 1000);
+            
+            // 檢測環境
+            detectEnvironment();
+            
+            // 檢測瀏覽器
+            detectBrowser();
+            
+            // 檢查服務狀態
+            checkServices();
+        });
+        
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('currentTime').textContent = now.toLocaleString('zh-TW');
+        }
+        
+        function detectEnvironment() {
+            const hostname = window.location.hostname;
+            let env = '未知';
+            
+            if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                env = '本地開發環境';
+            } else if (hostname.includes('zeabur.app')) {
+                env = 'Zeabur 雲端環境';
+            } else {
+                env = '生產環境';
+            }
+            
+            document.getElementById('environment').textContent = env;
+        }
+        
+        function detectBrowser() {
+            const ua = navigator.userAgent;
+            let browser = 'Unknown';
+            
+            if (ua.includes('Chrome')) browser = 'Chrome';
+            else if (ua.includes('Firefox')) browser = 'Firefox';
+            else if (ua.includes('Safari')) browser = 'Safari';
+            else if (ua.includes('Edge')) browser = 'Edge';
+            
+            document.getElementById('browserInfo').textContent = browser;
+        }
+        
+        async function checkServices() {
+            // 檢查 API
+            try {
+                const response = await fetch('/api/status');
+                if (response.ok) {
+                    document.getElementById('apiStatus').className = 'status-indicator status-ok';
+                    document.getElementById('apiStatusText').textContent = '✅ API 端點正常';
+                } else {
+                    throw new Error('API 響應異常');
+                }
+            } catch (error) {
+                document.getElementById('apiStatus').className = 'status-indicator status-error';
+                document.getElementById('apiStatusText').textContent = '❌ API 端點異常';
+            }
+            
+            // 檢查 WebSocket
+            checkWebSocket();
+            
+            // 檢查 AI 功能
+            checkAI();
+        }
+        
+        function checkWebSocket() {
+            const wsUrl = window.location.protocol === 'https:' ? 'wss:' : 'ws:' + '//' + window.location.host + '/ws';
+            const ws = new WebSocket(wsUrl);
+            
+            const timeout = setTimeout(() => {
+                ws.close();
+                document.getElementById('wsStatus').className = 'status-indicator status-warning';
+                document.getElementById('wsStatusText').textContent = '⚠️ WebSocket 不可用 (已切換到 HTTP 模式)';
+            }, 3000);
+            
+            ws.onopen = function() {
+                clearTimeout(timeout);
+                document.getElementById('wsStatus').className = 'status-indicator status-ok';
+                document.getElementById('wsStatusText').textContent = '✅ WebSocket 連接正常';
+                ws.close();
+            };
+            
+            ws.onerror = function() {
+                clearTimeout(timeout);
+                document.getElementById('wsStatus').className = 'status-indicator status-warning';
+                document.getElementById('wsStatusText').textContent = '⚠️ WebSocket 不可用 (已切換到 HTTP 模式)';
+            };
+        }
+        
+        async function checkAI() {
+            try {
+                const response = await fetch('/api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'ai',
+                        type: 'explain',
+                        code: 'print("test")'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('aiStatusTitle').innerHTML = '🤖 AI 助教';
+                    document.getElementById('aiStatus').innerHTML = '<i class="fas fa-check text-success"></i> AI 功能正常';
+                } else {
+                    throw new Error('AI 功能不可用');
+                }
+            } catch (error) {
+                document.getElementById('aiStatusTitle').innerHTML = '🤖 AI 助教';
+                document.getElementById('aiStatus').innerHTML = '<i class="fas fa-times text-warning"></i> AI 功能受限';
+            }
+        }
+        
+        async function testAPI() {
+            try {
+                const response = await fetch('/api/status');
+                const result = await response.json();
+                alert('API 測試成功！\n' + JSON.stringify(result, null, 2));
+            } catch (error) {
+                alert('API 測試失敗：' + error.message);
+            }
+        }
+        
+        function testWebSocket() {
+            const wsUrl = window.location.protocol === 'https:' ? 'wss:' : 'ws:' + '//' + window.location.host + '/ws';
+            const ws = new WebSocket(wsUrl);
+            
+            ws.onopen = function() {
+                alert('WebSocket 連接成功！');
+                ws.close();
+            };
+            
+            ws.onerror = function() {
+                alert('WebSocket 連接失敗，系統已切換到 HTTP 模式。');
+            };
+            
+            setTimeout(() => {
+                if (ws.readyState === WebSocket.CONNECTING) {
+                    ws.close();
+                    alert('WebSocket 連接超時，系統已切換到 HTTP 模式。');
+                }
+            }, 3000);
+        }
+    </script>
+</body>
+</html> 
