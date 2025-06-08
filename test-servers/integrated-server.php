@@ -2,6 +2,7 @@
 /**
  * 整合服務器 - 在同一進程中處理 HTTP 和 WebSocket 請求
  * 專為 Zeabur 單端口部署設計
+ * 版本: v2.0 - 純 PHP 實現
  */
 
 class IntegratedServer {
@@ -12,10 +13,12 @@ class IntegratedServer {
     private $rooms = [];
     
     public function __construct() {
-        echo "🚀 啟動整合服務器 (HTTP + WebSocket)\n";
+        echo "🚀 啟動整合服務器 v2.0 (純 PHP 實現)\n";
         echo "📡 監聽地址: {$this->host}:{$this->port}\n";
         echo "🌐 HTTP 服務: http://{$this->host}:{$this->port}\n";
         echo "🔌 WebSocket 服務: ws://{$this->host}:{$this->port}/ws\n";
+        echo "💾 存儲模式: 純內存 (無數據庫依賴)\n";
+        echo "🔧 PHP版本: " . PHP_VERSION . "\n";
         echo str_repeat("=", 50) . "\n";
         
         $this->createSocket();
@@ -23,26 +26,33 @@ class IntegratedServer {
     }
     
     private function createSocket() {
+        // 檢查 sockets 擴展
+        if (!extension_loaded('sockets')) {
+            die("❌ PHP sockets 擴展未安裝\n");
+        }
+        
         $this->socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
         
         if (!$this->socket) {
-            die("❌ 無法創建 socket\n");
+            die("❌ 無法創建 socket: " . socket_strerror(socket_last_error()) . "\n");
         }
         
         socket_set_option($this->socket, SOL_SOCKET, SO_REUSEADDR, 1);
         
         if (!socket_bind($this->socket, $this->host, $this->port)) {
-            die("❌ 無法綁定到 {$this->host}:{$this->port}\n");
+            die("❌ 無法綁定到 {$this->host}:{$this->port}: " . socket_strerror(socket_last_error()) . "\n");
         }
         
-        if (!socket_listen($this->socket, 5)) {
-            die("❌ 無法監聽端口 {$this->port}\n");
+        if (!socket_listen($this->socket, 10)) {
+            die("❌ 無法監聽端口 {$this->port}: " . socket_strerror(socket_last_error()) . "\n");
         }
         
         echo "✅ 服務器已啟動並監聽 {$this->host}:{$this->port}\n";
     }
     
     private function run() {
+        echo "🔄 開始主循環，等待連接...\n\n";
+        
         while (true) {
             $read = [$this->socket];
             $write = null;
@@ -50,12 +60,15 @@ class IntegratedServer {
             
             // 添加所有客戶端連接到讀取列表
             foreach ($this->clients as $client) {
-                $read[] = $client['socket'];
+                if (is_resource($client['socket'])) {
+                    $read[] = $client['socket'];
+                }
             }
             
             $ready = socket_select($read, $write, $except, 1);
             
             if ($ready === false) {
+                echo "❌ socket_select 失敗\n";
                 break;
             }
             
@@ -82,17 +95,20 @@ class IntegratedServer {
         $clientSocket = socket_accept($this->socket);
         
         if ($clientSocket === false) {
+            echo "⚠️ 接受連接失敗\n";
             return;
         }
         
-        $clientId = uniqid();
+        $clientId = uniqid('client_');
         $this->clients[$clientId] = [
             'socket' => $clientSocket,
             'handshake' => false,
             'type' => 'unknown',
             'buffer' => '',
             'user_id' => null,
-            'room_id' => null
+            'room_id' => null,
+            'username' => null,
+            'last_activity' => time()
         ];
         
         echo "🔗 新連接: {$clientId}\n";
@@ -105,9 +121,12 @@ class IntegratedServer {
         }
         
         $client = &$this->clients[$clientId];
-        $data = socket_read($clientSocket, 2048);
+        $client['last_activity'] = time();
+        
+        $data = socket_read($clientSocket, 4096);
         
         if ($data === false || $data === '') {
+            echo "🔌 客戶端 {$clientId} 斷開連接\n";
             $this->removeClient($clientId);
             return;
         }
@@ -116,7 +135,7 @@ class IntegratedServer {
         
         if (!$client['handshake']) {
             $this->handleHandshake($clientId);
-        } else if ($client['type'] === 'websocket') {
+        } else {
             $this->handleWebSocketMessage($clientId);
         }
     }
@@ -124,45 +143,56 @@ class IntegratedServer {
     private function handleHandshake($clientId) {
         $client = &$this->clients[$clientId];
         
+        // 檢查是否有完整的 HTTP 請求
         if (strpos($client['buffer'], "\r\n\r\n") === false) {
-            return; // 等待完整的 HTTP 頭
+            return; // 等待更多數據
         }
         
-        $lines = explode("\r\n", $client['buffer']);
+        $request = substr($client['buffer'], 0, strpos($client['buffer'], "\r\n\r\n"));
+        $client['buffer'] = substr($client['buffer'], strpos($client['buffer'], "\r\n\r\n") + 4);
+        
+        $lines = explode("\r\n", $request);
         $requestLine = $lines[0];
         
-        // 解析請求
-        if (preg_match('/^GET\s+(\/\S*)\s+HTTP\/1\.1/', $requestLine, $matches)) {
-            $path = $matches[1];
+        // 解析請求行
+        if (preg_match('/^(GET|POST)\s+([^\s]+)\s+HTTP\/1\.[01]$/', $requestLine, $matches)) {
+            $method = $matches[1];
+            $path = $matches[2];
             
-            // 檢查是否為 WebSocket 升級請求
-            $isWebSocket = false;
-            $wsKey = null;
+            echo "📥 {$method} {$path} from {$clientId}\n";
             
-            foreach ($lines as $line) {
-                if (stripos($line, 'Upgrade: websocket') !== false) {
-                    $isWebSocket = true;
-                } elseif (preg_match('/Sec-WebSocket-Key:\s*(.+)/', $line, $keyMatches)) {
-                    $wsKey = trim($keyMatches[1]);
+            // 解析請求頭
+            $headers = [];
+            for ($i = 1; $i < count($lines); $i++) {
+                if (strpos($lines[$i], ':') !== false) {
+                    list($key, $value) = explode(':', $lines[$i], 2);
+                    $headers[strtolower(trim($key))] = trim($value);
                 }
             }
             
-            if ($isWebSocket && $wsKey && $path === '/ws') {
-                $this->handleWebSocketHandshake($clientId, $wsKey);
+            // 檢查是否為 WebSocket 升級請求
+            if (isset($headers['upgrade']) && strtolower($headers['upgrade']) === 'websocket') {
+                $this->handleWebSocketHandshake($clientId, $headers);
             } else {
-                $this->handleHttpRequest($clientId, $path);
+                $this->handleHttpRequest($clientId, $method, $path, $headers);
             }
+        } else {
+            echo "⚠️ 無效的請求行: {$requestLine}\n";
+            $this->removeClient($clientId);
         }
-        
-        $client['handshake'] = true;
-        $client['buffer'] = '';
     }
     
-    private function handleWebSocketHandshake($clientId, $wsKey) {
+    private function handleWebSocketHandshake($clientId, $headers) {
         $client = &$this->clients[$clientId];
-        $client['type'] = 'websocket';
         
-        $acceptKey = base64_encode(sha1($wsKey . '258EAFA5-E914-47DA-95CA-C5AB0DC85B11', true));
+        if (!isset($headers['sec-websocket-key'])) {
+            echo "❌ 缺少 WebSocket 密鑰\n";
+            $this->removeClient($clientId);
+            return;
+        }
+        
+        $key = $headers['sec-websocket-key'];
+        $acceptKey = base64_encode(sha1($key . '258EAFA5-E914-47DA-95CA-C5AB0DC85B11', true));
         
         $response = "HTTP/1.1 101 Switching Protocols\r\n";
         $response .= "Upgrade: websocket\r\n";
@@ -172,93 +202,98 @@ class IntegratedServer {
         
         socket_write($client['socket'], $response);
         
-        echo "🔌 WebSocket 連接已建立: {$clientId}\n";
+        $client['handshake'] = true;
+        $client['type'] = 'websocket';
+        
+        echo "✅ WebSocket 握手完成: {$clientId}\n";
         
         // 發送歡迎消息
         $this->sendWebSocketMessage($clientId, [
-            'type' => 'connection_established',
+            'type' => 'connected',
             'message' => '歡迎連接到 Python 協作學習平台',
-            'client_id' => $clientId,
             'timestamp' => date('c')
         ]);
     }
     
-    private function handleHttpRequest($clientId, $path) {
+    private function handleHttpRequest($clientId, $method, $path, $headers) {
         $client = &$this->clients[$clientId];
-        $client['type'] = 'http';
         
-        echo "📄 HTTP 請求: {$path}\n";
-        
-        // 處理根路徑
-        if ($path === '/' || $path === '') {
-            $path = '/index.html';
-        }
-        
-        // 構建文件路徑
-        $filePath = __DIR__ . '/../public' . $path;
-        
-        // 檢查文件是否存在
-        if (file_exists($filePath) && is_file($filePath)) {
-            // 獲取文件內容
-            $content = file_get_contents($filePath);
-            $fileSize = strlen($content);
-            
-            // 確定 MIME 類型
-            $mimeType = $this->getMimeType($path);
-            
-            // 構建 HTTP 響應
-            $response = "HTTP/1.1 200 OK\r\n";
-            $response .= "Content-Type: {$mimeType}\r\n";
-            $response .= "Content-Length: {$fileSize}\r\n";
-            $response .= "Access-Control-Allow-Origin: *\r\n";
-            $response .= "Cache-Control: no-cache\r\n";
-            $response .= "\r\n";
-            $response .= $content;
-            
-            socket_write($client['socket'], $response);
-            echo "✅ 服務文件: {$path} ({$fileSize} bytes, {$mimeType})\n";
+        // 處理靜態文件請求
+        if ($method === 'GET') {
+            $this->serveStaticFile($clientId, $path);
         } else {
-            // 文件不存在，返回 API 響應或 404
-            if (strpos($path, '/api') === 0) {
-                // API 請求
-                $response = "HTTP/1.1 200 OK\r\n";
-                $response .= "Content-Type: application/json\r\n";
-                $response .= "Access-Control-Allow-Origin: *\r\n";
-                $response .= "\r\n";
-                
-                $data = [
-                    'service' => 'Python 協作學習平台',
-                    'path' => $path,
-                    'websocket_endpoint' => '/ws',
-                    'status' => 'running',
-                    'timestamp' => date('c')
-                ];
-                
-                $response .= json_encode($data, JSON_UNESCAPED_UNICODE);
-                socket_write($client['socket'], $response);
-                echo "📡 API 響應: {$path}\n";
-            } else {
-                // 404 錯誤
-                $response = "HTTP/1.1 404 Not Found\r\n";
-                $response .= "Content-Type: text/html\r\n";
-                $response .= "Access-Control-Allow-Origin: *\r\n";
-                $response .= "\r\n";
-                $response .= "<h1>404 - 文件未找到</h1><p>請求的文件 {$path} 不存在</p>";
-                
-                socket_write($client['socket'], $response);
-                echo "❌ 404: {$path}\n";
-            }
+            // 處理 API 請求
+            $this->handleApiRequest($clientId, $method, $path, $headers);
         }
         
+        // HTTP 請求處理完畢後關閉連接
         $this->removeClient($clientId);
     }
     
-    private function getMimeType($path) {
-        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+    private function serveStaticFile($clientId, $path) {
+        $client = &$this->clients[$clientId];
+        
+        // 安全檢查：防止目錄遍歷攻擊
+        $path = parse_url($path, PHP_URL_PATH);
+        $path = ltrim($path, '/');
+        
+        if (empty($path) || $path === '/') {
+            $path = 'index.html';
+        }
+        
+        $filePath = __DIR__ . '/../public/' . $path;
+        $realPath = realpath($filePath);
+        $publicDir = realpath(__DIR__ . '/../public');
+        
+        // 確保文件在 public 目錄內
+        if (!$realPath || strpos($realPath, $publicDir) !== 0) {
+            $this->send404($clientId);
+            return;
+        }
+        
+        if (!file_exists($realPath) || !is_file($realPath)) {
+            $this->send404($clientId);
+            return;
+        }
+        
+        $mimeType = $this->getMimeType($realPath);
+        $content = file_get_contents($realPath);
+        
+        $response = "HTTP/1.1 200 OK\r\n";
+        $response .= "Content-Type: {$mimeType}\r\n";
+        $response .= "Content-Length: " . strlen($content) . "\r\n";
+        $response .= "Cache-Control: no-cache\r\n";
+        $response .= "\r\n";
+        $response .= $content;
+        
+        socket_write($client['socket'], $response);
+        
+        echo "📄 提供文件: {$path} ({$mimeType})\n";
+    }
+    
+    private function send404($clientId) {
+        $client = &$this->clients[$clientId];
+        
+        $content = "<!DOCTYPE html><html><head><title>404 Not Found</title></head>";
+        $content .= "<body><h1>404 Not Found</h1><p>The requested file was not found.</p></body></html>";
+        
+        $response = "HTTP/1.1 404 Not Found\r\n";
+        $response .= "Content-Type: text/html\r\n";
+        $response .= "Content-Length: " . strlen($content) . "\r\n";
+        $response .= "\r\n";
+        $response .= $content;
+        
+        socket_write($client['socket'], $response);
+        
+        echo "❌ 404: 文件未找到\n";
+    }
+    
+    private function getMimeType($filePath) {
+        $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
         
         $mimeTypes = [
-            'html' => 'text/html; charset=utf-8',
-            'htm' => 'text/html; charset=utf-8',
+            'html' => 'text/html',
+            'htm' => 'text/html',
             'css' => 'text/css',
             'js' => 'application/javascript',
             'json' => 'application/json',
@@ -269,213 +304,286 @@ class IntegratedServer {
             'svg' => 'image/svg+xml',
             'ico' => 'image/x-icon',
             'txt' => 'text/plain',
-            'php' => 'application/x-httpd-php'
+            'php' => 'text/html'
         ];
         
         return $mimeTypes[$extension] ?? 'application/octet-stream';
     }
     
+    private function handleApiRequest($clientId, $method, $path, $headers) {
+        // 簡單的 API 處理
+        $response = "HTTP/1.1 200 OK\r\n";
+        $response .= "Content-Type: application/json\r\n";
+        $response .= "\r\n";
+        $response .= json_encode(['status' => 'ok', 'message' => 'API endpoint']);
+        
+        socket_write($this->clients[$clientId]['socket'], $response);
+    }
+    
     private function handleWebSocketMessage($clientId) {
         $client = &$this->clients[$clientId];
         
-        // 簡化的 WebSocket 幀解析
-        if (strlen($client['buffer']) < 2) {
-            return;
-        }
-        
-        $firstByte = ord($client['buffer'][0]);
-        $secondByte = ord($client['buffer'][1]);
-        
-        $opcode = $firstByte & 0x0F;
-        $masked = ($secondByte & 0x80) === 0x80;
-        $payloadLength = $secondByte & 0x7F;
-        
-        $headerLength = 2;
-        
-        if ($payloadLength === 126) {
-            if (strlen($client['buffer']) < 4) return;
-            $payloadLength = unpack('n', substr($client['buffer'], 2, 2))[1];
-            $headerLength = 4;
-        } elseif ($payloadLength === 127) {
-            if (strlen($client['buffer']) < 10) return;
-            $payloadLength = unpack('J', substr($client['buffer'], 2, 8))[1];
-            $headerLength = 10;
-        }
-        
-        if ($masked) {
-            $headerLength += 4;
-        }
-        
-        if (strlen($client['buffer']) < $headerLength + $payloadLength) {
-            return; // 等待完整的幀
-        }
-        
-        $payload = substr($client['buffer'], $headerLength, $payloadLength);
-        
-        if ($masked) {
-            $mask = substr($client['buffer'], $headerLength - 4, 4);
-            for ($i = 0; $i < $payloadLength; $i++) {
-                $payload[$i] = $payload[$i] ^ $mask[$i % 4];
+        // 簡單的 WebSocket 幀解析
+        while (strlen($client['buffer']) >= 2) {
+            $firstByte = ord($client['buffer'][0]);
+            $secondByte = ord($client['buffer'][1]);
+            
+            $fin = ($firstByte & 0x80) === 0x80;
+            $opcode = $firstByte & 0x0F;
+            $masked = ($secondByte & 0x80) === 0x80;
+            $payloadLength = $secondByte & 0x7F;
+            
+            $headerLength = 2;
+            
+            if ($payloadLength === 126) {
+                if (strlen($client['buffer']) < 4) return;
+                $payloadLength = unpack('n', substr($client['buffer'], 2, 2))[1];
+                $headerLength = 4;
+            } elseif ($payloadLength === 127) {
+                if (strlen($client['buffer']) < 10) return;
+                $payloadLength = unpack('J', substr($client['buffer'], 2, 8))[1];
+                $headerLength = 10;
+            }
+            
+            if ($masked) {
+                $headerLength += 4;
+            }
+            
+            if (strlen($client['buffer']) < $headerLength + $payloadLength) {
+                return; // 等待更多數據
+            }
+            
+            $payload = substr($client['buffer'], $headerLength, $payloadLength);
+            
+            if ($masked) {
+                $mask = substr($client['buffer'], $headerLength - 4, 4);
+                for ($i = 0; $i < $payloadLength; $i++) {
+                    $payload[$i] = $payload[$i] ^ $mask[$i % 4];
+                }
+            }
+            
+            $client['buffer'] = substr($client['buffer'], $headerLength + $payloadLength);
+            
+            if ($opcode === 0x8) { // 關閉幀
+                $this->removeClient($clientId);
+                return;
+            } elseif ($opcode === 0x9) { // Ping 幀
+                $this->sendWebSocketPong($clientId, $payload);
+            } elseif ($opcode === 0x1) { // 文本幀
+                $this->processWebSocketMessage($clientId, $payload);
             }
         }
-        
-        // 處理消息
-        if ($opcode === 0x1) { // 文本幀
-            $this->processWebSocketMessage($clientId, $payload);
-        } elseif ($opcode === 0x8) { // 關閉幀
-            $this->removeClient($clientId);
-        }
-        
-        // 移除已處理的數據
-        $client['buffer'] = substr($client['buffer'], $headerLength + $payloadLength);
     }
     
     private function processWebSocketMessage($clientId, $payload) {
-        $data = json_decode($payload, true);
-        
-        if (!$data) {
-            echo "⚠️ 無效的 JSON 消息: {$payload}\n";
-            return;
-        }
-        
-        echo "📨 收到消息: " . ($data['type'] ?? 'unknown') . "\n";
-        
-        $client = &$this->clients[$clientId];
-        
-        switch ($data['type'] ?? '') {
-            case 'join_room':
-                $this->handleJoinRoom($clientId, $data);
-                break;
-                
-            case 'code_change':
-                $this->handleCodeChange($clientId, $data);
-                break;
-                
-            case 'chat_message':
-                $this->handleChatMessage($clientId, $data);
-                break;
-                
-            case 'ping':
-                $this->sendWebSocketMessage($clientId, ['type' => 'pong', 'timestamp' => time()]);
-                break;
-                
-            default:
-                $this->sendWebSocketMessage($clientId, [
-                    'type' => 'echo',
-                    'original' => $data,
-                    'timestamp' => time()
-                ]);
+        try {
+            $message = json_decode($payload, true);
+            
+            if (!$message) {
+                echo "⚠️ 無效的 JSON 消息 from {$clientId}\n";
+                return;
+            }
+            
+            echo "📥 WebSocket 消息: {$message['type']} from {$clientId}\n";
+            
+            switch ($message['type']) {
+                case 'join_room':
+                    $this->handleJoinRoom($clientId, $message);
+                    break;
+                case 'leave_room':
+                    $this->handleLeaveRoom($clientId, $message);
+                    break;
+                case 'code_change':
+                    $this->handleCodeChange($clientId, $message);
+                    break;
+                case 'chat_message':
+                    $this->handleChatMessage($clientId, $message);
+                    break;
+                default:
+                    echo "⚠️ 未知消息類型: {$message['type']}\n";
+            }
+            
+        } catch (Exception $e) {
+            echo "❌ 處理 WebSocket 消息錯誤: " . $e->getMessage() . "\n";
         }
     }
     
-    private function handleJoinRoom($clientId, $data) {
-        $client = &$this->clients[$clientId];
-        $roomId = $data['room_id'] ?? 'default';
-        $userId = $data['user_id'] ?? 'anonymous';
+    private function handleJoinRoom($clientId, $message) {
+        $roomId = $message['room_id'] ?? null;
+        $userId = $message['user_id'] ?? null;
+        $username = $message['username'] ?? "用戶_{$clientId}";
         
-        $client['room_id'] = $roomId;
-        $client['user_id'] = $userId;
-        
-        if (!isset($this->rooms[$roomId])) {
-            $this->rooms[$roomId] = [];
+        if (!$roomId || !$userId) {
+            $this->sendWebSocketMessage($clientId, [
+                'type' => 'error',
+                'message' => '缺少房間ID或用戶ID'
+            ]);
+            return;
         }
         
-        $this->rooms[$roomId][$clientId] = $userId;
+        // 初始化房間
+        if (!isset($this->rooms[$roomId])) {
+            $this->rooms[$roomId] = [
+                'users' => [],
+                'code' => "# 歡迎來到 Python 協作學習平台\n# 開始編寫你的代碼吧！\n\nprint('Hello, World!')",
+                'created_at' => time()
+            ];
+        }
         
+        // 更新客戶端信息
+        $this->clients[$clientId]['user_id'] = $userId;
+        $this->clients[$clientId]['room_id'] = $roomId;
+        $this->clients[$clientId]['username'] = $username;
+        
+        // 添加用戶到房間
+        $this->rooms[$roomId]['users'][$userId] = [
+            'client_id' => $clientId,
+            'username' => $username,
+            'joined_at' => time()
+        ];
+        
+        echo "👤 用戶 {$username} 加入房間 {$roomId}\n";
+        
+        // 發送成功響應
         $this->sendWebSocketMessage($clientId, [
             'type' => 'room_joined',
             'room_id' => $roomId,
             'user_id' => $userId,
-            'message' => '成功加入房間'
+            'username' => $username,
+            'code' => $this->rooms[$roomId]['code'],
+            'users' => array_values($this->rooms[$roomId]['users'])
         ]);
         
         // 通知房間其他用戶
         $this->broadcastToRoom($roomId, [
             'type' => 'user_joined',
-            'room_id' => $roomId,
             'user_id' => $userId,
-            'message' => "{$userId} 加入了房間"
+            'username' => $username,
+            'users' => array_values($this->rooms[$roomId]['users'])
         ], $clientId);
-        
-        echo "👤 用戶 {$userId} 加入房間 {$roomId}\n";
     }
     
-    private function handleCodeChange($clientId, $data) {
+    private function handleLeaveRoom($clientId, $message) {
         $client = $this->clients[$clientId];
-        $roomId = $client['room_id'] ?? null;
+        $roomId = $client['room_id'];
+        $userId = $client['user_id'];
         
-        if (!$roomId) {
+        if ($roomId && isset($this->rooms[$roomId]['users'][$userId])) {
+            unset($this->rooms[$roomId]['users'][$userId]);
+            
+            echo "👋 用戶 {$userId} 離開房間 {$roomId}\n";
+            
+            // 通知房間其他用戶
+            $this->broadcastToRoom($roomId, [
+                'type' => 'user_left',
+                'user_id' => $userId,
+                'users' => array_values($this->rooms[$roomId]['users'])
+            ]);
+            
+            // 如果房間空了，清理房間
+            if (empty($this->rooms[$roomId]['users'])) {
+                unset($this->rooms[$roomId]);
+                echo "🗑️ 清理空房間: {$roomId}\n";
+            }
+        }
+    }
+    
+    private function handleCodeChange($clientId, $message) {
+        $client = $this->clients[$clientId];
+        $roomId = $client['room_id'];
+        
+        if (!$roomId || !isset($this->rooms[$roomId])) {
             return;
         }
+        
+        $newCode = $message['code'] ?? '';
+        $this->rooms[$roomId]['code'] = $newCode;
         
         // 廣播代碼變更到房間其他用戶
         $this->broadcastToRoom($roomId, [
-            'type' => 'code_change',
-            'room_id' => $roomId,
+            'type' => 'code_updated',
+            'code' => $newCode,
             'user_id' => $client['user_id'],
-            'code' => $data['code'] ?? '',
-            'change' => $data['change'] ?? null,
-            'timestamp' => time()
+            'timestamp' => date('c')
         ], $clientId);
     }
     
-    private function handleChatMessage($clientId, $data) {
+    private function handleChatMessage($clientId, $message) {
         $client = $this->clients[$clientId];
-        $roomId = $client['room_id'] ?? null;
+        $roomId = $client['room_id'];
         
         if (!$roomId) {
             return;
         }
         
-        // 廣播聊天消息到房間所有用戶
-        $this->broadcastToRoom($roomId, [
+        $chatMessage = [
             'type' => 'chat_message',
-            'room_id' => $roomId,
             'user_id' => $client['user_id'],
-            'username' => $client['user_id'],
-            'message' => $data['message'] ?? '',
-            'timestamp' => time()
-        ]);
+            'username' => $client['username'],
+            'message' => $message['message'] ?? '',
+            'timestamp' => date('c')
+        ];
+        
+        // 廣播聊天消息到房間所有用戶
+        $this->broadcastToRoom($roomId, $chatMessage);
     }
     
-    private function sendWebSocketMessage($clientId, $data) {
+    private function sendWebSocketMessage($clientId, $message) {
         if (!isset($this->clients[$clientId])) {
             return;
         }
         
         $client = $this->clients[$clientId];
-        $payload = json_encode($data, JSON_UNESCAPED_UNICODE);
+        
+        if ($client['type'] !== 'websocket') {
+            return;
+        }
+        
+        $payload = json_encode($message);
         $frame = $this->createWebSocketFrame($payload);
         
         socket_write($client['socket'], $frame);
     }
     
-    private function broadcastToRoom($roomId, $data, $excludeClientId = null) {
+    private function sendWebSocketPong($clientId, $payload) {
+        if (!isset($this->clients[$clientId])) {
+            return;
+        }
+        
+        $frame = $this->createWebSocketFrame($payload, 0xA); // Pong 幀
+        socket_write($this->clients[$clientId]['socket'], $frame);
+    }
+    
+    private function createWebSocketFrame($payload, $opcode = 0x1) {
+        $payloadLength = strlen($payload);
+        
+        $frame = chr(0x80 | $opcode); // FIN = 1, opcode
+        
+        if ($payloadLength < 126) {
+            $frame .= chr($payloadLength);
+        } elseif ($payloadLength < 65536) {
+            $frame .= chr(126) . pack('n', $payloadLength);
+        } else {
+            $frame .= chr(127) . pack('J', $payloadLength);
+        }
+        
+        $frame .= $payload;
+        
+        return $frame;
+    }
+    
+    private function broadcastToRoom($roomId, $message, $excludeClientId = null) {
         if (!isset($this->rooms[$roomId])) {
             return;
         }
         
-        foreach ($this->rooms[$roomId] as $clientId => $userId) {
-            if ($clientId !== $excludeClientId) {
-                $this->sendWebSocketMessage($clientId, $data);
+        foreach ($this->rooms[$roomId]['users'] as $userId => $user) {
+            $clientId = $user['client_id'];
+            
+            if ($clientId !== $excludeClientId && isset($this->clients[$clientId])) {
+                $this->sendWebSocketMessage($clientId, $message);
             }
         }
-    }
-    
-    private function createWebSocketFrame($payload) {
-        $length = strlen($payload);
-        $frame = chr(0x81); // FIN + 文本幀
-        
-        if ($length < 126) {
-            $frame .= chr($length);
-        } elseif ($length < 65536) {
-            $frame .= chr(126) . pack('n', $length);
-        } else {
-            $frame .= chr(127) . pack('J', $length);
-        }
-        
-        $frame .= $payload;
-        return $frame;
     }
     
     private function findClientId($socket) {
@@ -494,28 +602,28 @@ class IntegratedServer {
         
         $client = $this->clients[$clientId];
         
-        // 從房間中移除
-        if ($client['room_id'] && isset($this->rooms[$client['room_id']][$clientId])) {
-            unset($this->rooms[$client['room_id']][$clientId]);
-            
-            // 通知房間其他用戶
-            $this->broadcastToRoom($client['room_id'], [
-                'type' => 'user_left',
-                'room_id' => $client['room_id'],
-                'user_id' => $client['user_id'],
-                'message' => "{$client['user_id']} 離開了房間"
-            ]);
+        // 如果用戶在房間中，處理離開房間
+        if ($client['room_id']) {
+            $this->handleLeaveRoom($clientId, []);
         }
         
-        socket_close($client['socket']);
+        // 關閉 socket
+        if (is_resource($client['socket'])) {
+            socket_close($client['socket']);
+        }
+        
         unset($this->clients[$clientId]);
         
-        echo "🔌 連接已關閉: {$clientId}\n";
+        echo "🗑️ 移除客戶端: {$clientId}\n";
     }
     
     private function cleanupConnections() {
+        $currentTime = time();
+        
         foreach ($this->clients as $clientId => $client) {
-            if (!is_resource($client['socket'])) {
+            // 清理超時連接 (5分鐘無活動)
+            if ($currentTime - $client['last_activity'] > 300) {
+                echo "⏰ 清理超時連接: {$clientId}\n";
                 $this->removeClient($clientId);
             }
         }

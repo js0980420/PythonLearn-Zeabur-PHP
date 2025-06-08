@@ -1,42 +1,44 @@
-# Zeabur 部署配置 - 單服務整合架構 (修復版)
-name: python-learn
+# Zeabur 部署配置 - 純 PHP 單服務架構
+name: pythonlearn-php-collaboration
 
 services:
-  # 整合服務 (HTTP + WebSocket 在同一端口)
   web:
+    # 🏗️ 建構設定
     build:
-      dockerfile: Dockerfile.simple
+      command: |
+        echo "Installing PHP dependencies..."
+        # 不需要 composer，使用純 PHP 實現
+        echo "Build completed"
     
-    # 環境變數配置
+    # 🚀 啟動指令 - 使用整合服務器
+    start: php test-servers/integrated-server.php
+    
+    # 🌐 環境變數
     env:
-      # 應用配置
-      APP_ENV: "production"
-      DEBUG_MODE: "false"
-      PORT: "8080"
-      
-      # AI 配置 (從 Zeabur 環境變數)
+      PHP_VERSION: "8.1"
+      # AI 配置 (可選)
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENAI_MODEL: ${OPENAI_MODEL}
-      OPENAI_MAX_TOKENS: ${OPENAI_MAX_TOKENS}
-      
-      # 數據庫配置 (從 Zeabur 環境變數)
-      MYSQL_HOST: ${MYSQL_HOST}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_PORT: ${MYSQL_PORT}
+      # 應用配置
+      MAX_CONCURRENT_USERS: 50
+      MAX_ROOMS: 20
+      MAX_USERS_PER_ROOM: 8
     
-    # 暴露端口 (只有一個端口)
+    # 🔌 端口配置 - 只使用一個端口
     ports:
       - 8080
     
-    # 健康檢查
+    # 🏥 健康檢查
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      path: /
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
+    
+    # 📊 資源配置
+    resources:
+      cpu: 500m      # 0.5 CPU core
+      memory: 256Mi  # 256MB RAM
 
 # 📊 監控配置
 monitoring:
