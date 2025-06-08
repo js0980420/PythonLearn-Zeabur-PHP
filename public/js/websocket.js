@@ -1,6 +1,6 @@
 /**
- * WebSocket 管理器 - 純 PHP 整合服務器版本
- * 統一處理 WebSocket 連接和消息
+ * WebSocket 管理器 - 帶 HTTP 降級的版本
+ * 統一處理 WebSocket 連接和消息，支持 HTTP 模式降級
  */
 
 class WebSocketManager {
@@ -8,10 +8,12 @@ class WebSocketManager {
         this.ws = null;
         this.isConnected = false;
         this.reconnectAttempts = 0;
-        this.maxReconnectAttempts = 5;
+        this.maxReconnectAttempts = 3; // 減少重連次數
         this.reconnectDelay = 1000;
         this.messageQueue = [];
         this.eventHandlers = new Map();
+        this.httpMode = false; // HTTP 降級模式
+        this.pollInterval = null;
         
         // 自動檢測 WebSocket URL
         this.wsUrl = this.getWebSocketUrl();
@@ -53,15 +55,17 @@ class WebSocketManager {
                 
                 // 設置連接超時
                 const connectionTimeout = setTimeout(() => {
-                    console.error('❌ WebSocket 連接超時');
+                    console.warn('⚠️ WebSocket 連接超時，切換到 HTTP 模式');
                     this.ws.close();
-                    reject(new Error('Connection timeout'));
-                }, 10000);
+                    this.switchToHttpMode();
+                    resolve(true);
+                }, 5000); // 減少超時時間
                 
                 this.ws.onopen = () => {
                     clearTimeout(connectionTimeout);
                     this.isConnected = true;
                     this.reconnectAttempts = 0;
+                    this.httpMode = false;
                     
                     console.log('✅ WebSocket 連接成功');
                     
@@ -79,33 +83,91 @@ class WebSocketManager {
                 };
                 
                 this.ws.onclose = (event) => {
+                    clearTimeout(connectionTimeout);
                     this.isConnected = false;
                     console.warn('⚠️ WebSocket 連接關閉:', event.code, event.reason);
                     
                     this.emit('disconnected', { code: event.code, reason: event.reason });
                     
-                    // 自動重連
-                    if (this.reconnectAttempts < this.maxReconnectAttempts) {
-                        this.scheduleReconnect();
+                    // 如果是正常關閉或達到最大重連次數，切換到 HTTP 模式
+                    if (event.code === 1000 || this.reconnectAttempts >= this.maxReconnectAttempts) {
+                        console.log('🔄 切換到 HTTP 降級模式');
+                        this.switchToHttpMode();
                     } else {
-                        console.error('❌ 達到最大重連次數，停止重連');
-                        this.emit('maxReconnectAttemptsReached');
+                        this.scheduleReconnect();
                     }
                 };
                 
                 this.ws.onerror = (error) => {
                     clearTimeout(connectionTimeout);
-                    console.error('❌ WebSocket 連接錯誤:', error);
+                    console.warn('⚠️ WebSocket 連接錯誤，將切換到 HTTP 模式');
                     
                     this.emit('error', error);
-                    reject(error);
+                    
+                    // 立即切換到 HTTP 模式而不是拒絕
+                    this.switchToHttpMode();
+                    resolve(true);
                 };
                 
             } catch (error) {
-                console.error('❌ WebSocket 創建失敗:', error);
-                reject(error);
+                console.warn('⚠️ WebSocket 創建失敗，切換到 HTTP 模式:', error);
+                this.switchToHttpMode();
+                resolve(true);
             }
         });
+    }
+    
+    /**
+     * 切換到 HTTP 降級模式
+     */
+    switchToHttpMode() {
+        this.httpMode = true;
+        this.isConnected = true; // 在 HTTP 模式下也算是"連接"
+        this.ws = null;
+        
+        console.log('📡 已切換到 HTTP 降級模式');
+        console.log('ℹ️ 功能限制: 無實時同步，需手動刷新獲取更新');
+        
+        // 觸發連接成功事件
+        this.emit('connected');
+        this.emit('httpModeEnabled');
+        
+        // 處理消息佇列
+        this.processMessageQueue();
+        
+        // 開始輪詢 (可選)
+        this.startPolling();
+    }
+    
+    /**
+     * 開始 HTTP 輪詢
+     */
+    startPolling() {
+        if (this.pollInterval) {
+            clearInterval(this.pollInterval);
+        }
+        
+        // 每 30 秒輪詢一次狀態
+        this.pollInterval = setInterval(() => {
+            if (this.httpMode) {
+                this.pollStatus();
+            }
+        }, 30000);
+    }
+    
+    /**
+     * 輪詢服務器狀態
+     */
+    async pollStatus() {
+        try {
+            const response = await fetch('/api/status');
+            if (response.ok) {
+                const status = await response.json();
+                this.emit('statusUpdate', status);
+            }
+        } catch (error) {
+            console.warn('⚠️ 狀態輪詢失敗:', error);
+        }
     }
     
     /**
@@ -118,9 +180,10 @@ class WebSocketManager {
         console.log(`🔄 計劃重連 (${this.reconnectAttempts}/${this.maxReconnectAttempts}) 在 ${delay}ms 後`);
         
         setTimeout(() => {
-            if (!this.isConnected) {
+            if (!this.isConnected && !this.httpMode) {
                 this.connect().catch(error => {
-                    console.error('🔄 重連失敗:', error);
+                    console.warn('🔄 重連失敗，切換到 HTTP 模式:', error);
+                    this.switchToHttpMode();
                 });
             }
         }, delay);
@@ -131,6 +194,12 @@ class WebSocketManager {
      */
     async sendMessage(message) {
         return new Promise((resolve, reject) => {
+            if (this.httpMode) {
+                // HTTP 模式：通過 API 發送
+                this.sendHttpMessage(message).then(resolve).catch(reject);
+                return;
+            }
+            
             if (!this.isConnected || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
                 // 將消息加入佇列
                 this.messageQueue.push({ message, resolve, reject });
@@ -148,6 +217,33 @@ class WebSocketManager {
                 reject(error);
             }
         });
+    }
+    
+    /**
+     * 通過 HTTP API 發送消息
+     */
+    async sendHttpMessage(message) {
+        try {
+            const response = await fetch('/api/websocket', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(message)
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                console.log('📤 HTTP 消息發送成功:', message.type);
+                return result;
+            } else {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+        } catch (error) {
+            console.warn('⚠️ HTTP 消息發送失敗:', error);
+            // 在 HTTP 模式下，即使發送失敗也不拋出錯誤
+            return { success: false, error: error.message };
+        }
     }
     
     /**
@@ -173,7 +269,7 @@ class WebSocketManager {
      * 處理消息佇列
      */
     processMessageQueue() {
-        while (this.messageQueue.length > 0 && this.isConnected) {
+        while (this.messageQueue.length > 0) {
             const { message, resolve, reject } = this.messageQueue.shift();
             this.sendMessage(message).then(resolve).catch(reject);
         }
@@ -226,8 +322,22 @@ class WebSocketManager {
             this.ws.close();
             this.ws = null;
         }
+        
+        if (this.pollInterval) {
+            clearInterval(this.pollInterval);
+            this.pollInterval = null;
+        }
+        
         this.isConnected = false;
+        this.httpMode = false;
         this.reconnectAttempts = this.maxReconnectAttempts; // 阻止自動重連
+    }
+    
+    /**
+     * 檢查是否已連接 (包括 HTTP 模式)
+     */
+    getConnectionStatus() {
+        return this.isConnected;
     }
     
     /**
@@ -236,6 +346,7 @@ class WebSocketManager {
     getConnectionState() {
         return {
             isConnected: this.isConnected,
+            httpMode: this.httpMode,
             reconnectAttempts: this.reconnectAttempts,
             queuedMessages: this.messageQueue.length,
             wsUrl: this.wsUrl
@@ -246,9 +357,23 @@ class WebSocketManager {
 // 創建全域 WebSocket 管理器實例
 window.wsManager = new WebSocketManager();
 
-// 自動連接
-window.wsManager.connect().catch(error => {
-    console.error('❌ 初始 WebSocket 連接失敗:', error);
+// 監聽 HTTP 模式切換
+window.wsManager.on('httpModeEnabled', () => {
+    // 顯示 HTTP 模式狀態指示器
+    setTimeout(() => {
+        if (window.UI && typeof window.UI.showHttpModeStatus === 'function') {
+            window.UI.showHttpModeStatus();
+        } else if (window.UI && typeof window.UI.showWarningToast === 'function') {
+            window.UI.showWarningToast('已切換到 HTTP 模式，部分實時功能受限');
+        } else {
+            console.warn('⚠️ 當前為 HTTP 模式，無法提供實時協作功能');
+        }
+    }, 1000); // 延遲顯示，確保 UI 已載入
 });
 
-console.log('✅ WebSocket 管理器已載入'); 
+// 自動連接
+window.wsManager.connect().catch(error => {
+    console.warn('⚠️ 初始連接失敗，已切換到 HTTP 模式:', error);
+});
+
+console.log('✅ WebSocket 管理器已載入 (支持 HTTP 降級)'); 

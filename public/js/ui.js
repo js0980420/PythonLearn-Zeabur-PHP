@@ -450,6 +450,75 @@ class UIManager {
         
         console.log('✅ 操作教學已顯示');
     }
+
+    /**
+     * 顯示警告提示
+     */
+    showWarningToast(message, duration = 5000) {
+        // 創建提示元素
+        const toast = document.createElement('div');
+        toast.className = 'alert alert-warning alert-dismissible fade show position-fixed';
+        toast.style.cssText = `
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            max-width: 400px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        `;
+        
+        toast.innerHTML = `
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        
+        // 添加到頁面
+        document.body.appendChild(toast);
+        
+        // 自動移除
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.remove();
+            }
+        }, duration);
+    }
+
+    /**
+     * 顯示 HTTP 模式狀態
+     */
+    showHttpModeStatus() {
+        // 檢查是否已經顯示過
+        if (document.getElementById('httpModeIndicator')) {
+            return;
+        }
+        
+        // 創建狀態指示器
+        const indicator = document.createElement('div');
+        indicator.id = 'httpModeIndicator';
+        indicator.className = 'alert alert-info d-flex align-items-center mb-3';
+        indicator.innerHTML = `
+            <i class="fas fa-info-circle me-2"></i>
+            <div class="flex-grow-1">
+                <strong>HTTP 模式</strong> - WebSocket 連接不可用，部分實時功能受限
+                <br><small class="text-muted">代碼編輯和基本功能正常，但無法實時同步</small>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-info ms-2" onclick="this.parentElement.style.display='none'">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+        
+        // 插入到主要內容區域的頂部
+        const mainContent = document.querySelector('.container-fluid') || document.body;
+        const firstChild = mainContent.firstElementChild;
+        
+        if (firstChild) {
+            mainContent.insertBefore(indicator, firstChild);
+        } else {
+            mainContent.appendChild(indicator);
+        }
+        
+        console.log('ℹ️ HTTP 模式狀態指示器已顯示');
+    }
 }
 
 // 全局UI管理器實例

@@ -443,9 +443,11 @@
             // 等待其他模組載入完成
             setTimeout(function() {
                 // 強制請求一次歷史記錄
-                if (window.wsManager && window.wsManager.isConnected()) {
+                if (window.wsManager && window.wsManager.isConnected) {
                     console.log('📜 通過 WebSocket 請求歷史記錄');
-                    window.wsManager.getHistory();
+                    if (typeof window.wsManager.getHistory === 'function') {
+                        window.wsManager.getHistory();
+                    }
                 } else {
                     console.log('📜 通過 HTTP API 請求歷史記錄');
                     fetch('/api/history?room_id=test-room')
