@@ -23,8 +23,8 @@ if ($path === '/api.php') {
 
 // WebSocket 處理
 if ($path === '/ws') {
-    error_log("Router: 路由到 WebSocket 處理器");
-    require_once __DIR__ . '/public/websocket-handler.php';
+    error_log("Router: 路由到 WebSocket 代理");
+    require_once __DIR__ . '/public/websocket-proxy.php';
     return true;
 }
 

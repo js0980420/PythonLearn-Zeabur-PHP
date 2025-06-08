@@ -25,52 +25,32 @@ RUN mkdir -p /app/logs \
     && chmod -R 755 /app/logs \
     && chmod -R 755 /app/data
 
-# 創建啟動腳本
-RUN cat > /app/start.sh << 'EOF'
-#!/bin/bash
-
-echo "🚀 啟動 Python 協作學習平台"
-echo "📡 Web 服務器: 0.0.0.0:8080"
-echo "🔌 WebSocket 服務器: 0.0.0.0:8081"
-
-# 啟動 Web 服務器 (背景)
-php -S 0.0.0.0:8080 -t public router.php &
-WEB_PID=$!
-echo "✅ Web 服務器已啟動 (PID: $WEB_PID)"
-
-# 等待 Web 服務器啟動
-sleep 2
-
-# 啟動 WebSocket 服務器 (背景)
-php test-servers/native-websocket-server.php &
-WS_PID=$!
-echo "✅ WebSocket 服務器已啟動 (PID: $WS_PID)"
-
 # 創建健康檢查端點
-cat > /app/public/health.php << 'HEALTH_EOF'
-<?php
-header('Content-Type: application/json');
-echo json_encode([
-    'status' => 'healthy',
-    'timestamp' => date('c'),
-    'services' => [
-        'web' => 'running',
-        'websocket' => 'running'
-    ]
-]);
-HEALTH_EOF
+RUN echo '<?php' > /app/public/health.php && \
+    echo 'header("Content-Type: application/json");' >> /app/public/health.php && \
+    echo 'echo json_encode([' >> /app/public/health.php && \
+    echo '    "status" => "healthy",' >> /app/public/health.php && \
+    echo '    "timestamp" => date("c"),' >> /app/public/health.php && \
+    echo '    "services" => [' >> /app/public/health.php && \
+    echo '        "integrated" => "running"' >> /app/public/health.php && \
+    echo '    ]' >> /app/public/health.php && \
+    echo ']);' >> /app/public/health.php
 
-echo "🎉 所有服務已啟動"
-
-# 等待任一進程退出
-wait
-EOF
-
-# 設定執行權限
-RUN chmod +x /app/start.sh
+# 創建啟動腳本
+RUN echo '#!/bin/bash' > /app/start.sh && \
+    echo 'echo "🚀 啟動 Python 協作學習平台"' >> /app/start.sh && \
+    echo 'echo "📡 整合服務器: 0.0.0.0:8080"' >> /app/start.sh && \
+    echo 'echo "🔌 HTTP + WebSocket 同端口服務"' >> /app/start.sh && \
+    echo 'echo "🚀 啟動整合服務器..."' >> /app/start.sh && \
+    echo 'php test-servers/integrated-server.php &' >> /app/start.sh && \
+    echo 'INTEGRATED_PID=$!' >> /app/start.sh && \
+    echo 'echo "✅ 整合服務器已啟動 (PID: $INTEGRATED_PID)"' >> /app/start.sh && \
+    echo 'echo "🎉 所有服務已啟動"' >> /app/start.sh && \
+    echo 'wait' >> /app/start.sh && \
+    chmod +x /app/start.sh
 
 # 暴露端口
-EXPOSE 8080 8081
+EXPOSE 8080
 
 # 健康檢查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
