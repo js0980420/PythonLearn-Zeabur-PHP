@@ -55,7 +55,7 @@ stdout_logfile=/var/log/supervisor/web-server.out.log
 environment=PATH="/usr/local/bin:/usr/bin:/bin"
 
 [program:websocket-server]
-command=php /app/test-servers/stable-websocket-server.php
+command=bash -c 'if [ -f "vendor/autoload.php" ] && php -r "require \"vendor/autoload.php\"; echo \"Ratchet available\";" 2>/dev/null; then echo "✅ 使用 Ratchet WebSocket 服務器"; php /app/test-servers/stable-websocket-server.php; else echo "⚠️ Ratchet 不可用，使用原生 WebSocket 服務器"; php /app/test-servers/native-websocket-server.php; fi'
 directory=/app
 autostart=true
 autorestart=true
