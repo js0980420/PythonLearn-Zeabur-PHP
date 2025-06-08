@@ -184,7 +184,5 @@ function show404() {
         </div>
     </div>
 </body>
-</html>';
-}
-?> 
-?> 
+ </html>';
+ } 

@@ -1,38 +1,12 @@
 RewriteEngine On
 
-# 處理 CORS
-Header always set Access-Control-Allow-Origin "*"
-Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
-Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
-
-# 處理 OPTIONS 預檢請求
-RewriteCond %{REQUEST_METHOD} OPTIONS
-RewriteRule ^(.*)$ $1 [R=200,L]
-
-# API 路由 - 重定向到後端
-RewriteRule ^backend/api/(.*)$ backend/api/$1 [L]
-
-# 靜態資源直接服務
-RewriteCond %{REQUEST_FILENAME} -f
-RewriteRule ^public/(.*)$ public/$1 [L]
-
-# WebSocket 連接代理（如果需要通過 Apache）
-# RewriteRule ^ws/(.*)$ http://localhost:8080/$1 [P,L]
-
-# 前端路由
-RewriteRule ^$ frontend/index.php [L]
-RewriteRule ^index/?$ frontend/index.php [L]
-RewriteRule ^rooms/?$ frontend/rooms.php [L]
-RewriteRule ^editor/?$ frontend/editor.php [L]
-RewriteRule ^teacher-dashboard/?$ teacher-dashboard.html [L]
-
-# 所有其他請求重定向到首頁
+# 如果請求的是靜態文件且存在於 public 目錄，直接提供
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(.*)$ frontend/index.php [L]
+RewriteCond %{DOCUMENT_ROOT}/public%{REQUEST_URI} -f
+RewriteRule ^(.*)$ /public/$1 [L]
 
-# PHP 配置
-php_value upload_max_filesize 10M
-php_value post_max_size 10M
-php_value memory_limit 256M
-php_value max_execution_time 300 
+# 所有其他請求重定向到 index.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ /index.php [QSA,L] 
