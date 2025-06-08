@@ -1,0 +1,32 @@
+{
+    "name": "pythonlearn/zeabur-collaboration",
+    "description": "Python 協作學習平台 - 純 PHP 實現 (零依賴)",
+    "type": "project",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "PythonLearn Team",
+            "email": "team@pythonlearn.com"
+        }
+    ],
+    "require": {
+        "php": ">=7.4"
+    },
+    "require-dev": {},
+    "autoload": {},
+    "scripts": {
+        "start": "php test-servers/integrated-server.php",
+        "test": "php test-integrated-server.php"
+    },
+    "config": {
+        "optimize-autoloader": false,
+        "classmap-authoritative": false
+    },
+    "extra": {
+        "zeabur": {
+            "type": "php-native",
+            "dependencies": "none",
+            "description": "純 PHP Socket 服務器，無外部依賴"
+        }
+    }
+} 

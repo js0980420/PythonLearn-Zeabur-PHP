@@ -3,26 +3,32 @@ name: pythonlearn-php-collaboration
 
 services:
   web:
-    # 🏗️ 建構設定
+    # 🏗️ 建構設定 - 明確指定不使用 Composer
     build:
+      env: php
       command: |
-        echo "Installing PHP dependencies..."
-        # 不需要 composer，使用純 PHP 實現
-        echo "Build completed"
+        echo "🚀 純 PHP 項目構建開始..."
+        echo "📦 跳過 Composer 安裝 (零依賴項目)"
+        echo "✅ 構建完成 - 無需額外依賴"
     
     # 🚀 啟動指令 - 使用整合服務器
     start: php test-servers/integrated-server.php
     
     # 🌐 環境變數
     env:
+      # PHP 配置
       PHP_VERSION: "8.1"
-      # AI 配置 (可選)
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENAI_MODEL: ${OPENAI_MODEL}
+      COMPOSER_ALLOW_SUPERUSER: "1"
+      
       # 應用配置
+      APP_ENV: "production"
       MAX_CONCURRENT_USERS: 50
       MAX_ROOMS: 20
       MAX_USERS_PER_ROOM: 8
+      
+      # AI 配置 (可選)
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL}
     
     # 🔌 端口配置 - 只使用一個端口
     ports:
