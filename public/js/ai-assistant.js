@@ -7,10 +7,14 @@ class AIAssistantManager {
         this.isFirstPrompt = true; // 用於判斷是否是初始提示狀態
         this.isProcessing = false; // 防止重複請求
         this.currentAction = null; // 用於儲存當前動作
+        this.editorReady = false; // 編輯器就緒標誌
+        this.currentUser = null; // 用於儲存當前用戶
     }
 
     // 初始化AI助教
     initialize() {
+        console.log('🤖 [AI] 開始初始化AI助教...');
+        
         // 重新獲取DOM元素
         this.responseContainer = document.getElementById('aiResponse');
         this.shareOptions = document.getElementById('aiShareOptions');
@@ -41,19 +45,61 @@ class AIAssistantManager {
             console.log("✅ 找到 aiShareOptions 容器");
         }
         
+        // 🎯 與用戶管理器集成
+        if (window.UserManager) {
+            this.currentUser = window.UserManager.getCurrentUserName();
+            console.log('🤖 [AI] 與用戶管理器集成，當前用戶:', this.currentUser);
+            
+            // 監聽用戶變更
+            window.UserManager.onUserChange((newUser, oldUser) => {
+                this.currentUser = newUser ? newUser.name : null;
+                console.log('🤖 [AI] 用戶變更:', oldUser?.name, '->', newUser?.name);
+            });
+        }
+        
+        // 等待編輯器就緒
+        this.waitForEditorReady();
+        
         this.clearResponse(); // 初始化時清空回應並隱藏分享
-        console.log('✅ AI助教模組初始化完成 (V4 - 真實API版本)');
+        console.log('✅ AI助教模組初始化完成 (V6 - 用戶管理器集成版本)');
+    }
+
+    // 等待編輯器就緒
+    waitForEditorReady() {
+        const checkEditor = () => {
+            const editorReady = window.Editor && 
+                               typeof window.Editor.getCode === 'function' &&
+                               window.Editor.editor && 
+                               window.Editor.editor.getValue;
+            
+            if (editorReady) {
+                console.log('✅ [AI] 編輯器已就緒');
+                this.editorReady = true;
+                return;
+            }
+            
+            console.log('⏳ [AI] 等待編輯器就緒...', {
+                'window.Editor': !!window.Editor,
+                'window.Editor.getCode': !!(window.Editor && window.Editor.getCode),
+                'window.Editor.editor': !!(window.Editor && window.Editor.editor),
+                'CodeMirror可用': typeof CodeMirror !== 'undefined'
+            });
+            
+            setTimeout(checkEditor, 500);
+        };
+        
+        checkEditor();
     }
 
     // 清空AI回應並隱藏分享選項
     clearResponse() {
         if (this.responseContainer) {
-            // 初始化時顯示空白狀態，等待用戶點擊按鈕
+            // 初始化時顯示空白狀態
             this.responseContainer.innerHTML = `
                 <div class="text-center text-muted p-4">
-                    <i class="fas fa-robot fa-3x mb-3"></i>
-                    <h6>🤖 AI助教已準備就緒</h6>
-                    <p class="mb-0">點擊下方按鈕開始使用 AI助教功能</p>
+                    <div style="min-height: 50px; display: flex; align-items: center; justify-content: center;">
+                        <span style="opacity: 0.5;">選擇上方功能開始使用 AI 助教</span>
+                    </div>
                 </div>
             `;
         }
@@ -65,6 +111,42 @@ class AIAssistantManager {
 
     // 請求AI分析 - 修改為調用真實API
     requestAnalysis(action) {
+        // 檢查編輯器是否就緒
+        if (!this.editorReady && !(window.Editor && typeof window.Editor.getCode === 'function')) {
+            console.warn('⚠️ [AI] 編輯器尚未就緒，嘗試等待...');
+            if (this.responseContainer) {
+                this.responseContainer.innerHTML = `
+                    <div class="alert alert-warning p-3 text-center">
+                        <i class="fas fa-hourglass-half"></i>
+                        <strong>編輯器載入中...</strong>
+                        <p class="mb-0">請稍候，編輯器正在初始化中...</p>
+                    </div>
+                `;
+            }
+            
+            // 嘗試等待2秒後重試
+            setTimeout(() => {
+                if (window.Editor && typeof window.Editor.getCode === 'function') {
+                    console.log('✅ [AI] 編輯器已就緒，重新執行分析');
+                    this.editorReady = true;
+                    this.requestAnalysis(action);
+                } else {
+                    console.error('❌ [AI] 編輯器超時仍未就緒');
+                    if (this.responseContainer) {
+                        this.responseContainer.innerHTML = `
+                            <div class="alert alert-danger p-3 text-center">
+                                <i class="fas fa-exclamation-circle"></i>
+                                <strong>編輯器載入失敗</strong>
+                                <p class="mb-2">無法連接到代碼編輯器，請重新載入頁面。</p>
+                                <button class="btn btn-sm btn-warning" onclick="location.reload()">🔄 重新載入</button>
+                            </div>
+                        `;
+                    }
+                }
+            }, 2000);
+            return;
+        }
+        
         if (!wsManager.isConnected()) {
              if (this.responseContainer) {
                 this.responseContainer.innerHTML = '<p class="text-danger p-3 text-center">⚠️ 請先加入房間以使用AI助教功能。</p>';
@@ -81,22 +163,57 @@ class AIAssistantManager {
         this.isFirstPrompt = false; // 用戶已進行操作
         this.isProcessing = true; // 設置處理中狀態
 
-        // 獲取當前代碼 - 添加詳細調試
-        console.log('🔍 [AI Debug] 開始獲取編輯器代碼...');
-        console.log('🔍 [AI Debug] window.Editor對象:', window.Editor);
-        console.log('🔍 [AI Debug] window.Editor.editor:', window.Editor ? window.Editor.editor : 'window.Editor未定義');
-        
-        const code = window.Editor ? window.Editor.getCode() : '';
-        console.log('🔍 [AI Debug] 獲取到的代碼:', code);
-        console.log('🔍 [AI Debug] 代碼長度:', code ? code.length : 'code為null/undefined');
-        console.log('🔍 [AI Debug] 代碼類型:', typeof code);
+        // 🔧 使用統一的代碼獲取方法
+        console.log('🔍 [AI] 開始獲取編輯器代碼...');
+        const code = this.getEditorCode();
         
         if (!code || code.trim() === '') {
-            console.log('⚠️ [AI Debug] 代碼為空，顯示警告訊息');
+            // 詳細診斷信息
+            const diagnostics = {
+                'window.Editor': !!window.Editor,
+                'window.Editor.getCode': !!(window.Editor && window.Editor.getCode),
+                'window.editor': !!window.editor,
+                'window.editor.getValue': !!(window.editor && window.editor.getValue),
+                'CodeMirror元素': !!document.querySelector('.CodeMirror'),
+                '#codeEditor元素': !!document.querySelector('#codeEditor'),
+                'textarea元素': document.querySelectorAll('textarea').length,
+                'wsManager': !!window.wsManager,
+                'wsManager.currentRoom': window.wsManager ? window.wsManager.currentRoom : null,
+                'localStorage keys': Object.keys(localStorage).filter(k => k.includes('code')).join(', ') || '無相關鍵值'
+            };
+            
+            let diagHtml = '';
+            for (const [key, value] of Object.entries(diagnostics)) {
+                const status = value ? '✅' : '❌';
+                const color = value ? 'text-success' : 'text-danger';
+                diagHtml += `<span class="${color}">${status} ${key}: ${value}</span><br>`;
+            }
+            
             this.showResponse(`
                 <div class="alert alert-warning">
                     <i class="fas fa-exclamation-triangle"></i>
-                    <strong>注意：</strong> 編輯器中沒有程式碼可供分析。請先輸入一些Python程式碼。
+                    <strong>無法分析當前代碼</strong>
+                    <p>編輯器中沒有找到程式碼可供分析。請確認：</p>
+                    <ol>
+                        <li>您已經在編輯器中輸入了Python程式碼</li>
+                        <li>代碼編輯器已正確載入</li>
+                        <li>您已加入了房間</li>
+                    </ol>
+                    <hr>
+                    <details>
+                        <summary><strong>🔧 技術診斷信息</strong> (點擊展開)</summary>
+                        <div class="mt-2 small" style="font-family: monospace;">
+                            ${diagHtml}
+                        </div>
+                        <div class="mt-2">
+                            <button class="btn btn-sm btn-info" onclick="console.log('🔍 手動診斷:', window.aiAssistant ? window.aiAssistant.getEditorCode() : '無AI助教物件')">
+                                🔍 執行手動診斷
+                            </button>
+                            <button class="btn btn-sm btn-warning" onclick="location.reload()">
+                                🔄 重新載入頁面
+                            </button>
+                        </div>
+                    </details>
                 </div>
             `);
             this.isProcessing = false;
@@ -124,6 +241,9 @@ class AIAssistantManager {
             case 'suggest':
                 apiAction = 'suggest';
                 break;
+            case 'conflict_analysis':
+                apiAction = 'conflict_analysis';
+                break;
             case 'collaboration_guide':
                 // 協作指南使用本地回應，顯示操作教學
                 this.showResponse(this.getCollaborationGuide());
@@ -134,7 +254,6 @@ class AIAssistantManager {
         }
 
         console.log(`🤖 發送AI請求: ${apiAction}, RequestID: ${requestId}`);
-        console.log('🔍 [AI Debug] 發送的代碼內容:', code);
 
         // 獲取用戶信息，優先使用AutoLogin的用戶信息
         let userInfo = { id: 1, username: 'Alex Wang' };
@@ -148,17 +267,15 @@ class AIAssistantManager {
             }
         }
 
-        // 發送AI請求到服務器
-        wsManager.sendMessage({
-            type: 'ai_request',
+        // 發送HTTP輪詢請求
+        console.log('📡 [AI] 通過HTTP發送AI請求');
+        this.sendHTTPAIRequest({
             action: apiAction,
+            code: code,
             requestId: requestId,
             user_id: userInfo.id,
             username: userInfo.username,
-                            room_id: wsManager.currentRoom || 'test-room',
-            data: {
-                code: code
-            }
+            room_id: wsManager.currentRoom || 'test-room'
         });
 
         // 設置超時處理
@@ -206,9 +323,9 @@ class AIAssistantManager {
         }
     }
 
-    // 處理WebSocket AI回應
+    // 處理HTTP輪詢 AI回應
     handleWebSocketAIResponse(message) {
-        console.log('🤖 [AI Assistant] 處理WebSocket AI回應:', message);
+        console.log('🤖 [AI Assistant] 處理HTTP輪詢 AI回應:', message);
         console.log('🔍 [AI Assistant] 回應容器狀態:', !!this.responseContainer);
         console.log('🔍 [AI Assistant] 當前處理狀態:', this.isProcessing);
         
@@ -427,79 +544,73 @@ class AIAssistantManager {
         const aiRequest = {
             action: 'run_code',
             code: code,
-            prompt: `請執行以下Python代碼並提供詳細的執行結果分析。請按照以下格式回應：
-
-## 代碼執行結果
-
-**執行狀態：** [成功/失敗]
-
-**輸出結果：**
-\`\`\`
-[這裡顯示代碼的標準輸出，如print()的內容]
-\`\`\`
-
-**執行分析：**
-1. 代碼功能說明
-2. 執行流程解析
-3. 輸出結果解釋
-4. 如果有錯誤，提供錯誤說明和修正建議
-
-**代碼：**
-\`\`\`python
-${code}
-\`\`\`
-
-請特別注意：
-- 如果代碼有語法錯誤，請指出具體錯誤位置
-- 如果代碼會產生輸出，請模擬真實的執行結果
-- 如果代碼邏輯有問題，請提供改進建議
-- 請用繁體中文回應`
+            requestId: `ai_run_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            user_id: 1,
+            username: 'Student'
         };
         
-        // 發送WebSocket請求
-        if (wsManager && wsManager.isConnected()) {
-            console.log('📡 [AI Code Runner] 通過WebSocket發送AI代碼執行請求');
-            wsManager.sendMessage({
-                type: 'ai_request',
-                ...aiRequest,
-                requestId: `ai_run_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                user_id: wsManager.currentUser || 'anonymous',
-                username: wsManager.currentUser || 'Anonymous',
-                room_id: wsManager.currentRoom || 'test-room'
-            });
-        } else {
-            console.log('📡 [AI Code Runner] 通過HTTP發送AI代碼執行請求');
+        // 🔧 修復：始終使用HTTP直接發送到AI API，避免WebSocket路由問題
+        console.log('📡 [AI Code Runner] 直接通過HTTP發送AI代碼執行請求');
             this.sendHTTPAIRequest(aiRequest);
-        }
     }
     
-    // 🆕 通過HTTP發送AI請求 (備用方案)
+    // 🆕 通過HTTP發送AI請求
     async sendHTTPAIRequest(aiRequest) {
         try {
             console.log('📡 [HTTP AI] 發送HTTP AI請求:', aiRequest);
             
-            const response = await fetch('/api.php/ai', {
+            // 🔧 修復：確保代碼存在
+            if (!aiRequest.code) {
+                console.error('❌ [HTTP AI] 代碼為空，嘗試重新獲取');
+                const editorCode = this.getEditorCode();
+                if (editorCode && editorCode.trim()) {
+                    aiRequest.code = editorCode;
+                    console.log('✅ [HTTP AI] 重新獲取代碼成功:', editorCode.substring(0, 50) + '...');
+                } else {
+                    throw new Error('無法獲取編輯器代碼內容');
+                }
+            }
+            
+            // 構建請求數據
+            const requestData = {
+                action: aiRequest.action,
+                code: aiRequest.code,
+                requestId: aiRequest.requestId || `http_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                user_id: aiRequest.user_id || 1,
+                username: aiRequest.username || 'Anonymous'
+            };
+            
+            if (aiRequest.prompt) {
+                requestData.prompt = aiRequest.prompt;
+            }
+            
+            console.log('📤 [HTTP AI] 請求數據:', requestData);
+            console.log('📤 [HTTP AI] 代碼內容預覽:', requestData.code ? requestData.code.substring(0, 100) + '...' : '無代碼');
+            
+            // 🔧 修復：發送到正確的AI API端點
+            const response = await fetch('/api/ai.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    action: aiRequest.action,
-                    code: aiRequest.code,
-                    prompt: aiRequest.prompt,
-                    requestId: `http_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-                })
+                body: JSON.stringify(requestData)
             });
             
+            console.log('📥 [HTTP AI] 回應狀態:', response.status);
+            
             if (!response.ok) {
-                throw new Error(`HTTP錯誤: ${response.status}`);
+                const errorText = await response.text();
+                console.error('📥 [HTTP AI] HTTP錯誤內容:', errorText);
+                throw new Error(`HTTP錯誤: ${response.status} - ${errorText}`);
             }
             
             const result = await response.json();
-            console.log('📡 [HTTP AI] 收到HTTP AI回應:', result);
+            console.log('✅ [HTTP AI] 收到HTTP AI回應:', result);
             
             // 處理回應
             if (result.success) {
+                console.log('🎉 [HTTP AI] AI請求成功，處理回應...');
+                
                 if (aiRequest.action === 'run_code') {
                     this.handleCodeExecutionResult({
                         success: true,
@@ -508,17 +619,30 @@ ${code}
                         execution_time: result.execution_time || 0
                     });
                 } else {
-                    this.handleAIResponse({
-                        response: result.response || result.output,
-                        success: true
-                    });
+                    // 直接顯示AI回應
+                    const formattedResponse = `
+                        <h6><i class="fas fa-brain"></i> AI助教分析結果</h6>
+                        <div class="mb-3">
+                            <div class="ai-content">
+                                ${this.formatAIResponse(result.response || result.output || '分析完成')}
+                            </div>
+                        </div>
+                        <div class="alert alert-info mt-2">
+                            <small><i class="fas fa-info-circle"></i> 模式: ${result.mode || 'API'}</small>
+                        </div>
+                    `;
+                    this.showResponse(formattedResponse);
                 }
+                
+                this.isProcessing = false;
+                
             } else {
+                console.error('❌ [HTTP AI] AI請求失敗:', result.error);
                 this.handleAIError(result.error || '未知錯誤');
             }
             
         } catch (error) {
-            console.error('📡 [HTTP AI] HTTP AI請求失敗:', error);
+            console.error('📡 [HTTP AI] HTTP AI請求異常:', error);
             this.handleAIError(`網路請求失敗: ${error.message}`);
         }
     }
@@ -545,26 +669,16 @@ ${code}
         
         this.isProcessing = false;
         
-        // 如果是通過編輯器的runCode調用的，使用編輯器的結果處理
-        if (window.Editor && typeof window.Editor.handleExecutionResult === 'function') {
-            console.log('📤 [AI Code Runner] 調用編輯器的結果處理方法');
-            window.Editor.handleExecutionResult(result);
-        } else if (window.editorManager && typeof window.editorManager.handleExecutionResult === 'function') {
-            console.log('📤 [AI Code Runner] 調用editorManager的結果處理方法');
-            window.editorManager.handleExecutionResult(result);
-        } else {
-            // 備用方案：直接顯示結果
-            console.log('📤 [AI Code Runner] 使用備用方案顯示結果');
-            this.showCodeExecutionResultFallback(result);
-        }
+        // 🔧 優先確保結果顯示在編輯器下方的輸出區域
+        this.showExecutionResultInEditor(result);
         
-        // 在AI助教區域也顯示分析結果
+        // 同時在AI助教區域也顯示分析結果
         if (result.success) {
             this.showResponse(`
                 <h6><i class="fas fa-play-circle text-success"></i> 代碼執行成功</h6>
                 <div class="mb-3">
                     <div class="ai-content">
-                        ${result.analysis || result.output || '代碼執行完成'}
+                        ${this.formatAIResponse(result.analysis || result.output || '代碼執行完成')}
                     </div>
                 </div>
                 ${result.execution_time ? `<small class="text-muted">執行時間: ${result.execution_time}ms</small>` : ''}
@@ -579,6 +693,137 @@ ${code}
                 </div>
             `);
         }
+    }
+
+    // 🆕 在編輯器下方顯示執行結果
+    showExecutionResultInEditor(result) {
+        console.log('📺 [AI Code Runner] 在編輯器區域顯示執行結果');
+        
+        // 嘗試多種方式找到並更新輸出區域
+        const outputMethods = [
+            () => {
+                // 方法1：使用 window.Editor
+                if (window.Editor && typeof window.Editor.handleExecutionResult === 'function') {
+                    console.log('📤 方法1：調用window.Editor.handleExecutionResult');
+                    window.Editor.handleExecutionResult(result);
+                    return true;
+                }
+                return false;
+            },
+            () => {
+                // 方法2：使用 window.editorManager
+                if (window.editorManager && typeof window.editorManager.handleExecutionResult === 'function') {
+                    console.log('📤 方法2：調用window.editorManager.handleExecutionResult');
+                    window.editorManager.handleExecutionResult(result);
+                    return true;
+                }
+                return false;
+            },
+            () => {
+                // 方法3：使用 window.editorManager.showOutput
+                if (window.editorManager && typeof window.editorManager.showOutput === 'function') {
+                    console.log('📤 方法3：調用window.editorManager.showOutput');
+                    if (result.success) {
+                        window.editorManager.showOutput(result.output || result.analysis || '執行成功', 'success');
+                    } else {
+                        window.editorManager.showOutput(result.error || '執行失敗', 'error');
+                    }
+                    return true;
+                }
+                return false;
+            },
+            () => {
+                // 方法4：直接操作DOM元素
+                console.log('📤 方法4：直接操作DOM輸出區域');
+                return this.showExecutionResultDirectDOM(result);
+            }
+        ];
+        
+        // 嘗試每種方法，直到成功
+        for (let i = 0; i < outputMethods.length; i++) {
+            try {
+                if (outputMethods[i]()) {
+                    console.log(`✅ 成功使用方法${i + 1}顯示執行結果`);
+                    return;
+                }
+            } catch (error) {
+                console.warn(`⚠️ 方法${i + 1}失敗:`, error);
+            }
+        }
+        
+        console.error('❌ 所有顯示方法都失敗了');
+    }
+
+    // 🆕 直接操作DOM顯示執行結果
+    showExecutionResultDirectDOM(result) {
+        // 查找輸出容器
+        const outputContainers = [
+            document.getElementById('codeOutput'),
+            document.getElementById('outputContent'),
+            document.querySelector('.code-output'),
+            document.querySelector('#output'),
+            document.querySelector('.output-area'),
+            document.querySelector('.execution-result')
+        ];
+        
+        let outputContainer = null;
+        for (const container of outputContainers) {
+            if (container) {
+                outputContainer = container;
+                break;
+            }
+        }
+        
+        if (!outputContainer) {
+            console.warn('❌ 未找到輸出容器，嘗試創建');
+            // 嘗試在編輯器後面創建輸出區域
+            const editorContainer = document.querySelector('.editor-container') || 
+                                  document.querySelector('#codeEditor') || 
+                                  document.querySelector('.CodeMirror');
+            
+            if (editorContainer) {
+                outputContainer = document.createElement('div');
+                outputContainer.id = 'codeOutput';
+                outputContainer.className = 'output-area mt-3 p-3 border rounded bg-light';
+                outputContainer.style.display = 'block';
+                editorContainer.parentNode.insertBefore(outputContainer, editorContainer.nextSibling);
+                console.log('✅ 成功創建輸出容器');
+            } else {
+                console.error('❌ 無法找到編輯器容器');
+                return false;
+            }
+        }
+        
+        // 顯示輸出容器
+        outputContainer.style.display = 'block';
+        
+        // 格式化並顯示結果
+        if (result.success) {
+            outputContainer.innerHTML = `
+                <div class="alert alert-success">
+                    <h6><i class="fas fa-check-circle"></i> 🤖 AI執行結果</h6>
+                    <div class="execution-output">
+                        ${this.formatAIResponse(result.output || result.analysis || '程式執行完成')}
+                    </div>
+                    ${result.execution_time ? `<small class="text-muted d-block mt-2">執行時間: ${result.execution_time}ms</small>` : ''}
+                </div>
+            `;
+        } else {
+            outputContainer.innerHTML = `
+                <div class="alert alert-danger">
+                    <h6><i class="fas fa-exclamation-triangle"></i> 🤖 AI執行分析</h6>
+                    <div class="execution-output">
+                        ${this.escapeHtml(result.error || '代碼執行失敗')}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // 滾動到輸出區域
+        outputContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        
+        console.log('✅ 直接DOM操作顯示執行結果成功');
+        return true;
     }
 
     // 🆕 備用方案：直接顯示代碼執行結果
@@ -922,16 +1167,170 @@ ${code}
 
     // 顯示代碼審查建議
     showCodeReviewSuggestions() {
-        const code = window.Editor ? window.Editor.getCode() : '';
+        const code = this.getEditorCode();
         const suggestions = this.analyzeCode(code);
         this.showResponse(suggestions);
     }
 
     // 顯示改進建議
     showImprovementTips() {
-        const code = window.Editor ? window.Editor.getCode() : '';
+        const code = this.getEditorCode();
         const tips = this.generateImprovementTips(code);
         this.showResponse(tips);
+    }
+    
+    // 🆕 統一的代碼獲取方法
+    getEditorCode() {
+        console.log('🔍 [AI] 開始代碼獲取診斷...');
+        
+        // 詳細環境檢查
+        const envCheck = {
+            'window.Editor': !!window.Editor,
+            'window.Editor.getCode': !!(window.Editor && typeof window.Editor.getCode === 'function'),
+            'window.editor': !!window.editor,
+            'window.editor.getValue': !!(window.editor && typeof window.editor.getValue === 'function'),
+            'DOM .CodeMirror': !!document.querySelector('.CodeMirror'),
+            'DOM #codeEditor': !!document.querySelector('#codeEditor'),
+            'wsManager.currentRoom': window.wsManager ? window.wsManager.currentRoom : null
+        };
+        
+        console.log('🔧 [AI] 環境檢查結果:', envCheck);
+        
+        let code = '';
+        let method = '';
+        
+        // 方案1: 使用 window.Editor.getCode()
+        if (window.Editor && typeof window.Editor.getCode === 'function') {
+            try {
+                code = window.Editor.getCode();
+                method = 'window.Editor.getCode()';
+                console.log('✅ [AI] 方案1成功:', method, '- 獲取', code.length, '字符');
+                console.log('📝 [AI] 代碼預覽:', code.substring(0, 50) + (code.length > 50 ? '...' : ''));
+                if (code && code.trim().length > 0) {
+                    return code;
+                }
+            } catch (error) {
+                console.error('❌ [AI] 方案1失敗 - window.Editor.getCode():', error);
+            }
+        } else {
+            console.warn('⚠️ [AI] 方案1不可用 - window.Editor.getCode 不存在');
+        }
+        
+        // 方案2: 嘗試直接從CodeMirror獲取
+        if (window.editor && typeof window.editor.getValue === 'function') {
+            try {
+                code = window.editor.getValue();
+                method = 'window.editor.getValue()';
+                console.log('✅ [AI] 方案2成功:', method, '- 獲取', code.length, '字符');
+                console.log('📝 [AI] 代碼預覽:', code.substring(0, 50) + (code.length > 50 ? '...' : ''));
+                if (code && code.trim().length > 0) {
+                    return code;
+                }
+            } catch (error) {
+                console.error('❌ [AI] 方案2失敗 - window.editor.getValue():', error);
+            }
+        } else {
+            console.warn('⚠️ [AI] 方案2不可用 - window.editor.getValue 不存在');
+        }
+        
+        // 方案3: 嘗試從DOM元素獲取
+        const codeMirrorElement = document.querySelector('.CodeMirror');
+        const codeEditorElement = document.querySelector('#codeEditor');
+        const textareaElement = document.querySelector('textarea[name="code"]');
+        
+        console.log('🔍 [AI] DOM元素檢查:', {
+            '.CodeMirror': !!codeMirrorElement,
+            '#codeEditor': !!codeEditorElement,
+            'textarea[name="code"]': !!textareaElement
+        });
+        
+        if (codeMirrorElement) {
+            try {
+                if (codeMirrorElement.CodeMirror && typeof codeMirrorElement.CodeMirror.getValue === 'function') {
+                    code = codeMirrorElement.CodeMirror.getValue();
+                    method = 'DOM CodeMirror.getValue()';
+                    console.log('✅ [AI] 方案3a成功:', method, '- 獲取', code.length, '字符');
+                    console.log('📝 [AI] 代碼預覽:', code.substring(0, 50) + (code.length > 50 ? '...' : ''));
+                    if (code && code.trim().length > 0) {
+                        return code;
+                    }
+                } else {
+                    console.warn('⚠️ [AI] CodeMirror對象未正確初始化');
+                }
+            } catch (error) {
+                console.error('❌ [AI] 方案3a失敗 - DOM CodeMirror:', error);
+            }
+        }
+        
+        if (codeEditorElement && codeEditorElement.value !== undefined) {
+            try {
+                code = codeEditorElement.value;
+                method = 'DOM #codeEditor.value';
+                console.log('✅ [AI] 方案3b成功:', method, '- 獲取', code.length, '字符');
+                console.log('📝 [AI] 代碼預覽:', code.substring(0, 50) + (code.length > 50 ? '...' : ''));
+                if (code && code.trim().length > 0) {
+                    return code;
+                }
+            } catch (error) {
+                console.error('❌ [AI] 方案3b失敗 - DOM #codeEditor:', error);
+            }
+        }
+        
+        if (textareaElement && textareaElement.value !== undefined) {
+            try {
+                code = textareaElement.value;
+                method = 'DOM textarea.value';
+                console.log('✅ [AI] 方案3c成功:', method, '- 獲取', code.length, '字符');
+                console.log('📝 [AI] 代碼預覽:', code.substring(0, 50) + (code.length > 50 ? '...' : ''));
+                if (code && code.trim().length > 0) {
+                    return code;
+                }
+            } catch (error) {
+                console.error('❌ [AI] 方案3c失敗 - DOM textarea:', error);
+            }
+        }
+        
+        // 方案4: 從 localStorage 獲取最新保存的代碼
+        try {
+            const roomId = (window.wsManager && window.wsManager.currentRoom) || 'general-room';
+            console.log('🔍 [AI] 檢查localStorage，房間ID:', roomId);
+            
+            const possibleKeys = [
+                `python_code_${roomId}`,
+                'python_code',
+                'lastSavedCode',
+                `code_${roomId}`,
+                'editor_content'
+            ];
+            
+            for (const key of possibleKeys) {
+                const savedCode = localStorage.getItem(key);
+                if (savedCode && savedCode.trim().length > 0) {
+                    method = `localStorage.${key}`;
+                    console.log('✅ [AI] 方案4成功:', method, '- 獲取', savedCode.length, '字符');
+                    console.log('📝 [AI] 代碼預覽:', savedCode.substring(0, 50) + (savedCode.length > 50 ? '...' : ''));
+                    return savedCode;
+                }
+            }
+            
+            console.warn('⚠️ [AI] 方案4 - localStorage中無相關代碼');
+        } catch (error) {
+            console.error('❌ [AI] 方案4失敗 - localStorage:', error);
+        }
+        
+        // 最終診斷
+        console.error('❌ [AI] 所有代碼獲取方案都失敗了！');
+        console.log('🔧 [AI] 最終環境診斷:', {
+            'window對象': typeof window,
+            'document對象': typeof document,
+            'localStorage對象': typeof localStorage,
+            '所有textarea元素': document.querySelectorAll('textarea').length,
+            '所有input元素': document.querySelectorAll('input').length,
+            '頁面title': document.title,
+            '當前URL': window.location.href
+        });
+        
+        return '';
     }
 
     // 分析代碼
@@ -1058,13 +1457,58 @@ ${code}
 
     // 分享AI回應到聊天室
     shareResponse() {
-        if (this.currentResponse && Chat && typeof Chat.sendAIResponseToChat === 'function') { // Check function existence
-            Chat.sendAIResponseToChat(this.currentResponse);
-            this.hideShareOptions();
+        console.log('🔄 嘗試分享AI回應到聊天室...');
+        console.log('📊 當前回應:', this.currentResponse ? '有內容' : '無內容');
+        console.log('📊 Chat對象檢查:', {
+            'window.Chat': !!window.Chat,
+            'Chat': typeof Chat !== 'undefined' ? !!Chat : false,
+            'sendAIResponseToChat方法': window.Chat && typeof window.Chat.sendAIResponseToChat === 'function'
+        });
+        
+        if (!this.currentResponse) {
+            console.error("❌ 沒有AI回應內容可以分享");
+            if (window.UI && window.UI.showErrorToast) {
+                window.UI.showErrorToast("沒有AI回應內容可以分享");
+            }
+            return;
+        }
+        
+        // 檢查聊天功能是否可用
+        if (window.Chat && typeof window.Chat.sendAIResponseToChat === 'function') {
+            try {
+                window.Chat.sendAIResponseToChat(this.currentResponse);
+                this.hideShareOptions();
+                console.log('✅ AI回應已成功分享到聊天室');
+                
+                if (window.UI && window.UI.showSuccessToast) {
+                    window.UI.showSuccessToast("AI回應已分享到聊天室");
+                }
+            } catch (error) {
+                console.error("❌ 分享AI回應時發生錯誤:", error);
+                if (window.UI && window.UI.showErrorToast) {
+                    window.UI.showErrorToast("分享失敗: " + error.message);
+                }
+            }
+        } else if (typeof Chat !== 'undefined' && Chat && typeof Chat.sendAIResponseToChat === 'function') {
+            // 備用方案：使用全局Chat對象
+            try {
+                Chat.sendAIResponseToChat(this.currentResponse);
+                this.hideShareOptions();
+                console.log('✅ AI回應已成功分享到聊天室 (使用全局Chat)');
+                
+                if (window.UI && window.UI.showSuccessToast) {
+                    window.UI.showSuccessToast("AI回應已分享到聊天室");
+                }
+            } catch (error) {
+                console.error("❌ 分享AI回應時發生錯誤:", error);
+                if (window.UI && window.UI.showErrorToast) {
+                    window.UI.showErrorToast("分享失敗: " + error.message);
+                }
+            }
         } else {
-            console.error("Chat.sendAIResponseToChat is not available or currentResponse is empty.");
-            if (UI && UI.showErrorToast) {
-                UI.showErrorToast("無法分享AI回應。");
+            console.error("❌ 聊天功能不可用，無法分享AI回應");
+            if (window.UI && window.UI.showErrorToast) {
+                window.UI.showErrorToast("聊天功能不可用，無法分享AI回應");
             }
         }
     }

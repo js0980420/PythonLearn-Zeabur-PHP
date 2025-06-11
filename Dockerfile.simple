@@ -1,0 +1,37 @@
+# 🐳 PythonLearn-Zeabur-PHP 簡化版 Dockerfile
+# 純 HTTP 輪詢架構
+
+FROM php:8.2-cli
+
+# 安裝基本依賴
+RUN apt-get update && apt-get install -y \
+    git \
+    unzip \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# 安裝 Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# 設置工作目錄
+WORKDIR /app
+
+# 複製應用程式代碼
+COPY . .
+
+# 安裝 PHP 依賴（如果有 composer.json）
+RUN if [ -f composer.json ]; then composer install --no-dev --optimize-autoloader; fi
+
+# 創建必要目錄
+RUN mkdir -p data storage
+
+# 設置基本權限
+RUN chmod -R 755 public \
+    && chmod -R 777 data \
+    && chmod -R 777 storage
+
+# 暴露端口（僅 HTTP）
+EXPOSE 8080
+
+# 啟動命令 - 純 HTTP 服務器
+CMD ["php", "-S", "0.0.0.0:8080", "-t", "public"] 

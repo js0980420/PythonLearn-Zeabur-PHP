@@ -1,4 +1,4 @@
-// save-load.js - 保存載入功能管理器（簡化版 + 槽位命名優化）
+// save-load.js - 保存載入功能管理器（用戶專屬版本）
 console.log('📄 載入 save-load.js 模組');
 
 class SaveLoadManager {
@@ -7,7 +7,7 @@ class SaveLoadManager {
         this.roomId = null;
         this.isInitialized = false;
         
-        // 內存保存系統 - 優化版本
+        // 內存保存系統 - 用戶專屬版本
         this.memorySlots = {
             0: { code: '', name: '最新', timestamp: null, isCustomNamed: false },
             1: { code: '', name: '槽位 1', timestamp: null, isCustomNamed: false },
@@ -16,49 +16,53 @@ class SaveLoadManager {
             4: { code: '', name: '槽位 4', timestamp: null, isCustomNamed: false }
         };
         
-        console.log('💾 SaveLoadManager 初始化（槽位命名版）');
-        this.initializeEventListeners();
+        console.log('💾 SaveLoadManager 初始化（用戶專屬版本）');
         
-        // 立即嘗試載入本地數據並更新UI
-        this.loadSlotsFromStorage();
-        this.updateAllDropdownsUI();
-        
-        // 設置為已初始化狀態，允許基本功能使用
-        this.isInitialized = true;
-        this.currentUser = 'LocalUser';
-        this.roomId = 'local-room';
+        // 暫時不載入數據，等待用戶信息
+        this.isInitialized = false;
     }
 
-    // 初始化事件監聽器
+    // 初始化事件監聽器（在用戶初始化後調用）
     initializeEventListeners() {
+        if (!this.currentUser) {
+            console.warn('⚠️ 用戶未初始化，無法設置事件監聽器');
+            return;
+        }
+
         // 監聽頁面載入完成
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => {
-                this.loadSlotsFromStorage();
+                this.loadUserSlotsFromStorage();
                 this.updateAllDropdownsUI();
             });
         } else {
             // 頁面已載入完成，延遲更新UI確保DOM元素存在
             setTimeout(() => {
-                this.loadSlotsFromStorage();
+                this.loadUserSlotsFromStorage();
                 this.updateAllDropdownsUI();
             }, 500);
         }
         
         // 定期更新UI，確保下拉選單正確顯示
         setInterval(() => {
-            this.loadSlotsFromStorage();
+            this.loadUserSlotsFromStorage();
             this.updateAllDropdownsUI();
         }, 5000);
         
-        // 監聽存儲變化事件，確保多標籤頁同步
+        // 監聽用戶專屬的存儲變化事件，確保多標籤頁同步
         window.addEventListener('storage', (e) => {
-            if (e.key === 'python_code_slots' || e.key === 'python_code_latest') {
-                console.log('📦 檢測到存儲變化，重新載入數據');
-                this.loadSlotsFromStorage();
+            const userSlotsKey = `python_code_slots_${this.currentUser}`;
+            const userLatestKey = `python_code_latest_${this.currentUser}`;
+            const userTimestampKey = `python_code_latest_timestamp_${this.currentUser}`;
+            
+            if (e.key === userSlotsKey || e.key === userLatestKey || e.key === userTimestampKey) {
+                console.log(`📦 檢測到用戶 ${this.currentUser} 的存儲變化，重新載入數據`);
+                this.loadUserSlotsFromStorage();
                 this.updateAllDropdownsUI();
             }
         });
+        
+        console.log(`💾 已為用戶 ${this.currentUser} 設置事件監聽器`);
     }
 
     // 顯示提示訊息的備用函數
@@ -85,7 +89,7 @@ class SaveLoadManager {
         }
     }
 
-    // 初始化
+    // 初始化用戶專屬存儲系統
     init(userId, roomId) {
         this.currentUser = userId;
         this.userId = userId;
@@ -93,19 +97,43 @@ class SaveLoadManager {
         this.isInitialized = true;
         console.log(`💾 SaveLoadManager 已初始化 - 用戶: ${userId}, 房間: ${roomId}`);
         
-        // 從 localStorage 載入槽位數據
-        this.loadSlotsFromStorage();
+        // 從 localStorage 載入用戶專屬的槽位數據
+        this.loadUserSlotsFromStorage();
+        
+        // 設置事件監聽器
+        this.initializeEventListeners();
         
         // 更新UI
         this.updateAllDropdownsUI();
         
-        console.log('💾 SaveLoadManager 使用內存模式，跳過歷史記錄載入');
+        console.log(`💾 SaveLoadManager 使用用戶專屬存儲模式 - 用戶: ${userId}`);
     }
 
-    // 從本地存儲載入槽位數據
-    loadSlotsFromStorage() {
+    // 獲取用戶專屬的存儲鍵
+    getUserStorageKey(type = 'slots') {
+        const user = this.currentUser || 'LocalUser';
+        switch (type) {
+            case 'slots':
+                return `python_code_slots_${user}`;
+            case 'latest':
+                return `python_code_latest_${user}`;
+            case 'latest_timestamp':
+                return `python_code_latest_timestamp_${user}`;
+            default:
+                return `python_code_${type}_${user}`;
+        }
+    }
+
+    // 從本地存儲載入用戶專屬槽位數據
+    loadUserSlotsFromStorage() {
+        if (!this.currentUser) {
+            console.warn('⚠️ 用戶未初始化，無法載入槽位數據');
+            return;
+        }
+
         try {
-            const savedSlots = localStorage.getItem('python_code_slots');
+            const userKey = this.getUserStorageKey('slots');
+            const savedSlots = localStorage.getItem(userKey);
             if (savedSlots) {
                 const slots = JSON.parse(savedSlots);
                 // 合併保存的數據，保持結構完整性
@@ -117,38 +145,46 @@ class SaveLoadManager {
                         };
                     }
                 }
-                console.log('💾 已從本地存儲載入槽位數據');
+                console.log(`💾 已從本地存儲載入用戶 ${this.currentUser} 的槽位數據`);
             }
             
             // 特別處理最新版本
-            const latestCode = localStorage.getItem('python_code_latest');
-            const latestTimestamp = localStorage.getItem('python_code_latest_timestamp');
+            const latestKey = this.getUserStorageKey('latest');
+            const latestTimestampKey = this.getUserStorageKey('latest_timestamp');
+            const latestCode = localStorage.getItem(latestKey);
+            const latestTimestamp = localStorage.getItem(latestTimestampKey);
             if (latestCode) {
                 this.memorySlots[0] = {
                     ...this.memorySlots[0],
                     code: latestCode,
                     timestamp: latestTimestamp ? parseInt(latestTimestamp) : Date.now()
                 };
-                console.log('💾 已載入最新版本代碼');
+                console.log(`💾 已載入用戶 ${this.currentUser} 的最新版本代碼`);
             }
         } catch (error) {
-            console.error('載入槽位數據失敗:', error);
+            console.error(`載入用戶 ${this.currentUser} 槽位數據失敗:`, error);
         }
     }
 
-    // 保存槽位數據到本地存儲
-    saveSlotsToStorage() {
+    // 保存用戶專屬槽位數據到本地存儲
+    saveUserSlotsToStorage() {
+        if (!this.currentUser) {
+            console.warn('⚠️ 用戶未初始化，無法保存槽位數據');
+            return;
+        }
+
         try {
-            localStorage.setItem('python_code_slots', JSON.stringify(this.memorySlots));
-            console.log('💾 槽位數據已保存到本地存儲');
+            const userKey = this.getUserStorageKey('slots');
+            localStorage.setItem(userKey, JSON.stringify(this.memorySlots));
+            console.log(`💾 用戶 ${this.currentUser} 的槽位數據已保存到本地存儲`);
         } catch (error) {
-            console.error('保存槽位數據失敗:', error);
+            console.error(`保存用戶 ${this.currentUser} 槽位數據失敗:`, error);
         }
     }
 
     // 檢查是否已初始化
     checkInitialized() {
-        if (!this.isInitialized) {
+        if (!this.isInitialized || !this.currentUser) {
             const message = "SaveLoadManager尚未初始化。請先加入房間。";
             console.warn(message);
             this.showMessage(message, 'warning');
@@ -159,7 +195,11 @@ class SaveLoadManager {
 
     // 保存當前代碼到最新
     saveCode() {
-        console.log("💾 開始保存代碼到最新");
+        console.log(`💾 開始保存代碼到最新 - 用戶: ${this.currentUser}`);
+        if (!this.checkInitialized()) {
+            return;
+        }
+        
         if (!window.Editor) {
             this.showMessage("編輯器未準備好，無法保存。", "error");
             return;
@@ -177,6 +217,10 @@ class SaveLoadManager {
 
     // 保存到最新槽位
     saveToLatest(code) {
+        if (!this.checkInitialized()) {
+            return;
+        }
+
         try {
             // 保存到內存槽位 0
             this.memorySlots[0] = {
@@ -185,28 +229,23 @@ class SaveLoadManager {
                 timestamp: Date.now()
             };
 
-            // 也保存到 localStorage 作為備份
-            localStorage.setItem('python_code_latest', code);
-            localStorage.setItem('python_code_latest_timestamp', Date.now().toString());
+            // 保存到用戶專屬的 localStorage
+            const latestKey = this.getUserStorageKey('latest');
+            const latestTimestampKey = this.getUserStorageKey('latest_timestamp');
+            localStorage.setItem(latestKey, code);
+            localStorage.setItem(latestTimestampKey, Date.now().toString());
             
             // 保存所有槽位數據
-            this.saveSlotsToStorage();
+            this.saveUserSlotsToStorage();
             
-            console.log(`💾 代碼已保存到最新版本，長度: ${code.length} 字符`);
-            this.showMessage('✅ 代碼已保存到最新版本', 'success');
+            // 更新UI
+            this.updateAllDropdownsUI();
             
-            // 立即更新UI並強制刷新
-            setTimeout(() => {
-                this.updateAllDropdownsUI();
-            }, 100);
-            
-            // 再次延遲更新確保同步
-            setTimeout(() => {
-                this.updateAllDropdownsUI();
-            }, 1000);
+            console.log(`💾 代碼已保存到用戶 ${this.currentUser} 的最新槽位`);
+            this.showMessage(`代碼已保存到「最新」`, 'success');
         } catch (error) {
-            console.error('保存失敗:', error);
-            this.showMessage('❌ 保存失敗: ' + error.message, 'error');
+            console.error(`保存代碼失敗 (用戶: ${this.currentUser}):`, error);
+            this.showMessage('保存失敗，請重試', 'error');
         }
     }
 
@@ -319,7 +358,7 @@ class SaveLoadManager {
         if (modal) {
             modal.hide();
         }
-        
+
         // 直接從編輯器獲取當前代碼
         let actualCode = '';
         if (window.Editor && typeof window.Editor.getCode === 'function') {
@@ -330,7 +369,7 @@ class SaveLoadManager {
             this.showMessage('程式碼內容為空，無法保存', 'warning');
             return;
         }
-        
+
         // 執行保存
         this.executeSaveToSlot(slotId, slotName, actualCode, true);
     }
@@ -340,16 +379,16 @@ class SaveLoadManager {
         console.log(`💾 執行保存到槽位 ${slotId}: ${saveName}`);
         
         try {
-            // 保存到內存
-            this.memorySlots[slotId] = {
-                code: code,
-                name: saveName,
+        // 保存到內存
+        this.memorySlots[slotId] = {
+            code: code,
+            name: saveName,
                 timestamp: Date.now(),
                 isCustomNamed: isCustomNamed || (this.memorySlots[slotId] && this.memorySlots[slotId].isCustomNamed)
             };
-            
+        
             // 保存到本地存儲
-            this.saveSlotsToStorage();
+            this.saveUserSlotsToStorage();
             
             console.log(`✅ 已保存到內存槽位 ${slotId}，代碼長度: ${code.length} 字符`);
             this.showMessage(`已保存到「${saveName}」`, 'success');
@@ -363,22 +402,22 @@ class SaveLoadManager {
             setTimeout(() => {
                 this.updateAllDropdownsUI();
             }, 1000);
-            
-            // 如果有 WebSocket 連接，也同步到服務器
-            if (window.WebSocketManager && window.WebSocketManager.isConnected()) {
-                const saveData = {
-                    type: 'save_code',
-                    room_id: this.roomId,
-                    user_id: this.currentUser,
-                    username: this.currentUser,
-                    code: code,
-                    slot_id: slotId,
-                    save_name: saveName,
-                    timestamp: Date.now()
-                };
-                window.WebSocketManager.sendMessage(saveData);
-                console.log('📤 同步保存到服務器');
-            }
+        
+        // 如果有 HTTP 輪詢連接，也同步到服務器
+        if (window.wsManager && window.wsManager.isConnected()) {
+            const saveData = {
+                type: 'save_code',
+                room_id: this.roomId,
+                user_id: this.currentUser,
+                username: this.currentUser,
+                code: code,
+                slot_id: slotId,
+                save_name: saveName,
+                timestamp: Date.now()
+            };
+            window.wsManager.sendMessage(saveData);
+            console.log('📤 同步保存到服務器');
+        }
         } catch (error) {
             console.error('保存失敗:', error);
             this.showMessage('❌ 保存失敗: ' + error.message, 'error');
@@ -398,7 +437,7 @@ class SaveLoadManager {
         existingSlots.forEach(item => item.remove());
         
         // 強制重新載入本地數據確保同步
-        this.loadSlotsFromStorage();
+        this.loadUserSlotsFromStorage();
         
         // 重新生成槽位項目
         for (let i = 1; i <= 4; i++) {
@@ -450,7 +489,7 @@ class SaveLoadManager {
         let hasLoadableSlots = false;
         
         // 強制重新載入本地數據確保同步
-        this.loadSlotsFromStorage();
+        this.loadUserSlotsFromStorage();
         
         // 檢查所有槽位（包括槽位0-最新）
         for (let i = 0; i <= 4; i++) {
@@ -527,7 +566,7 @@ class SaveLoadManager {
         }
 
         // 強制重新載入本地數據確保同步
-        this.loadSlotsFromStorage();
+        this.loadUserSlotsFromStorage();
 
         let codeToLoad = '';
         let sourceName = '';
@@ -592,13 +631,11 @@ class SaveLoadManager {
     updateHistoryDropdown(history) {
         console.log('📋 更新歷史記錄下拉選單', history);
         
-        // 查找歷史記錄下拉選單元素 (多種可能的ID)
-        const historySelect = document.getElementById('historySelect') || 
-                             document.getElementById('history-select') ||
-                             document.querySelector('.history-dropdown select');
-        
+        // 查找歷史記錄下拉選單元素
+        const historySelect = document.getElementById('historySelect');
         if (!historySelect) {
-            console.log('📋 未找到歷史記錄下拉選單元素，跳過更新');
+            // 歷史記錄下拉選單元素不存在，跳過更新
+            // console.log('📋 未找到歷史記錄下拉選單元素');
             return;
         }
         

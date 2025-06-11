@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI助教代碼獲取調試</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .debug-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { color: green; }
+        .error { color: red; }
+        .warning { color: orange; }
+        .info { color: blue; }
+        pre { background: #f5f5f5; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        button { padding: 10px 15px; margin: 5px; border: none; border-radius: 3px; cursor: pointer; }
+        .btn-primary { background-color: #007bff; color: white; }
+        .btn-success { background-color: #28a745; color: white; }
+        .btn-warning { background-color: #ffc107; color: black; }
+    </style>
+</head>
+<body>
+    <h1>🔍 AI助教代碼獲取調試工具</h1>
+    
+    <div class="debug-section">
+        <h2>📋 環境檢查</h2>
+        <button class="btn-primary" onclick="checkEnvironment()">檢查環境</button>
+        <div id="envResults"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>🔧 代碼獲取測試</h2>
+        <button class="btn-success" onclick="testCodeRetrieval()">測試代碼獲取</button>
+        <div id="codeResults"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>🤖 AI助教模擬測試</h2>
+        <button class="btn-warning" onclick="simulateAIRequest()">模擬AI請求</button>
+        <div id="aiResults"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>📊 實時監控</h2>
+        <button class="btn-primary" onclick="startMonitoring()">開始監控</button>
+        <button class="btn-warning" onclick="stopMonitoring()">停止監控</button>
+        <div id="monitorResults"></div>
+    </div>
+
+    <script>
+        let monitoringInterval;
+        
+        function log(container, message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.className = type;
+            div.innerHTML = `[${timestamp}] ${message}`;
+            document.getElementById(container).appendChild(div);
+        }
+        
+        function clearResults(containerId) {
+            document.getElementById(containerId).innerHTML = '';
+        }
+        
+        function checkEnvironment() {
+            clearResults('envResults');
+            
+            // 檢查基本全域物件
+            log('envResults', `🔍 檢查全域物件...`, 'info');
+            log('envResults', `• window.Editor: ${!!window.Editor}`, window.Editor ? 'success' : 'error');
+            log('envResults', `• window.editor: ${!!window.editor}`, window.editor ? 'success' : 'warning');
+            log('envResults', `• window.wsManager: ${!!window.wsManager}`, window.wsManager ? 'success' : 'error');
+            log('envResults', `• window.AutoLogin: ${!!window.AutoLogin}`, window.AutoLogin ? 'success' : 'warning');
+            
+            // 檢查Editor方法
+            if (window.Editor) {
+                log('envResults', `🔧 檢查Editor方法...`, 'info');
+                log('envResults', `• Editor.getCode: ${typeof window.Editor.getCode}`, 
+                    typeof window.Editor.getCode === 'function' ? 'success' : 'error');
+                log('envResults', `• Editor.setCode: ${typeof window.Editor.setCode}`, 
+                    typeof window.Editor.setCode === 'function' ? 'success' : 'warning');
+                log('envResults', `• Editor.editor: ${!!window.Editor.editor}`, 
+                    window.Editor.editor ? 'success' : 'warning');
+            }
+            
+            // 檢查DOM元素
+            log('envResults', `🖼️ 檢查DOM元素...`, 'info');
+            const codeMirror = document.querySelector('.CodeMirror');
+            const codeEditor = document.querySelector('#codeEditor');
+            const textareas = document.querySelectorAll('textarea');
+            
+            log('envResults', `• .CodeMirror: ${!!codeMirror}`, codeMirror ? 'success' : 'warning');
+            log('envResults', `• #codeEditor: ${!!codeEditor}`, codeEditor ? 'success' : 'warning');
+            log('envResults', `• textarea 元素: ${textareas.length} 個`, textareas.length > 0 ? 'success' : 'warning');
+            
+            // 檢查localStorage
+            log('envResults', `💾 檢查localStorage...`, 'info');
+            try {
+                const keys = Object.keys(localStorage).filter(key => 
+                    key.includes('code') || key.includes('python')
+                );
+                log('envResults', `• 相關鍵值: ${keys.join(', ')}`, keys.length > 0 ? 'success' : 'warning');
+            } catch (error) {
+                log('envResults', `• localStorage錯誤: ${error.message}`, 'error');
+            }
+        }
+        
+        function testCodeRetrieval() {
+            clearResults('codeResults');
+            
+            log('codeResults', `🔍 開始代碼獲取測試...`, 'info');
+            
+            // 方案1: window.Editor.getCode()
+            if (window.Editor && typeof window.Editor.getCode === 'function') {
+                try {
+                    const code1 = window.Editor.getCode();
+                    log('codeResults', `✅ 方案1 window.Editor.getCode(): ${code1.length} 字符`, 'success');
+                    if (code1.length > 0) {
+                        log('codeResults', `<pre>${code1.substring(0, 100)}${code1.length > 100 ? '...' : ''}</pre>`, 'info');
+                    }
+                } catch (error) {
+                    log('codeResults', `❌ 方案1失敗: ${error.message}`, 'error');
+                }
+            } else {
+                log('codeResults', `❌ 方案1不可用: window.Editor.getCode 不存在`, 'error');
+            }
+            
+            // 方案2: window.editor.getValue()
+            if (window.editor && typeof window.editor.getValue === 'function') {
+                try {
+                    const code2 = window.editor.getValue();
+                    log('codeResults', `✅ 方案2 window.editor.getValue(): ${code2.length} 字符`, 'success');
+                    if (code2.length > 0) {
+                        log('codeResults', `<pre>${code2.substring(0, 100)}${code2.length > 100 ? '...' : ''}</pre>`, 'info');
+                    }
+                } catch (error) {
+                    log('codeResults', `❌ 方案2失敗: ${error.message}`, 'error');
+                }
+            } else {
+                log('codeResults', `⚠️ 方案2不可用: window.editor.getValue 不存在`, 'warning');
+            }
+            
+            // 方案3: DOM CodeMirror
+            const codeMirror = document.querySelector('.CodeMirror');
+            if (codeMirror && codeMirror.CodeMirror) {
+                try {
+                    const code3 = codeMirror.CodeMirror.getValue();
+                    log('codeResults', `✅ 方案3 DOM CodeMirror: ${code3.length} 字符`, 'success');
+                    if (code3.length > 0) {
+                        log('codeResults', `<pre>${code3.substring(0, 100)}${code3.length > 100 ? '...' : ''}</pre>`, 'info');
+                    }
+                } catch (error) {
+                    log('codeResults', `❌ 方案3失敗: ${error.message}`, 'error');
+                }
+            } else {
+                log('codeResults', `⚠️ 方案3不可用: DOM CodeMirror 不存在`, 'warning');
+            }
+            
+            // 方案4: localStorage
+            try {
+                const roomId = (window.wsManager && window.wsManager.currentRoom) || 'general-room';
+                const savedCode = localStorage.getItem(`python_code_${roomId}`) || 
+                                localStorage.getItem('python_code') ||
+                                localStorage.getItem('lastSavedCode');
+                if (savedCode) {
+                    log('codeResults', `✅ 方案4 localStorage: ${savedCode.length} 字符`, 'success');
+                    log('codeResults', `<pre>${savedCode.substring(0, 100)}${savedCode.length > 100 ? '...' : ''}</pre>`, 'info');
+                } else {
+                    log('codeResults', `⚠️ 方案4: localStorage中無相關代碼`, 'warning');
+                }
+            } catch (error) {
+                log('codeResults', `❌ 方案4失敗: ${error.message}`, 'error');
+            }
+        }
+        
+        async function simulateAIRequest() {
+            clearResults('aiResults');
+            
+            log('aiResults', `🤖 模擬AI助教請求...`, 'info');
+            
+            // 嘗試獲取代碼
+            let code = '';
+            if (window.Editor && typeof window.Editor.getCode === 'function') {
+                try {
+                    code = window.Editor.getCode();
+                    log('aiResults', `📖 獲取到代碼: ${code.length} 字符`, 'success');
+                } catch (error) {
+                    log('aiResults', `❌ 代碼獲取失敗: ${error.message}`, 'error');
+                    return;
+                }
+            } else {
+                log('aiResults', `❌ 無法獲取代碼: window.Editor.getCode 不可用`, 'error');
+                return;
+            }
+            
+            if (!code || code.trim() === '') {
+                log('aiResults', `⚠️ 代碼為空，無法進行AI分析`, 'warning');
+                return;
+            }
+            
+            // 模擬AI請求
+            try {
+                log('aiResults', `📡 發送AI分析請求...`, 'info');
+                
+                const response = await fetch('/api/ai.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: 'analyze',
+                        code: code,
+                        requestId: `debug_${Date.now()}`,
+                        user_id: 1,
+                        username: 'DebugUser'
+                    })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    log('aiResults', `✅ AI請求成功`, 'success');
+                    log('aiResults', `• 模式: ${result.mode}`, 'info');
+                    log('aiResults', `• 狀態: ${result.success}`, result.success ? 'success' : 'error');
+                    
+                    if (result.response) {
+                        log('aiResults', `📝 AI回應預覽:`, 'info');
+                        log('aiResults', `<pre>${result.response.substring(0, 200)}...</pre>`, 'info');
+                    }
+                } else {
+                    log('aiResults', `❌ AI請求失敗: HTTP ${response.status}`, 'error');
+                    const errorText = await response.text();
+                    log('aiResults', `錯誤詳情: ${errorText}`, 'error');
+                }
+            } catch (error) {
+                log('aiResults', `❌ AI請求異常: ${error.message}`, 'error');
+            }
+        }
+        
+        function startMonitoring() {
+            if (monitoringInterval) {
+                clearInterval(monitoringInterval);
+            }
+            
+            clearResults('monitorResults');
+            log('monitorResults', `🔄 開始實時監控...`, 'info');
+            
+            monitoringInterval = setInterval(() => {
+                const timestamp = new Date().toLocaleTimeString();
+                
+                // 監控代碼長度變化
+                let codeLength = 0;
+                if (window.Editor && typeof window.Editor.getCode === 'function') {
+                    try {
+                        const code = window.Editor.getCode();
+                        codeLength = code.length;
+                    } catch (error) {
+                        // 忽略錯誤
+                    }
+                }
+                
+                // 監控連接狀態
+                const isConnected = window.wsManager ? window.wsManager.isConnected() : false;
+                
+                log('monitorResults', 
+                    `[${timestamp}] 代碼: ${codeLength} 字符, 連接: ${isConnected ? '✅' : '❌'}`, 
+                    'info');
+            }, 2000);
+        }
+        
+        function stopMonitoring() {
+            if (monitoringInterval) {
+                clearInterval(monitoringInterval);
+                monitoringInterval = null;
+                log('monitorResults', `⏹️ 監控已停止`, 'warning');
+            }
+        }
+        
+        // 頁面載入時自動檢查環境
+        window.addEventListener('load', () => {
+            setTimeout(checkEnvironment, 1000);
+        });
+    </script>
+</body>
+</html> 

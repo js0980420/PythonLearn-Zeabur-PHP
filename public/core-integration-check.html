@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PythonLearn 核心功能集成檢查</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .check-card { margin-bottom: 15px; }
+        .status-icon { font-size: 1.2em; margin-right: 8px; }
+        .status-pass { color: #28a745; }
+        .status-fail { color: #dc3545; }
+        .status-warning { color: #ffc107; }
+        .detail-box { background: #f8f9fa; padding: 10px; border-radius: 5px; margin-top: 10px; }
+        .console-output { background: #2d3748; color: #e2e8f0; padding: 15px; border-radius: 5px; font-family: monospace; max-height: 200px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <div class="container-fluid py-4">
+        <div class="row">
+            <div class="col-12">
+                <h2 class="mb-4">
+                    <i class="fas fa-cogs"></i> PythonLearn 核心功能集成檢查
+                    <button class="btn btn-primary ms-3" onclick="runAllChecks()">
+                        <i class="fas fa-play"></i> 執行全面檢查
+                    </button>
+                    <button class="btn btn-success ms-2" onclick="clearResults()">
+                        <i class="fas fa-trash"></i> 清除結果
+                    </button>
+                </h2>
+                
+                <!-- 總體狀態 -->
+                <div class="alert alert-info" id="overallStatus">
+                    <i class="fas fa-info-circle"></i> 準備執行核心功能檢查...
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <!-- 左側：核心模組檢查 -->
+            <div class="col-md-6">
+                <h4>🔧 核心模組檢查</h4>
+                
+                <!-- 1. 用戶管理器 -->
+                <div class="card check-card">
+                    <div class="card-header">
+                        <span id="userManager-status" class="status-icon">⏳</span>
+                        用戶管理器 (UserManager)
+                    </div>
+                    <div class="card-body" id="userManager-details">
+                        <button class="btn btn-sm btn-outline-primary" onclick="checkUserManager()">檢查</button>
+                    </div>
+                </div>
+                
+                <!-- 2. HTTP輪詢管理器 -->
+                <div class="card check-card">
+                    <div class="card-header">
+                        <span id="httpPolling-status" class="status-icon">⏳</span>
+                        HTTP輪詢管理器 (HttpPollingManager)
+                    </div>
+                    <div class="card-body" id="httpPolling-details">
+                        <button class="btn btn-sm btn-outline-primary" onclick="checkHttpPolling()">檢查</button>
+                    </div>
+                </div>
+                
+                <!-- 3. 編輯器管理器 -->
+                <div class="card check-card">
+                    <div class="card-header">
+                        <span id="editor-status" class="status-icon">⏳</span>
+                        編輯器管理器 (Editor)
+                    </div>
+                    <div class="card-body" id="editor-details">
+                        <button class="btn btn-sm btn-outline-primary" onclick="checkEditor()">檢查</button>
+                    </div>
+                </div>
+                
+                <!-- 4. 保存載入管理器 -->
+                <div class="card check-card">
+                    <div class="card-header">
+                        <span id="saveLoad-status" class="status-icon">⏳</span>
+                        保存載入管理器 (SaveLoadManager)
+                    </div>
+                    <div class="card-body" id="saveLoad-details">
+                        <button class="btn btn-sm btn-outline-primary" onclick="checkSaveLoad()">檢查</button>
+                    </div>
+                </div>
+                
+                <!-- 5. AI助教 -->
+                <div class="card check-card">
+                    <div class="card-header">
+                        <span id="aiAssistant-status" class="status-icon">⏳</span>
+                        AI助教 (AIAssistant)
+                    </div>
+                    <div class="card-body" id="aiAssistant-details">
+                        <button class="btn btn-sm btn-outline-primary" onclick="checkAIAssistant()">檢查</button>
+                    </div>
+                </div>
+                
+                <!-- 6. 聊天管理器 -->
+                <div class="card check-card">
+                    <div class="card-header">
+                        <span id="chat-status" class="status-icon">⏳</span>
+                        聊天管理器 (Chat)
+                    </div>
+                    <div class="card-body" id="chat-details">
+                        <button class="btn btn-sm btn-outline-primary" onclick="checkChat()">檢查</button>
+                    </div>
+                </div>
+                
+                <!-- 7. 衝突解決器 -->
+                <div class="card check-card">
+                    <div class="card-header">
+                        <span id="conflict-status" class="status-icon">⏳</span>
+                        衝突解決器 (ConflictResolver)
+                    </div>
+                    <div class="card-body" id="conflict-details">
+                        <button class="btn btn-sm btn-outline-primary" onclick="checkConflictResolver()">檢查</button>
+                    </div>
+                </div>
+                
+                <!-- 8. UI管理器 -->
+                <div class="card check-card">
+                    <div class="card-header">
+                        <span id="ui-status" class="status-icon">⏳</span>
+                        UI管理器 (UI)
+                    </div>
+                    <div class="card-body" id="ui-details">
+                        <button class="btn btn-sm btn-outline-primary" onclick="checkUI()">檢查</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 右側：數據交互檢查 -->
+            <div class="col-md-6">
+                <h4>🔄 數據交互檢查</h4>
+                
+                <!-- API 連接測試 -->
+                <div class="card check-card">
+                    <div class="card-header">
+                        <span id="api-status" class="status-icon">⏳</span>
+                        API 連接測試
+                    </div>
+                    <div class="card-body" id="api-details">
+                        <button class="btn btn-sm btn-outline-primary" onclick="checkAPI()">檢查</button>
+                    </div>
+                </div>
+                
+                <!-- 全局函數映射 -->
+                <div class="card check-card">
+                    <div class="card-header">
+                        <span id="global-status" class="status-icon">⏳</span>
+                        全局函數映射
+                    </div>
+                    <div class="card-body" id="global-details">
+                        <button class="btn btn-sm btn-outline-primary" onclick="checkGlobalFunctions()">檢查</button>
+                    </div>
+                </div>
+                
+                <!-- 模組間通信 -->
+                <div class="card check-card">
+                    <div class="card-header">
+                        <span id="communication-status" class="status-icon">⏳</span>
+                        模組間通信
+                    </div>
+                    <div class="card-body" id="communication-details">
+                        <button class="btn btn-sm btn-outline-primary" onclick="checkModuleCommunication()">檢查</button>
+                    </div>
+                </div>
+                
+                <!-- 事件監聽器 -->
+                <div class="card check-card">
+                    <div class="card-header">
+                        <span id="events-status" class="status-icon">⏳</span>
+                        事件監聽器
+                    </div>
+                    <div class="card-body" id="events-details">
+                        <button class="btn btn-sm btn-outline-primary" onclick="checkEventListeners()">檢查</button>
+                    </div>
+                </div>
+                
+                <!-- 控制台輸出 -->
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-terminal"></i> 檢查日誌
+                        <button class="btn btn-sm btn-outline-secondary float-end" onclick="clearConsole()">
+                            <i class="fas fa-trash"></i> 清除
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="console" class="console-output"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 控制台輸出管理
+        function log(message, type = 'info') {
+            const console = document.getElementById('console');
+            const timestamp = new Date().toLocaleTimeString();
+            const colors = {
+                info: '#3182ce',
+                success: '#38a169',
+                warning: '#d69e2e',
+                error: '#e53e3e'
+            };
+            
+            const entry = document.createElement('div');
+            entry.innerHTML = `<span style="color: #a0aec0">[${timestamp}]</span> <span style="color: ${colors[type]}">${message}</span>`;
+            console.appendChild(entry);
+            console.scrollTop = console.scrollHeight;
+        }
+        
+        function clearConsole() {
+            document.getElementById('console').innerHTML = '';
+        }
+        
+        function clearResults() {
+            const statusIcons = document.querySelectorAll('[id$="-status"]');
+            const details = document.querySelectorAll('[id$="-details"]');
+            
+            statusIcons.forEach(icon => {
+                icon.textContent = '⏳';
+                icon.className = 'status-icon';
+            });
+            
+            details.forEach(detail => {
+                const button = detail.querySelector('button');
+                if (button) {
+                    detail.innerHTML = '';
+                    detail.appendChild(button);
+                }
+            });
+            
+            clearConsole();
+            document.getElementById('overallStatus').innerHTML = '<i class="fas fa-info-circle"></i> 準備執行核心功能檢查...';
+            document.getElementById('overallStatus').className = 'alert alert-info';
+        }
+        
+        // 設置檢查結果
+        function setCheckResult(moduleId, passed, details = '', data = null) {
+            const statusIcon = document.getElementById(`${moduleId}-status`);
+            const detailsDiv = document.getElementById(`${moduleId}-details`);
+            
+            if (passed) {
+                statusIcon.textContent = '✅';
+                statusIcon.className = 'status-icon status-pass';
+                log(`${moduleId} 檢查通過`, 'success');
+            } else {
+                statusIcon.textContent = '❌';
+                statusIcon.className = 'status-icon status-fail';
+                log(`${moduleId} 檢查失敗: ${details}`, 'error');
+            }
+            
+            if (details) {
+                const detailBox = document.createElement('div');
+                detailBox.className = 'detail-box';
+                detailBox.innerHTML = `<small>${details}</small>`;
+                if (data) {
+                    detailBox.innerHTML += `<pre style="font-size: 10px; margin-top: 5px;">${JSON.stringify(data, null, 2)}</pre>`;
+                }
+                detailsDiv.appendChild(detailBox);
+            }
+        }
+        
+        // 1. 檢查用戶管理器
+        function checkUserManager() {
+            log('檢查用戶管理器...', 'info');
+            
+            try {
+                const exists = typeof window.UserManager !== 'undefined';
+                if (!exists) {
+                    setCheckResult('userManager', false, 'window.UserManager 不存在');
+                    return;
+                }
+                
+                const methods = ['setCurrentUser', 'getCurrentUser', 'updateOnlineUsers', 'cleanup'];
+                const missingMethods = methods.filter(method => typeof window.UserManager[method] !== 'function');
+                
+                if (missingMethods.length > 0) {
+                    setCheckResult('userManager', false, `缺少方法: ${missingMethods.join(', ')}`);
+                    return;
+                }
+                
+                setCheckResult('userManager', true, '所有必要方法都存在', {
+                    methods: methods.filter(method => typeof window.UserManager[method] === 'function'),
+                    isInitialized: window.UserManager.isInitialized
+                });
+            } catch (error) {
+                setCheckResult('userManager', false, `檢查過程中發生錯誤: ${error.message}`);
+            }
+        }
+        
+        // 2. 檢查HTTP輪詢管理器
+        function checkHttpPolling() {
+            log('檢查HTTP輪詢管理器...', 'info');
+            
+            try {
+                const exists = typeof window.wsManager !== 'undefined';
+                if (!exists) {
+                    setCheckResult('httpPolling', false, 'window.wsManager 不存在');
+                    return;
+                }
+                
+                const methods = ['connect', 'disconnect', 'sendMessage', 'isConnected'];
+                const missingMethods = methods.filter(method => typeof window.wsManager[method] !== 'function');
+                
+                if (missingMethods.length > 0) {
+                    setCheckResult('httpPolling', false, `缺少方法: ${missingMethods.join(', ')}`);
+                    return;
+                }
+                
+                setCheckResult('httpPolling', true, '所有必要方法都存在', {
+                    methods: methods.filter(method => typeof window.wsManager[method] === 'function'),
+                    isConnected: window.wsManager.isConnected ? window.wsManager.isConnected() : false
+                });
+            } catch (error) {
+                setCheckResult('httpPolling', false, `檢查過程中發生錯誤: ${error.message}`);
+            }
+        }
+        
+        // 3. 檢查編輯器管理器
+        function checkEditor() {
+            log('檢查編輯器管理器...', 'info');
+            
+            try {
+                const exists = typeof window.Editor !== 'undefined';
+                if (!exists) {
+                    setCheckResult('editor', false, 'window.Editor 不存在');
+                    return;
+                }
+                
+                const methods = ['getCode', 'setCode', 'setupConflictDetection'];
+                const missingMethods = methods.filter(method => typeof window.Editor[method] !== 'function');
+                
+                if (missingMethods.length > 0) {
+                    setCheckResult('editor', false, `缺少方法: ${missingMethods.join(', ')}`);
+                    return;
+                }
+                
+                setCheckResult('editor', true, '所有必要方法都存在', {
+                    methods: methods.filter(method => typeof window.Editor[method] === 'function'),
+                    hasCodeMirror: typeof window.Editor.editor !== 'undefined'
+                });
+            } catch (error) {
+                setCheckResult('editor', false, `檢查過程中發生錯誤: ${error.message}`);
+            }
+        }
+        
+        // 4. 檢查保存載入管理器
+        function checkSaveLoad() {
+            log('檢查保存載入管理器...', 'info');
+            
+            try {
+                const exists = typeof window.SaveLoadManager !== 'undefined';
+                if (!exists) {
+                    setCheckResult('saveLoad', false, 'window.SaveLoadManager 不存在');
+                    return;
+                }
+                
+                const methods = ['init', 'saveCode', 'loadCode', 'checkInitialized'];
+                const missingMethods = methods.filter(method => typeof window.SaveLoadManager[method] !== 'function');
+                
+                if (missingMethods.length > 0) {
+                    setCheckResult('saveLoad', false, `缺少方法: ${missingMethods.join(', ')}`);
+                    return;
+                }
+                
+                setCheckResult('saveLoad', true, '所有必要方法都存在', {
+                    methods: methods.filter(method => typeof window.SaveLoadManager[method] === 'function'),
+                    isInitialized: window.SaveLoadManager.isInitialized
+                });
+            } catch (error) {
+                setCheckResult('saveLoad', false, `檢查過程中發生錯誤: ${error.message}`);
+            }
+        }
+        
+        // 5. 檢查AI助教
+        function checkAIAssistant() {
+            log('檢查AI助教...', 'info');
+            
+            try {
+                const exists = typeof window.AIAssistant !== 'undefined';
+                if (!exists) {
+                    setCheckResult('aiAssistant', false, 'window.AIAssistant 不存在');
+                    return;
+                }
+                
+                const methods = ['initialize', 'processMessage'];
+                const missingMethods = methods.filter(method => typeof window.AIAssistant[method] !== 'function');
+                
+                const globalFunctions = ['askAI', 'globalAskAI'];
+                const missingGlobalFunctions = globalFunctions.filter(func => typeof window[func] !== 'function');
+                
+                if (missingMethods.length > 0 || missingGlobalFunctions.length > 0) {
+                    setCheckResult('aiAssistant', false, `缺少方法: ${[...missingMethods, ...missingGlobalFunctions].join(', ')}`);
+                    return;
+                }
+                
+                setCheckResult('aiAssistant', true, '所有必要方法都存在', {
+                    methods: methods.filter(method => typeof window.AIAssistant[method] === 'function'),
+                    globalFunctions: globalFunctions.filter(func => typeof window[func] === 'function')
+                });
+            } catch (error) {
+                setCheckResult('aiAssistant', false, `檢查過程中發生錯誤: ${error.message}`);
+            }
+        }
+        
+        // 6. 檢查聊天管理器
+        function checkChat() {
+            log('檢查聊天管理器...', 'info');
+            
+            try {
+                const exists = typeof window.Chat !== 'undefined';
+                if (!exists) {
+                    setCheckResult('chat', false, 'window.Chat 不存在');
+                    return;
+                }
+                
+                const methods = ['sendMessage', 'addMessage'];
+                const missingMethods = methods.filter(method => typeof window.Chat[method] !== 'function');
+                
+                const globalFunctions = ['globalSendChat'];
+                const missingGlobalFunctions = globalFunctions.filter(func => typeof window[func] !== 'function');
+                
+                if (missingMethods.length > 0 || missingGlobalFunctions.length > 0) {
+                    setCheckResult('chat', false, `缺少方法: ${[...missingMethods, ...missingGlobalFunctions].join(', ')}`);
+                    return;
+                }
+                
+                setCheckResult('chat', true, '所有必要方法都存在', {
+                    methods: methods.filter(method => typeof window.Chat[method] === 'function'),
+                    globalFunctions: globalFunctions.filter(func => typeof window[func] === 'function')
+                });
+            } catch (error) {
+                setCheckResult('chat', false, `檢查過程中發生錯誤: ${error.message}`);
+            }
+        }
+        
+        // 7. 檢查衝突解決器
+        function checkConflictResolver() {
+            log('檢查衝突解決器...', 'info');
+            
+            try {
+                const exists = typeof window.ConflictResolver !== 'undefined';
+                if (!exists) {
+                    setCheckResult('conflict', false, 'window.ConflictResolver 不存在');
+                    return;
+                }
+                
+                const methods = ['detectConflict', 'resolveConflict'];
+                const missingMethods = methods.filter(method => typeof window.ConflictResolver[method] !== 'function');
+                
+                const globalFunctions = ['resolveConflict'];
+                const missingGlobalFunctions = globalFunctions.filter(func => typeof window[func] !== 'function');
+                
+                if (missingMethods.length > 0 || missingGlobalFunctions.length > 0) {
+                    setCheckResult('conflict', false, `缺少方法: ${[...missingMethods, ...missingGlobalFunctions].join(', ')}`);
+                    return;
+                }
+                
+                setCheckResult('conflict', true, '所有必要方法都存在', {
+                    methods: methods.filter(method => typeof window.ConflictResolver[method] === 'function'),
+                    globalFunctions: globalFunctions.filter(func => typeof window[func] === 'function')
+                });
+            } catch (error) {
+                setCheckResult('conflict', false, `檢查過程中發生錯誤: ${error.message}`);
+            }
+        }
+        
+        // 8. 檢查UI管理器
+        function checkUI() {
+            log('檢查UI管理器...', 'info');
+            
+            try {
+                const exists = typeof window.UI !== 'undefined';
+                if (!exists) {
+                    setCheckResult('ui', false, 'window.UI 不存在');
+                    return;
+                }
+                
+                const methods = ['showToast', 'showErrorToast', 'showSuccessToast'];
+                const missingMethods = methods.filter(method => typeof window.UI[method] !== 'function');
+                
+                if (missingMethods.length > 0) {
+                    setCheckResult('ui', false, `缺少方法: ${missingMethods.join(', ')}`);
+                    return;
+                }
+                
+                setCheckResult('ui', true, '所有必要方法都存在', {
+                    methods: methods.filter(method => typeof window.UI[method] === 'function')
+                });
+            } catch (error) {
+                setCheckResult('ui', false, `檢查過程中發生錯誤: ${error.message}`);
+            }
+        }
+        
+        // API 連接測試
+        async function checkAPI() {
+            log('檢查API連接...', 'info');
+            
+            try {
+                const response = await fetch('/api.php?action=poll&room_id=test&user_id=check&timestamp=0');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                if (data.success) {
+                    setCheckResult('api', true, 'API 連接正常', {
+                        action: data.action,
+                        timestamp: data.timestamp,
+                        room_id: data.room_id
+                    });
+                } else {
+                    setCheckResult('api', false, `API 回應錯誤: ${data.error || '未知錯誤'}`);
+                }
+            } catch (error) {
+                setCheckResult('api', false, `API 連接失敗: ${error.message}`);
+            }
+        }
+        
+        // 全局函數映射檢查
+        function checkGlobalFunctions() {
+            log('檢查全局函數映射...', 'info');
+            
+            const requiredGlobalFunctions = [
+                'globalJoinRoom',
+                'globalSendChat', 
+                'globalAskAI',
+                'globalImportCode',
+                'globalOpenTeacherDashboard'
+            ];
+            
+            const missing = requiredGlobalFunctions.filter(func => typeof window[func] !== 'function');
+            
+            if (missing.length > 0) {
+                setCheckResult('global', false, `缺少全局函數: ${missing.join(', ')}`);
+            } else {
+                setCheckResult('global', true, '所有必要的全局函數都存在', {
+                    functions: requiredGlobalFunctions
+                });
+            }
+        }
+        
+        // 模組間通信檢查
+        function checkModuleCommunication() {
+            log('檢查模組間通信...', 'info');
+            
+            const issues = [];
+            
+            // 檢查用戶管理器與其他模組的通信
+            if (window.UserManager && window.SaveLoadManager) {
+                if (typeof window.UserManager.notifyUserChange !== 'function') {
+                    issues.push('UserManager.notifyUserChange 方法缺失');
+                }
+            }
+            
+            // 檢查編輯器與衝突檢測的通信
+            if (window.Editor && window.ConflictResolver) {
+                if (typeof window.Editor.setupConflictDetection !== 'function') {
+                    issues.push('Editor.setupConflictDetection 方法缺失');
+                }
+            }
+            
+            if (issues.length > 0) {
+                setCheckResult('communication', false, issues.join('; '));
+            } else {
+                setCheckResult('communication', true, '模組間通信正常');
+            }
+        }
+        
+        // 事件監聽器檢查
+        function checkEventListeners() {
+            log('檢查事件監聽器...', 'info');
+            
+            const checkResults = [];
+            
+            // 檢查頁面卸載事件
+            const hasBeforeUnload = window.onbeforeunload !== null || 
+                                   window.addEventListener.toString().includes('beforeunload');
+            checkResults.push(`beforeunload: ${hasBeforeUnload ? '✓' : '✗'}`);
+            
+            // 檢查可見性變化事件
+            const hasVisibilityChange = document.addEventListener.toString().includes('visibilitychange');
+            checkResults.push(`visibilitychange: ${hasVisibilityChange ? '✓' : '✗'}`);
+            
+            setCheckResult('events', true, checkResults.join(', '));
+        }
+        
+        // 執行全面檢查
+        async function runAllChecks() {
+            log('開始執行全面檢查...', 'info');
+            clearResults();
+            
+            const checks = [
+                checkUserManager,
+                checkHttpPolling,
+                checkEditor,
+                checkSaveLoad,
+                checkAIAssistant,
+                checkChat,
+                checkConflictResolver,
+                checkUI,
+                checkAPI,
+                checkGlobalFunctions,
+                checkModuleCommunication,
+                checkEventListeners
+            ];
+            
+            for (const check of checks) {
+                try {
+                    await check();
+                    await new Promise(resolve => setTimeout(resolve, 100)); // 小延遲
+                } catch (error) {
+                    log(`檢查過程中發生錯誤: ${error.message}`, 'error');
+                }
+            }
+            
+            // 計算總體結果
+            const statusIcons = document.querySelectorAll('[id$="-status"]');
+            let passed = 0, failed = 0;
+            
+            statusIcons.forEach(icon => {
+                if (icon.textContent === '✅') passed++;
+                else if (icon.textContent === '❌') failed++;
+            });
+            
+            const overallStatus = document.getElementById('overallStatus');
+            if (failed === 0) {
+                overallStatus.innerHTML = `<i class="fas fa-check-circle"></i> 全面檢查完成！所有 ${passed} 項檢查都通過`;
+                overallStatus.className = 'alert alert-success';
+                log(`全面檢查完成！通過: ${passed}, 失敗: ${failed}`, 'success');
+            } else {
+                overallStatus.innerHTML = `<i class="fas fa-exclamation-triangle"></i> 檢查完成：${passed} 項通過，${failed} 項失敗`;
+                overallStatus.className = 'alert alert-warning';
+                log(`檢查完成：通過: ${passed}, 失敗: ${failed}`, 'warning');
+            }
+        }
+        
+        // 頁面載入完成後自動檢查
+        document.addEventListener('DOMContentLoaded', () => {
+            log('核心功能檢查頁面已載入', 'info');
+            log('點擊"執行全面檢查"開始檢測所有核心功能', 'info');
+        });
+    </script>
+</body>
+</html>

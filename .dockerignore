@@ -1,70 +1,86 @@
-# Docker 構建忽略文件
-# 減少構建上下文大小，提高構建速度
+# 🐳 Docker 忽略文件
+# 優化構建性能，排除不必要的文件
 
 # Git 相關
 .git
 .gitignore
 
+# Node.js 相關
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 測試相關
+tests/
+test-results/
+playwright-report/
+test-logs/
+
 # 開發工具
-.vscode
-.cursor
-*.mdc
-
-# 日誌和臨時文件
-*.log
-*.tmp
-logs/
-temp/
-storage/
-
-# 測試文件
-test-*
-*test*
-debug_*
-
-# 文檔和指南
+.cursor/
+.vscode/
 *.md
-指南/
-*.png
+!README.md
 
-# 開發腳本
-*.bat
-*.ps1
-*.sh
-start*
-stop*
-manage*
+# 日誌文件
+logs/*.log
+debug-logs/
+*.log
 
-# Composer 依賴 (讓 Docker 重新安裝)
-vendor/
-
-# Composer 開發依賴
-vendor/phpunit/
-vendor/bin/
-
-# 系統文件
+# 臨時文件
+*.tmp
+*.temp
 .DS_Store
 Thumbs.db
+
+# 本地配置
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# 構建產物
+dist/
+build/
 
 # 備份文件
 *.bak
 *.backup
 
+# 壓縮文件
+*.zip
+*.tar.gz
+*.rar
+
 # IDE 文件
+.idea/
 *.swp
 *.swo
-*~
 
-# 環境配置
-.env
-.env.*
-config.env
+# 系統文件
+.DS_Store
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Desktop.ini
 
-# 其他 Dockerfile
-Dockerfile
-Dockerfile.caddy
+# 文檔文件（除了 README）
+*.md
+!README.md
+ARCHITECTURE_DECISIONS.md
+DEPLOYMENT_READY_REPORT.md
+TROUBLESHOOTING_GUIDE.md
+ZEABUR_*.md
+MCP_*.md
 
-# 部署相關
-zeabur.json
-supervisor.conf
-Caddyfile 
+# 腳本文件
+*.bat
+*.sh
+!start.sh
+
+# 開發工具配置
+playwright.config.js
+package.json
+package-lock.json 

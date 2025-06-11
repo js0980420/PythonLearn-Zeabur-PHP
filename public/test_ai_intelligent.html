@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧠 智能AI助教測試 - PythonLearn</title>
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #333;
+            margin: 0 0 10px 0;
+        }
+        
+        .test-section {
+            margin-bottom: 30px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        
+        .test-section h3 {
+            color: #4a5568;
+            margin-top: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .code-input {
+            width: 100%;
+            height: 120px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #f8f9fa;
+            resize: vertical;
+        }
+        
+        .button-group {
+            margin: 15px 0;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        
+        .btn-analyze { background: #3182ce; color: white; }
+        .btn-check { background: #38a169; color: white; }
+        .btn-suggest { background: #d69e2e; color: white; }
+        .btn-explain { background: #9f7aea; color: white; }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .result {
+            margin-top: 15px;
+            padding: 20px;
+            background: #f7fafc;
+            border-radius: 8px;
+            border-left: 4px solid #3182ce;
+            white-space: pre-line;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .loading {
+            color: #666;
+            font-style: italic;
+        }
+        
+        .error {
+            color: #e53e3e;
+            background: #fed7d7;
+            border-left-color: #e53e3e;
+        }
+        
+        .preset-codes {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .preset-code {
+            padding: 15px;
+            background: #edf2f7;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+        
+        .preset-code:hover {
+            background: #e2e8f0;
+            border-color: #3182ce;
+        }
+        
+        .preset-code h4 {
+            margin: 0 0 10px 0;
+            color: #2d3748;
+        }
+        
+        .preset-code code {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 10px;
+            border-radius: 5px;
+            display: block;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        
+        .log {
+            margin-top: 20px;
+            padding: 15px;
+            background: #1a202c;
+            color: #e2e8f0;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧠 智能AI助教測試</h1>
+            <p>測試改進後的AI功能 - 根據實際代碼內容進行智能分析</p>
+        </div>
+        
+        <!-- 預設代碼範例 -->
+        <div class="test-section">
+            <h3>📝 預設代碼範例</h3>
+            <div class="preset-codes">
+                <div class="preset-code" onclick="loadPresetCode(this)" data-code='print("5+6")'>
+                    <h4>基礎輸出</h4>
+                    <code>print("5+6")</code>
+                </div>
+                <div class="preset-code" onclick="loadPresetCode(this)" data-code='name = "學生777"&#10;age = 20&#10;print(f"我是{name}，今年{age}歲")'>
+                    <h4>變數與格式化</h4>
+                    <code>name = "學生777"<br>age = 20<br>print(f"我是{name}，今年{age}歲")</code>
+                </div>
+                <div class="preset-code" onclick="loadPresetCode(this)" data-code='def greet(name):&#10;    return f"Hello, {name}!"&#10;&#10;result = greet("World")&#10;print(result)'>
+                    <h4>函數定義</h4>
+                    <code>def greet(name):<br>    return f"Hello, {name}!"<br><br>result = greet("World")<br>print(result)</code>
+                </div>
+                <div class="preset-code" onclick="loadPresetCode(this)" data-code='numbers = [1, 2, 3, 4, 5]&#10;for num in numbers:&#10;    if num % 2 == 0:&#10;        print(f"{num} 是偶數")&#10;    else:&#10;        print(f"{num} 是奇數")'>
+                    <h4>迴圈與條件</h4>
+                    <code>numbers = [1, 2, 3, 4, 5]<br>for num in numbers:<br>    if num % 2 == 0:<br>        print(f"{num} 是偶數")<br>    else:<br>        print(f"{num} 是奇數")</code>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 代碼輸入區 -->
+        <div class="test-section">
+            <h3>💻 代碼輸入</h3>
+            <textarea id="codeInput" class="code-input" placeholder="請輸入您的 Python 代碼...">print("5+6")</textarea>
+            
+            <div class="button-group">
+                <button class="btn btn-analyze" onclick="testAI('analyze')">🔍 代碼分析</button>
+                <button class="btn btn-check" onclick="testAI('check_errors')">✅ 錯誤檢查</button>
+                <button class="btn btn-suggest" onclick="testAI('suggest')">💡 改進建議</button>
+                <button class="btn btn-explain" onclick="testAI('explain')">📖 逐行解釋</button>
+            </div>
+            
+            <div id="result" class="result" style="display: none;"></div>
+        </div>
+        
+        <!-- 調試日誌 -->
+        <div class="test-section">
+            <h3>🔧 調試日誌</h3>
+            <div id="log" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        function log(message) {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        function loadPresetCode(element) {
+            const code = element.getAttribute('data-code');
+            document.getElementById('codeInput').value = code.replace(/&#10;/g, '\n');
+            log(`載入預設代碼: ${element.querySelector('h4').textContent}`);
+        }
+        
+        async function testAI(action) {
+            const code = document.getElementById('codeInput').value.trim();
+            const resultDiv = document.getElementById('result');
+            
+            if (!code) {
+                alert('請輸入代碼！');
+                return;
+            }
+            
+            log(`測試 AI 功能: ${action}`);
+            
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result loading';
+            resultDiv.textContent = '🤔 AI 正在分析您的代碼...';
+            
+            try {
+                const requestData = {
+                    action: action,
+                    code: code,
+                    requestId: 'test_' + Date.now()
+                };
+                
+                log(`發送請求: ${JSON.stringify(requestData)}`);
+                
+                const response = await fetch('/api/ai.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                const data = await response.json();
+                log(`收到回應: ${JSON.stringify(data)}`);
+                
+                if (data.success) {
+                    resultDiv.className = 'result';
+                    resultDiv.textContent = data.response || data.output || '成功但無回應內容';
+                    
+                    if (data.mode) {
+                        resultDiv.textContent += `\n\n🔧 模式: ${data.mode}`;
+                    }
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ 錯誤: ${data.error || '未知錯誤'}`;
+                }
+                
+            } catch (error) {
+                log(`請求失敗: ${error.message}`);
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ 網路錯誤: ${error.message}`;
+            }
+        }
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            log('智能AI助教測試頁面載入完成');
+            log('可以測試不同的代碼範例，看看AI如何根據實際內容進行分析');
+        });
+    </script>
+</body>
+</html> 

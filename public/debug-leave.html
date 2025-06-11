@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 頁面離開機制調試工具</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .log-container {
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            background: #1e1e1e;
+            color: #f0f0f0;
+            padding: 10px;
+        }
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+        .log-info { background: rgba(0, 123, 255, 0.2); }
+        .log-success { background: rgba(40, 167, 69, 0.2); }
+        .log-warning { background: rgba(255, 193, 7, 0.2); }
+        .log-error { background: rgba(220, 53, 69, 0.2); }
+    </style>
+</head>
+<body>
+    <div class="container mt-3">
+        <h3>🔧 頁面離開機制調試工具</h3>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">用戶ID</label>
+                            <input type="text" id="testUserId" class="form-control" value="測試用戶Debug">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">房間ID</label>
+                            <input type="text" id="testRoomId" class="form-control" value="general-room">
+                        </div>
+                        <button class="btn btn-primary" onclick="simulateJoinRoom()">模擬加入房間</button>
+                        <button class="btn btn-warning" onclick="testLeave()">測試離開</button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5>日誌</h5>
+                        <div id="logContainer" style="height: 300px; overflow-y: auto; background: #f8f9fa; padding: 10px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function addLog(message) {
+            const logContainer = document.getElementById('logContainer');
+            const timestamp = new Date().toLocaleTimeString();
+            logContainer.innerHTML += `[${timestamp}] ${message}<br>`;
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        async function simulateJoinRoom() {
+            const userId = document.getElementById('testUserId').value;
+            const roomId = document.getElementById('testRoomId').value;
+            
+            addLog(`加入房間: ${roomId} 用戶: ${userId}`);
+            
+            // 創建模擬的 wsManager
+            window.wsManager = {
+                currentUser: userId,
+                currentRoom: roomId,
+                isConnectedState: true,
+                isConnected: () => true,
+                stopPolling: () => addLog('停止輪詢')
+            };
+            
+            const formData = new FormData();
+            formData.append('action', 'join');
+            formData.append('room_id', roomId);
+            formData.append('user_id', userId);
+            formData.append('username', userId);
+            
+            try {
+                const response = await fetch('/api.php', { method: 'POST', body: formData });
+                const result = await response.json();
+                addLog(`加入結果: ${JSON.stringify(result)}`);
+            } catch (error) {
+                addLog(`加入錯誤: ${error.message}`);
+            }
+        }
+
+        function testLeave() {
+            addLog('測試離開房間...');
+            
+            if (!window.wsManager) {
+                addLog('錯誤: 請先模擬加入房間');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('action', 'leave');
+            formData.append('room_id', window.wsManager.currentRoom);
+            formData.append('user_id', window.wsManager.currentUser);
+            
+            const success = navigator.sendBeacon('/api.php', formData);
+            addLog(`sendBeacon 結果: ${success}`);
+        }
+
+        // 安裝 beforeunload 監聽器
+        window.addEventListener('beforeunload', (event) => {
+            addLog('頁面即將卸載');
+            
+            if (window.wsManager && window.wsManager.currentUser) {
+                const formData = new FormData();
+                formData.append('action', 'leave');
+                formData.append('room_id', window.wsManager.currentRoom);
+                formData.append('user_id', window.wsManager.currentUser);
+                
+                const success = navigator.sendBeacon('/api.php', formData);
+                addLog(`beforeunload sendBeacon: ${success}`);
+            }
+        });
+
+        addLog('調試工具已載入');
+    </script>
+</body>
+</html> 

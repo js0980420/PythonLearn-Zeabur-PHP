@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI助教前後端通信診斷</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { background: white; padding: 20px; border-radius: 8px; max-width: 800px; margin: 0 auto; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 4px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 AI助教前後端通信診斷</h1>
+        
+        <div class="test-section">
+            <h3>1. 後端API連接測試</h3>
+            <button onclick="testBackendAPI()">測試後端API</button>
+            <div id="backend-results"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>2. 前端顯示測試</h3>
+            <button onclick="testFrontendDisplay()">測試前端顯示</button>
+            <div id="frontend-results"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>3. 完整流程測試</h3>
+            <button onclick="testCompleteFlow()">測試完整流程</button>
+            <div id="complete-results"></div>
+        </div>
+    </div>
+
+    <script>
+        function addResult(containerId, type, message, data = null) {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.innerHTML = `
+                <strong>${new Date().toLocaleTimeString()}</strong> - ${message}
+                ${data ? `<pre>${JSON.stringify(data, null, 2)}</pre>` : ''}
+            `;
+            container.appendChild(div);
+            console.log(`[${type.toUpperCase()}] ${message}`, data);
+        }
+
+        async function testBackendAPI() {
+            const results = 'backend-results';
+            document.getElementById(results).innerHTML = '';
+            
+            const testCode = 'print("Hello World")';
+            const testData = {
+                action: 'analyze',
+                code: testCode
+            };
+
+            try {
+                addResult(results, 'info', '發送API請求...', testData);
+                
+                const response = await fetch('/backend/api/ai.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(testData)
+                });
+
+                addResult(results, 'info', `HTTP狀態: ${response.status} ${response.statusText}`);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    addResult(results, 'error', 'HTTP錯誤', { status: response.status, error: errorText });
+                    return;
+                }
+
+                const responseData = await response.json();
+                addResult(results, 'success', 'API回應成功', responseData);
+
+            } catch (error) {
+                addResult(results, 'error', '網路錯誤', { message: error.message });
+            }
+        }
+
+        function testFrontendDisplay() {
+            const results = 'frontend-results';
+            document.getElementById(results).innerHTML = '';
+            
+            // 模擬AI回應數據
+            const mockAIResponse = {
+                success: true,
+                data: {
+                    analysis: "這是一個簡單的Python程式，使用print()函數輸出「Hello World」到控制台。這是程式設計學習的經典入門範例。",
+                    token_usage: 50,
+                    execution_time: 1.2
+                },
+                message: "AI分析完成"
+            };
+
+            addResult(results, 'info', '測試前端顯示功能');
+            
+            // 創建測試顯示區域
+            const testDiv = document.createElement('div');
+            testDiv.id = 'test-ai-response';
+            testDiv.style.cssText = 'border: 2px solid #007bff; padding: 15px; margin: 10px 0; border-radius: 8px;';
+            
+            // 模擬前端顯示邏輯
+            testDiv.innerHTML = `
+                <div class="ai-response-card" style="background-color: #fff; border-radius: 5px; padding: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                    <div class="ai-response-header d-flex align-items-center mb-2" style="border-bottom: 1px solid #eee; padding-bottom: 10px;">
+                        <i class="fas fa-robot text-primary me-2" style="font-size: 1.2em;">🤖</i>
+                        <span class="fw-bold" style="font-size: 1.1em;">AI助教建議</span>
+                    </div>
+                    <div class="ai-response-content" style="font-size: 0.95em; line-height: 1.6;">
+                        <h6><i class="fas fa-brain">🧠</i> AI助教分析結果</h6>
+                        <div class="mb-3">${mockAIResponse.data.analysis}</div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById(results).appendChild(testDiv);
+            addResult(results, 'success', '前端顯示測試完成', mockAIResponse);
+        }
+
+        async function testCompleteFlow() {
+            const results = 'complete-results';
+            document.getElementById(results).innerHTML = '';
+            
+            addResult(results, 'info', '開始完整流程測試...');
+            
+            try {
+                // 步驟1：發送API請求
+                const testData = {
+                    action: 'analyze',
+                    code: 'print("Hello from complete test")'
+                };
+                
+                addResult(results, 'info', '步驟1：發送API請求');
+                const response = await fetch('/backend/api/ai.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(testData)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const apiResult = await response.json();
+                addResult(results, 'success', '步驟1完成：API回應成功');
+                
+                // 步驟2：模擬前端處理
+                addResult(results, 'info', '步驟2：模擬前端處理');
+                
+                if (apiResult.success && apiResult.data && apiResult.data.analysis) {
+                    // 創建完整測試顯示
+                    const completeTestDiv = document.createElement('div');
+                    completeTestDiv.style.cssText = 'border: 2px solid #28a745; padding: 15px; margin: 10px 0; border-radius: 8px; background: #f8fff9;';
+                    
+                    completeTestDiv.innerHTML = `
+                        <h6>🎉 完整流程測試成功！</h6>
+                        <div><strong>API回應：</strong></div>
+                        <div style="background: #e7f7e7; padding: 10px; margin: 5px 0; border-radius: 4px;">
+                            ${apiResult.data.analysis}
+                        </div>
+                        <div><strong>執行時間：</strong> ${apiResult.data.execution_time || 'N/A'}秒</div>
+                        <div><strong>Token使用：</strong> ${apiResult.data.token_usage || 'N/A'}</div>
+                    `;
+                    
+                    document.getElementById(results).appendChild(completeTestDiv);
+                    addResult(results, 'success', '步驟2完成：前端顯示成功');
+                    addResult(results, 'success', '🎉 完整流程測試通過！AI助教功能正常');
+                    
+                } else {
+                    addResult(results, 'error', '步驟2失敗：API回應格式異常', apiResult);
+                }
+                
+            } catch (error) {
+                addResult(results, 'error', '完整流程測試失敗', { message: error.message });
+            }
+        }
+    </script>
+</body>
+</html> 

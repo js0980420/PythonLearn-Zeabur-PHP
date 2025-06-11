@@ -1,38 +1,18 @@
 <?php
 
-require_once __DIR__ . '/../../vendor/autoload.php';
+// 簡化的OpenAI配置 - 只使用Zeabur環境變數
+$apiKey = $_ENV['OPENAI_API_KEY'] ?? '';
 
-// 嘗試從多個來源獲取 API 密鑰
-if (!function_exists('getOpenAIApiKey')) {
-    function getOpenAIApiKey() {
-    // 1. 優先使用環境變數 (生產環境)
-    if (!empty($_ENV['OPENAI_API_KEY'])) {
-        return $_ENV['OPENAI_API_KEY'];
-    }
-    
-    // 2. 嘗試從本地配置檔案讀取 (開發環境)
-    $localConfigPath = __DIR__ . '/../../ai_config.json';
-    if (file_exists($localConfigPath)) {
-        $localConfig = json_decode(file_get_contents($localConfigPath), true);
-        if (!empty($localConfig['openai_api_key'])) {
-            return $localConfig['openai_api_key'];
-        }
-    }
-    
-    // 3. 返回預設值 (將使用模擬響應)
-    return 'your-openai-api-key-here';
-    }
+if (empty($apiKey)) {
+    throw new Exception('OPENAI_API_KEY環境變數未設置。請在Zeabur控制台設置此環境變數。');
 }
 
-// 使用環境變數設定API密鑰，部署時需設定OPENAI_API_KEY環境變數
-$apiKey = getOpenAIApiKey();
 return [
     'api_key' => $apiKey,
     'model' => $_ENV['OPENAI_MODEL'] ?? 'gpt-3.5-turbo',
     'max_tokens' => intval($_ENV['OPENAI_MAX_TOKENS'] ?? 2048),
     'temperature' => floatval($_ENV['OPENAI_TEMPERATURE'] ?? 0.7),
-    'timeout' => intval($_ENV['OPENAI_TIMEOUT'] ?? 60000), // 修正為毫秒
-    'enabled' => !empty($apiKey) && $apiKey !== 'your-openai-api-key-here',
+    'timeout' => intval($_ENV['OPENAI_TIMEOUT'] ?? 60000),
     'base_url' => 'https://api.openai.com/v1',
     'headers' => [
         'Content-Type' => 'application/json',

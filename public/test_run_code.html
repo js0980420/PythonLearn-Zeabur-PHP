@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏃 AI運行代碼測試 - PythonLearn</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .code-editor {
+            width: 100%;
+            height: 200px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            background: #f8f9fa;
+            resize: vertical;
+        }
+        
+        .btn-run {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            margin: 15px 0;
+            transition: all 0.3s;
+        }
+        
+        .btn-run:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+        }
+        
+        .output-area {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            min-height: 100px;
+            display: none;
+        }
+        
+        .ai-response {
+            margin-top: 20px;
+            padding: 20px;
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            border-radius: 8px;
+        }
+        
+        .log-area {
+            margin-top: 20px;
+            padding: 15px;
+            background: #1a1a1a;
+            color: #00ff00;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .preset-codes {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        .preset-code {
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+            border: 2px solid transparent;
+        }
+        
+        .preset-code:hover {
+            background: #e0e0e0;
+            border-color: #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏃 AI運行代碼測試</h1>
+            <p>測試修復後的AI運行代碼功能，確保結果正確顯示在編輯器下方</p>
+        </div>
+        
+        <!-- 預設代碼 -->
+        <div class="mb-3">
+            <h5>📝 預設代碼範例</h5>
+            <div class="preset-codes">
+                <div class="preset-code" onclick="loadCode('print(&quot;5+6&quot;)')">
+                    基礎輸出
+                </div>
+                <div class="preset-code" onclick="loadCode('name = &quot;學生&quot;\nprint(f&quot;Hello {name}&quot;)')">
+                    變數輸出
+                </div>
+                <div class="preset-code" onclick="loadCode('for i in range(3):\n    print(f&quot;數字: {i}&quot;)')">
+                    迴圈輸出
+                </div>
+                <div class="preset-code" onclick="loadCode('x = 10\ny = 20\nprint(f&quot;{x} + {y} = {x + y}&quot;)')">
+                    計算輸出
+                </div>
+            </div>
+        </div>
+        
+        <!-- 代碼編輯器 -->
+        <div class="mb-3">
+            <h5>💻 Python 代碼編輯器</h5>
+            <textarea id="codeEditor" class="code-editor" placeholder="請輸入您的 Python 代碼...">print("5+6")</textarea>
+        </div>
+        
+        <!-- 運行按鈕 -->
+        <div class="text-center">
+            <button id="runBtn" class="btn btn-run" onclick="runCode()">
+                <i class="fas fa-play"></i> 🤖 AI運行代碼
+            </button>
+        </div>
+        
+        <!-- 輸出區域 -->
+        <div id="codeOutput" class="output-area">
+            <h6><i class="fas fa-terminal"></i> 執行結果</h6>
+            <div id="outputContent">等待執行...</div>
+        </div>
+        
+        <!-- AI 回應區域 -->
+        <div id="aiResponse" class="ai-response" style="display: none;">
+            <h6><i class="fas fa-brain"></i> AI 助教分析</h6>
+            <div id="aiContent">等待AI分析...</div>
+        </div>
+        
+        <!-- 調試日誌 -->
+        <div class="log-area" id="logArea">
+            <div><strong>📋 調試日誌</strong></div>
+        </div>
+    </div>
+
+    <script>
+        // 模擬全域變數
+        window.Editor = null;
+        window.editorManager = null;
+        window.AIAssistant = null;
+
+        function log(message) {
+            const logArea = document.getElementById('logArea');
+            const timestamp = new Date().toLocaleTimeString();
+            logArea.innerHTML += `\n[${timestamp}] ${message}`;
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+
+        function loadCode(code) {
+            document.getElementById('codeEditor').value = code.replace(/&quot;/g, '"');
+            log(`載入預設代碼: ${code.substring(0, 30)}...`);
+        }
+
+        async function runCode() {
+            const code = document.getElementById('codeEditor').value.trim();
+            const runBtn = document.getElementById('runBtn');
+            const outputArea = document.getElementById('codeOutput');
+            const outputContent = document.getElementById('outputContent');
+            const aiResponse = document.getElementById('aiResponse');
+            const aiContent = document.getElementById('aiContent');
+
+            if (!code) {
+                alert('請輸入代碼！');
+                return;
+            }
+
+            log(`開始執行代碼: ${code.substring(0, 50)}...`);
+
+            // 禁用按鈕，顯示載入狀態
+            runBtn.disabled = true;
+            runBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 🤖 AI正在執行...';
+
+            // 顯示輸出區域
+            outputArea.style.display = 'block';
+            outputContent.innerHTML = '🤖 AI正在分析和執行代碼...';
+
+            // 顯示AI回應區域
+            aiResponse.style.display = 'block';
+            aiContent.innerHTML = '🤔 AI正在思考...';
+
+            try {
+                const requestData = {
+                    action: 'run_code',
+                    code: code,
+                    requestId: `test_run_${Date.now()}`,
+                    user_id: 1,
+                    username: 'TestUser'
+                };
+
+                log(`發送請求到 /api/ai.php: ${JSON.stringify(requestData)}`);
+
+                const response = await fetch('/api/ai.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                log(`收到回應狀態: ${response.status}`);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP錯誤 ${response.status}: ${errorText}`);
+                }
+
+                const result = await response.json();
+                log(`AI回應: ${JSON.stringify(result)}`);
+
+                if (result.success) {
+                    // 顯示執行結果
+                    outputContent.innerHTML = `
+                        <div class="alert alert-success">
+                            <h6><i class="fas fa-check-circle"></i> 🤖 AI執行結果</h6>
+                            <div class="execution-output">
+                                ${formatAIResponse(result.output || result.response || '執行完成')}
+                            </div>
+                            ${result.execution_time ? `<small class="text-muted d-block mt-2">執行時間: ${result.execution_time}ms</small>` : ''}
+                        </div>
+                    `;
+
+                    // 顯示AI分析
+                    aiContent.innerHTML = `
+                        <div class="ai-analysis">
+                            ${formatAIResponse(result.analysis || result.response || '分析完成')}
+                        </div>
+                        <div class="mt-2">
+                            <small class="text-muted">模式: ${result.mode || '智能分析'}</small>
+                        </div>
+                    `;
+
+                    log('✅ 代碼執行成功');
+                } else {
+                    // 顯示錯誤
+                    outputContent.innerHTML = `
+                        <div class="alert alert-danger">
+                            <h6><i class="fas fa-exclamation-triangle"></i> 🤖 AI執行分析</h6>
+                            <div class="execution-output">
+                                ${escapeHtml(result.error || '代碼執行失敗')}
+                            </div>
+                        </div>
+                    `;
+
+                    aiContent.innerHTML = `
+                        <div class="text-danger">
+                            ${escapeHtml(result.error || '分析失敗')}
+                        </div>
+                    `;
+
+                    log('❌ 代碼執行失敗: ' + (result.error || '未知錯誤'));
+                }
+
+            } catch (error) {
+                log(`💥 請求失敗: ${error.message}`);
+                outputContent.innerHTML = `
+                    <div class="alert alert-danger">
+                        <h6><i class="fas fa-exclamation-triangle"></i> 網路錯誤</h6>
+                        <div>無法連接到AI服務：${escapeHtml(error.message)}</div>
+                    </div>
+                `;
+                aiContent.innerHTML = `<div class="text-danger">網路錯誤: ${escapeHtml(error.message)}</div>`;
+            } finally {
+                // 恢復按鈕
+                runBtn.disabled = false;
+                runBtn.innerHTML = '<i class="fas fa-play"></i> 🤖 AI運行代碼';
+            }
+        }
+
+        function formatAIResponse(text) {
+            if (!text) return '';
+            return text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/`(.*?)`/g, '<code>$1</code>')
+                .replace(/\n/g, '<br>')
+                .replace(/###\s*(.*?)(<br>|$)/g, '<h6>$1</h6>')
+                .replace(/##\s*(.*?)(<br>|$)/g, '<h5>$1</h5>')
+                .replace(/#\s*(.*?)(<br>|$)/g, '<h4>$1</h4>');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            log('🎯 AI運行代碼測試頁面載入完成');
+            log('📝 可以輸入代碼並點擊運行按鈕測試AI功能');
+        });
+
+        // 支援 Enter 鍵運行（Ctrl+Enter）
+        document.getElementById('codeEditor').addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'Enter') {
+                e.preventDefault();
+                runCode();
+            }
+        });
+    </script>
+</body>
+</html> 

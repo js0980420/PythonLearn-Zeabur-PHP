@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI助教測試</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css" rel="stylesheet">
+    <style>
+        .CodeMirror {
+            height: 200px;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h2>🤖 AI助教測試</h2>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Python 代碼編輯器</h5>
+                    </div>
+                    <div class="card-body">
+                        <textarea id="codeEditor">print("Hello, World!")
+x = 5
+y = 3
+print(f"{x} + {y} = {x + y}")</textarea>
+                        <div class="mt-3">
+                            <button class="btn btn-primary" onclick="testAI()">
+                                <i class="fas fa-brain"></i> 測試AI分析
+                            </button>
+                            <button class="btn btn-info" onclick="testCodeGetter()">
+                                <i class="fas fa-code"></i> 測試代碼獲取
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>AI回應區域</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="aiResponse" style="min-height: 200px;">
+                            <div class="text-center text-muted p-4">
+                                <i class="fas fa-robot fa-3x mb-3"></i>
+                                <h6>🤖 AI助教已準備就緒</h6>
+                                <p class="mb-0">點擊按鈕開始測試</p>
+                            </div>
+                        </div>
+                        <div id="aiShareOptions" style="display: none;"></div>
+                    </div>
+                </div>
+                
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h6>調試日誌</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="debugLog" style="height: 150px; overflow-y: auto; font-family: monospace; font-size: 12px; background: #f8f9fa; padding: 10px; border-radius: 4px;">
+                            <div class="text-muted">等待操作...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 必要的庫 -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
+
+    <!-- 模擬環境 -->
+    <script>
+        // 模擬必要的全局對象
+        window.wsManager = {
+            isConnected: () => true,
+            currentRoom: 'test-room'
+        };
+        
+        window.AutoLogin = {
+            getCurrentUser: () => ({ id: 1, username: 'TestUser' })
+        };
+    </script>
+
+    <!-- 載入應用腳本 -->
+    <script src="js/editor.js"></script>
+    <script src="js/ai-assistant.js"></script>
+
+    <script>
+        let editor;
+        let aiAssistant;
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            log('🚀 頁面載入完成');
+            
+            setTimeout(() => {
+                initializeComponents();
+            }, 1000);
+        });
+        
+        function initializeComponents() {
+            log('🔧 初始化組件...');
+            
+            // 初始化CodeMirror編輯器
+            const textarea = document.getElementById('codeEditor');
+            if (textarea && typeof CodeMirror !== 'undefined') {
+                editor = CodeMirror.fromTextArea(textarea, {
+                    mode: 'python',
+                    lineNumbers: true,
+                    theme: 'default'
+                });
+                
+                // 設置全局編輯器對象
+                window.Editor = {
+                    editor: editor,
+                    getCode: () => editor.getValue(),
+                    setCode: (code) => editor.setValue(code)
+                };
+                
+                log('✅ 編輯器初始化完成');
+            } else {
+                log('❌ 編輯器初始化失敗');
+            }
+            
+            // 初始化AI助教
+            if (window.AIAssistantManager) {
+                aiAssistant = new AIAssistantManager();
+                aiAssistant.initialize();
+                window.aiAssistant = aiAssistant;
+                log('✅ AI助教初始化完成');
+            } else {
+                log('❌ AI助教類未找到');
+            }
+        }
+        
+        function testCodeGetter() {
+            log('🔍 測試代碼獲取...');
+            
+            if (!aiAssistant) {
+                log('❌ AI助教未初始化');
+                return;
+            }
+            
+            try {
+                const code = aiAssistant.getEditorCode();
+                log(`✅ 代碼獲取成功: ${code.length} 字符`);
+                log(`📝 代碼內容: ${code.substring(0, 50)}...`);
+                
+                document.getElementById('aiResponse').innerHTML = `
+                    <div class="alert alert-success">
+                        <h6><i class="fas fa-check-circle"></i> 代碼獲取測試成功</h6>
+                        <p><strong>長度:</strong> ${code.length} 字符</p>
+                        <p><strong>內容:</strong></p>
+                        <pre style="background: #f8f9fa; padding: 10px; border-radius: 4px;">${code}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                log(`❌ 代碼獲取失敗: ${error.message}`);
+                document.getElementById('aiResponse').innerHTML = `
+                    <div class="alert alert-danger">
+                        <h6><i class="fas fa-exclamation-circle"></i> 代碼獲取失敗</h6>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        async function testAI() {
+            log('🤖 測試AI分析...');
+            
+            if (!aiAssistant) {
+                log('❌ AI助教未初始化');
+                return;
+            }
+            
+            try {
+                // 直接調用AI分析
+                aiAssistant.requestAnalysis('analyze');
+                log('✅ AI分析請求已發送');
+            } catch (error) {
+                log(`❌ AI分析失敗: ${error.message}`);
+            }
+        }
+        
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logContainer = document.getElementById('debugLog');
+            
+            const div = document.createElement('div');
+            div.innerHTML = `[${timestamp}] ${message}`;
+            
+            logContainer.appendChild(div);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            
+            console.log(`[AI測試] ${message}`);
+        }
+    </script>
+</body>
+</html> 

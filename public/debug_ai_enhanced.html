@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI助教代碼獲取診斷</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            padding: 20px;
+        }
+        .card h2 {
+            color: #2c3e50;
+            margin-top: 0;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        .status {
+            padding: 8px 12px;
+            border-radius: 4px;
+            margin: 5px 0;
+            display: inline-block;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .warning { background-color: #fff3cd; color: #856404; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        .btn {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn-primary { background-color: #007bff; color: white; }
+        .btn-success { background-color: #28a745; color: white; }
+        .btn-warning { background-color: #ffc107; color: black; }
+        .btn-danger { background-color: #dc3545; color: white; }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            border-left: 4px solid #007bff;
+        }
+        .log-container {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            background: #f8f9fa;
+        }
+        .flex-row {
+            display: flex;
+            gap: 20px;
+        }
+        .flex-column {
+            flex: 1;
+        }
+        .text-center {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center">🔍 AI助教代碼獲取診斷工具</h1>
+        
+        <div class="flex-row">
+            <div class="flex-column">
+                <div class="card">
+                    <h2>🔧 快速診斷</h2>
+                    <button class="btn btn-primary" onclick="runFullDiagnostic()">🚀 執行完整診斷</button>
+                    <button class="btn btn-success" onclick="testAIDirectly()">🤖 直接測試AI</button>
+                    <button class="btn btn-warning" onclick="simulateAIClick()">🎯 模擬AI按鈕點擊</button>
+                    <button class="btn btn-danger" onclick="clearLogs()">🧹 清空日誌</button>
+                </div>
+                
+                <div class="card">
+                    <h2>📊 環境狀態</h2>
+                    <div id="environmentStatus">
+                        <div class="status info">正在檢查環境...</div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h2>📖 代碼獲取測試</h2>
+                    <div id="codeRetrievalStatus">
+                        <div class="status info">等待測試...</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex-column">
+                <div class="card">
+                    <h2>📝 實時日誌</h2>
+                    <div id="logContainer" class="log-container">
+                        <div class="status info">初始化中...</div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h2>🎯 AI請求測試</h2>
+                    <div id="aiTestResults">
+                        <div class="status info">等待測試...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let logContainer = null;
+        let logs = [];
+        
+        function initializePage() {
+            logContainer = document.getElementById('logContainer');
+            log('🚀 AI診斷工具初始化完成', 'success');
+            
+            // 自動執行基本檢查
+            setTimeout(() => {
+                checkEnvironment();
+            }, 500);
+        }
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = {
+                timestamp,
+                message,
+                type
+            };
+            
+            logs.push(logEntry);
+            
+            if (logContainer) {
+                const div = document.createElement('div');
+                div.className = `status ${type}`;
+                div.innerHTML = `[${timestamp}] ${message}`;
+                logContainer.appendChild(div);
+                logContainer.scrollTop = logContainer.scrollHeight;
+            }
+            
+            console.log(`[${timestamp}] ${message}`);
+        }
+        
+        function clearLogs() {
+            logs = [];
+            if (logContainer) {
+                logContainer.innerHTML = '';
+            }
+            log('🧹 日誌已清空', 'info');
+        }
+        
+        function updateStatus(containerId, content) {
+            const container = document.getElementById(containerId);
+            if (container) {
+                container.innerHTML = content;
+            }
+        }
+        
+        function checkEnvironment() {
+            log('🔍 開始環境檢查...', 'info');
+            
+            const checks = {
+                'window.Editor': !!window.Editor,
+                'window.Editor.getCode': !!(window.Editor && typeof window.Editor.getCode === 'function'),
+                'window.editor': !!window.editor,
+                'window.wsManager': !!window.wsManager,
+                'window.AutoLogin': !!window.AutoLogin,
+                'window.aiAssistant': !!window.aiAssistant,
+                'DOM .CodeMirror': !!document.querySelector('.CodeMirror'),
+                'DOM #codeEditor': !!document.querySelector('#codeEditor'),
+                'Textarea元素': document.querySelectorAll('textarea').length > 0
+            };
+            
+            let statusHTML = '';
+            let allGood = true;
+            
+            for (const [check, result] of Object.entries(checks)) {
+                const status = result ? 'success' : 'error';
+                if (!result) allGood = false;
+                
+                statusHTML += `<div class="status ${status}">
+                    ${result ? '✅' : '❌'} ${check}: ${result}
+                </div>`;
+                
+                log(`${result ? '✅' : '❌'} ${check}: ${result}`, status);
+            }
+            
+            updateStatus('environmentStatus', statusHTML);
+            
+            if (allGood) {
+                log('🎉 環境檢查完成 - 一切正常！', 'success');
+            } else {
+                log('⚠️ 環境檢查完成 - 發現問題', 'warning');
+            }
+        }
+        
+        function testCodeRetrieval() {
+            log('📖 開始代碼獲取測試...', 'info');
+            
+            const methods = [
+                {
+                    name: 'window.Editor.getCode()',
+                    test: () => window.Editor && typeof window.Editor.getCode === 'function' ? window.Editor.getCode() : null
+                },
+                {
+                    name: 'window.editor.getValue()',
+                    test: () => window.editor && typeof window.editor.getValue === 'function' ? window.editor.getValue() : null
+                },
+                {
+                    name: 'DOM CodeMirror',
+                    test: () => {
+                        const cm = document.querySelector('.CodeMirror');
+                        return cm && cm.CodeMirror ? cm.CodeMirror.getValue() : null;
+                    }
+                },
+                {
+                    name: 'localStorage',
+                    test: () => {
+                        try {
+                            return localStorage.getItem('python_code_general-room') || 
+                                   localStorage.getItem('python_code') ||
+                                   localStorage.getItem('lastSavedCode');
+                        } catch (e) {
+                            return null;
+                        }
+                    }
+                }
+            ];
+            
+            let statusHTML = '';
+            let foundCode = false;
+            
+            for (const method of methods) {
+                try {
+                    const code = method.test();
+                    const success = code && code.trim().length > 0;
+                    const status = success ? 'success' : 'warning';
+                    
+                    if (success) foundCode = true;
+                    
+                    statusHTML += `<div class="status ${status}">
+                        ${success ? '✅' : '⚠️'} ${method.name}: ${code ? code.length + ' 字符' : '無內容'}
+                    </div>`;
+                    
+                    if (success) {
+                        statusHTML += `<pre>${code.substring(0, 200)}${code.length > 200 ? '...' : ''}</pre>`;
+                    }
+                    
+                    log(`${success ? '✅' : '⚠️'} ${method.name}: ${code ? code.length + ' 字符' : '無內容'}`, status);
+                    
+                } catch (error) {
+                    statusHTML += `<div class="status error">❌ ${method.name}: 錯誤 - ${error.message}</div>`;
+                    log(`❌ ${method.name}: 錯誤 - ${error.message}`, 'error');
+                }
+            }
+            
+            updateStatus('codeRetrievalStatus', statusHTML);
+            
+            if (foundCode) {
+                log('🎉 代碼獲取測試完成 - 找到代碼！', 'success');
+            } else {
+                log('⚠️ 代碼獲取測試完成 - 未找到代碼', 'warning');
+            }
+        }
+        
+        async function testAIDirectly() {
+            log('🤖 開始直接AI測試...', 'info');
+            
+            // 嘗試獲取代碼
+            let code = '';
+            if (window.Editor && typeof window.Editor.getCode === 'function') {
+                try {
+                    code = window.Editor.getCode();
+                    log(`📖 獲取代碼成功: ${code.length} 字符`, 'success');
+                } catch (error) {
+                    log(`❌ 代碼獲取失敗: ${error.message}`, 'error');
+                    updateStatus('aiTestResults', `<div class="status error">❌ 無法獲取代碼: ${error.message}</div>`);
+                    return;
+                }
+            } else {
+                log('❌ window.Editor.getCode 不可用', 'error');
+                updateStatus('aiTestResults', '<div class="status error">❌ window.Editor.getCode 不可用</div>');
+                return;
+            }
+            
+            if (!code || code.trim() === '') {
+                log('⚠️ 編輯器中沒有代碼', 'warning');
+                updateStatus('aiTestResults', '<div class="status warning">⚠️ 編輯器中沒有代碼</div>');
+                return;
+            }
+            
+            try {
+                log('📡 發送AI請求...', 'info');
+                
+                const response = await fetch('/api/ai.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: 'analyze',
+                        code: code,
+                        requestId: `debug_${Date.now()}`,
+                        user_id: 1,
+                        username: 'DebugUser'
+                    })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    log(`✅ AI請求成功`, 'success');
+                    log(`📊 模式: ${result.mode}`, 'info');
+                    log(`📊 狀態: ${result.success}`, result.success ? 'success' : 'error');
+                    
+                    let statusHTML = `
+                        <div class="status success">✅ AI請求成功</div>
+                        <div class="status info">📊 模式: ${result.mode}</div>
+                        <div class="status ${result.success ? 'success' : 'error'}">📊 狀態: ${result.success}</div>
+                    `;
+                    
+                    if (result.response) {
+                        statusHTML += `<pre>${result.response.substring(0, 300)}...</pre>`;
+                        log(`📝 AI回應預覽: ${result.response.length} 字符`, 'success');
+                    }
+                    
+                    updateStatus('aiTestResults', statusHTML);
+                    
+                } else {
+                    const errorText = await response.text();
+                    log(`❌ AI請求失敗: HTTP ${response.status}`, 'error');
+                    log(`❌ 錯誤詳情: ${errorText}`, 'error');
+                    updateStatus('aiTestResults', `
+                        <div class="status error">❌ AI請求失敗: HTTP ${response.status}</div>
+                        <pre>${errorText}</pre>
+                    `);
+                }
+                
+            } catch (error) {
+                log(`❌ AI請求異常: ${error.message}`, 'error');
+                updateStatus('aiTestResults', `
+                    <div class="status error">❌ AI請求異常: ${error.message}</div>
+                `);
+            }
+        }
+        
+        function simulateAIClick() {
+            log('🎯 模擬AI按鈕點擊...', 'info');
+            
+            if (window.aiAssistant && typeof window.aiAssistant.requestAnalysis === 'function') {
+                try {
+                    window.aiAssistant.requestAnalysis('analyze');
+                    log('✅ AI按鈕點擊模擬成功', 'success');
+                } catch (error) {
+                    log(`❌ AI按鈕點擊模擬失敗: ${error.message}`, 'error');
+                }
+            } else if (typeof askAI === 'function') {
+                try {
+                    askAI('analyze');
+                    log('✅ askAI函數調用成功', 'success');
+                } catch (error) {
+                    log(`❌ askAI函數調用失敗: ${error.message}`, 'error');
+                }
+            } else {
+                log('❌ 找不到AI函數', 'error');
+            }
+        }
+        
+        function runFullDiagnostic() {
+            log('🚀 開始完整診斷...', 'info');
+            clearLogs();
+            
+            setTimeout(() => {
+                checkEnvironment();
+                setTimeout(() => {
+                    testCodeRetrieval();
+                    setTimeout(() => {
+                        testAIDirectly();
+                    }, 1000);
+                }, 1000);
+            }, 500);
+        }
+        
+        // 頁面載入時初始化
+        window.addEventListener('load', initializePage);
+        
+        // 每5秒自動檢查一次環境變化
+        setInterval(() => {
+            if (logs.length > 0) {
+                log('🔄 自動檢查環境狀態...', 'info');
+                checkEnvironment();
+            }
+        }, 5000);
+    </script>
+</body>
+</html> 

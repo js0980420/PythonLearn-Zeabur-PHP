@@ -1,8 +1,40 @@
+# 🚀 Zeabur 靜態文件處理配置
+DirectoryIndex index.html index.php
+
+# 🔧 MIME 類型設置
+AddType application/javascript .js
+AddType text/css .css
+AddType text/html .html
+
+# 📁 直接提供靜態文件（避免通過 router.php）
 RewriteEngine On
+
+# 🎯 優先處理靜態文件
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^(.*)$ $1 [L]
+
+# 🔄 如果文件不存在，交給 router.php 處理
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ router.php [QSA,L]
+
+# 🛡️ 安全設置
+Header always set X-Content-Type-Options nosniff
+Header always set X-Frame-Options DENY
+
+# ⚡ 緩存設置
+<FilesMatch "\.(js|css|html)$">
+    ExpiresActive On
+    ExpiresDefault "access plus 1 hour"
+</FilesMatch>
 
 # API 路由重寫
 RewriteRule ^api/auth$ api/auth.php [L]
 RewriteRule ^api/history$ api/history.php [L]
+
+# CSS 和 JS 檔案直接提供
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^(css|js)/.*$ $0 [L]
 
 # 其他靜態文件直接提供
 RewriteCond %{REQUEST_FILENAME} !-f

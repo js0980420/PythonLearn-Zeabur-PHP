@@ -1,0 +1,12 @@
+[
+    {
+        "id": "684847b84d353",
+        "timestamp": 1749567416000,
+        "room_id": "general-room",
+        "initiator": "學生953",
+        "target_user": "學生948",
+        "conflict_with": "學生953",
+        "message": "學生953 正在處理您剛才發送的代碼修改衝突",
+        "conflict_data": "{\"localUser\":\"學生953\",\"remoteUser\":\"學生948\",\"localCode\":\"# 歡迎使用 Python 協作編輯器\\n# 在這裡輸入您的 Python 代碼\\nprint(\\\"6\\\")\",\"remoteCode\":\"# 歡迎使用 Python 協作編輯器\\r\\n# 在這裡輸入您的 Python 代碼\\r\\nprint(\\\"5\\\")\"}"
+    }
+]

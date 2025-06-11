@@ -1,3 +1,13 @@
+// 🎯 立即定義全域函數以避免未定義錯誤
+window.globalOpenTeacherDashboard = function() {
+    console.log('🎯 globalOpenTeacherDashboard 被調用');
+    if (window.UI && typeof window.UI.openTeacherDashboard === 'function') {
+        window.UI.openTeacherDashboard();
+    } else {
+        console.error('UI not ready or openTeacherDashboard method missing');
+    }
+};
+
 // 界面控制和通用功能管理
 class UIManager {
     constructor() {
@@ -15,17 +25,22 @@ class UIManager {
         this.collaborationAlert = document.getElementById('collaborationAlert');
         
         // 生成隨機用戶名
-        const nameInput = document.getElementById('nameInput');
+            const nameInput = document.getElementById('username');
         if (nameInput) {
             nameInput.value = `學生${Math.floor(Math.random() * 1000)}`;
         }
+        
+        // 默認切換到AI助教模式
+        setTimeout(() => {
+            this.switchToAI();
+        }, 100);
     }
 
     // 加入房間
     joinRoom() {
         const roomInput = document.getElementById('roomInput');
         const roomSelect = document.getElementById('roomSelect');
-        const nameInput = document.getElementById('nameInput');
+        const nameInput = document.getElementById('username');
         const loginSection = document.getElementById('loginSection');
         const workspaceSection = document.getElementById('workspaceSection');
         const currentRoomEl = document.getElementById('currentRoom');
@@ -52,7 +67,15 @@ class UIManager {
             return;
         }
 
-        // 連接WebSocket
+        // 🔥 添加到登入記錄 - 在連接之前保存用戶名
+        if (window.UserManager && typeof window.UserManager.addToLoginHistory === 'function') {
+            window.UserManager.addToLoginHistory(userName);
+            console.log('✅ 用戶名已添加到登入記錄:', userName);
+        } else {
+            console.warn('⚠️ UserManager 未找到，無法保存登入記錄');
+        }
+
+        // 連接HTTP輪詢服務器
         wsManager.connect(roomName, userName);
         
         // 切換界面
@@ -65,6 +88,11 @@ class UIManager {
             const displayName = this.getDisplayName(userName);
             currentUserNameEl.textContent = displayName;
         }
+        
+        // 🎯 自動顯示操作教學
+        setTimeout(() => {
+            this.showTutorial();
+        }, 500);
     }
 
     // 離開房間
@@ -95,7 +123,7 @@ class UIManager {
     showJoinForm() {
         const loginSection = document.getElementById('loginSection');
         const workspaceSection = document.getElementById('workspaceSection');
-        const nameInput = document.getElementById('nameInput');
+        const nameInput = document.getElementById('username');
 
         if (loginSection) loginSection.style.display = 'block';
         else console.error('❌ UI.showJoinForm: loginSection not found');
@@ -165,87 +193,6 @@ class UIManager {
         }
     }
 
-    // 切換到AI助教
-    switchToAI() {
-        const aiSection = document.getElementById('aiSection');
-        const chatSection = document.getElementById('chatSection');
-        const aiTabBtn = document.getElementById('aiTabBtn');
-        const chatTabBtn = document.getElementById('chatTabBtn');
-        
-        if (!aiSection || !chatSection || !aiTabBtn || !chatTabBtn) {
-            console.error('❌ UI.switchToAI: 某些切換分頁所需的UI元素未找到!');
-            return;
-        }
-        
-        // 顯示AI區域，隱藏聊天區域
-        aiSection.style.display = 'block';
-        chatSection.style.display = 'none';
-        
-        // 更新按鈕狀態
-        aiTabBtn.classList.add('active');
-        aiTabBtn.classList.remove('btn-outline-primary');
-        aiTabBtn.classList.add('btn-primary');
-        
-        chatTabBtn.classList.remove('active');
-        chatTabBtn.classList.remove('btn-success');
-        chatTabBtn.classList.add('btn-outline-success');
-        
-        this.currentTab = 'ai';
-        
-        // 切換到AI助教時顯示使用說明
-        if (typeof AIAssistant !== 'undefined' && AIAssistant.showAIIntroduction) {
-            AIAssistant.showAIIntroduction();
-        }
-    }
-
-    // 切換到聊天室
-    switchToChat() {
-        console.log('🔍 切換到聊天室');
-        
-        const aiSection = document.getElementById('aiSection');
-        const chatSection = document.getElementById('chatSection');
-        const aiTabBtn = document.getElementById('aiTabBtn');
-        const chatTabBtn = document.getElementById('chatTabBtn');
-        
-        if (!aiSection || !chatSection || !aiTabBtn || !chatTabBtn) {
-            console.error('❌ UI.switchToChat: 某些切換分頁所需的UI元素未找到!');
-            return;
-        }
-        
-        // 顯示聊天區域，隱藏AI區域
-        aiSection.style.display = 'none';
-        chatSection.style.display = 'block';
-        
-        // 更新按鈕狀態
-        chatTabBtn.classList.add('active');
-        chatTabBtn.classList.remove('btn-outline-success');
-        chatTabBtn.classList.add('btn-success');
-        
-        aiTabBtn.classList.remove('active');
-        aiTabBtn.classList.remove('btn-primary');
-        aiTabBtn.classList.add('btn-outline-primary');
-        
-        this.currentTab = 'chat';
-        
-        // 強制刷新聊天容器顯示
-        const chatContainer = document.getElementById('chatContainer');
-        if (chatContainer) {
-            // 觸發重新渲染
-            chatContainer.style.display = 'none';
-            setTimeout(() => {
-                chatContainer.style.display = 'block';
-                chatContainer.scrollTop = chatContainer.scrollHeight;
-            }, 10);
-        }
-        
-        // 自動聚焦到輸入框
-        setTimeout(() => {
-            if (Chat && Chat.focusInput) {
-                Chat.focusInput();
-            }
-        }, 100);
-    }
-
     // 顯示協作提醒
     showCollaborationAlert(collaboratingUsers) {
         if (!this.collaborationAlert) return;
@@ -278,6 +225,29 @@ class UIManager {
         }
     }
 
+    // 通用 Toast 方法
+    showToast(title, message, type = 'info') {
+        // 組合標題和消息
+        const fullMessage = title && message ? `${title}: ${message}` : (message || title);
+        
+        // 根據類型調用對應的方法
+        switch (type) {
+            case 'success':
+                this.showSuccessToast(fullMessage);
+                break;
+            case 'error':
+                this.showErrorToast(fullMessage);
+                break;
+            case 'warning':
+                this.showWarningToast(fullMessage);
+                break;
+            case 'info':
+            default:
+                this.showInfoToast(fullMessage);
+                break;
+        }
+    }
+
     // 顯示成功提示
     showSuccessToast(message) {
         const toast = document.createElement('div');
@@ -295,6 +265,30 @@ class UIManager {
         const toast = document.createElement('div');
         toast.className = 'error-toast';
         toast.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.remove();
+        }, 5000);
+    }
+
+    // 顯示警告提示
+    showWarningToast(message) {
+        const toast = document.createElement('div');
+        toast.className = 'warning-toast';
+        toast.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${message}`;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.remove();
+        }, 5000);
+    }
+
+    // 顯示信息提示
+    showInfoToast(message) {
+        const toast = document.createElement('div');
+        toast.className = 'info-toast';
+        toast.innerHTML = `<i class="fas fa-info-circle"></i> ${message}`;
         document.body.appendChild(toast);
         
         setTimeout(() => {
@@ -348,7 +342,7 @@ class UIManager {
 
     // 打開教師監控後台
     openTeacherDashboard() {
-        window.open('/teacher', '_blank');
+        window.open('teacher-dashboard.html', '_blank');
     }
 
     // 顯示操作教學
@@ -451,73 +445,87 @@ class UIManager {
         console.log('✅ 操作教學已顯示');
     }
 
-    /**
-     * 顯示警告提示
-     */
-    showWarningToast(message, duration = 5000) {
-        // 創建提示元素
-        const toast = document.createElement('div');
-        toast.className = 'alert alert-warning alert-dismissible fade show position-fixed';
-        toast.style.cssText = `
-            top: 20px;
-            right: 20px;
-            z-index: 9999;
-            max-width: 400px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        `;
+    // 切換到AI助教
+    switchToAI() {
+        const aiSection = document.getElementById('aiSection');
+        const chatSection = document.getElementById('chatSection');
+        const aiTabBtn = document.getElementById('aiTabBtn');
+        const chatTabBtn = document.getElementById('chatTabBtn');
         
-        toast.innerHTML = `
-            <i class="fas fa-exclamation-triangle me-2"></i>
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        `;
-        
-        // 添加到頁面
-        document.body.appendChild(toast);
-        
-        // 自動移除
-        setTimeout(() => {
-            if (toast.parentNode) {
-                toast.remove();
-            }
-        }, duration);
-    }
-
-    /**
-     * 顯示 HTTP 模式狀態
-     */
-    showHttpModeStatus() {
-        // 檢查是否已經顯示過
-        if (document.getElementById('httpModeIndicator')) {
+        if (!aiSection || !chatSection || !aiTabBtn || !chatTabBtn) {
+            console.error('❌ UI.switchToAI: 某些切換分頁所需的UI元素未找到!');
             return;
         }
         
-        // 創建狀態指示器
-        const indicator = document.createElement('div');
-        indicator.id = 'httpModeIndicator';
-        indicator.className = 'alert alert-info d-flex align-items-center mb-3';
-        indicator.innerHTML = `
-            <i class="fas fa-info-circle me-2"></i>
-            <div class="flex-grow-1">
-                <strong>HTTP 模式</strong> - WebSocket 連接不可用，部分實時功能受限
-                <br><small class="text-muted">代碼編輯和基本功能正常，但無法實時同步</small>
-            </div>
-            <button type="button" class="btn btn-sm btn-outline-info ms-2" onclick="this.parentElement.style.display='none'">
-                <i class="fas fa-times"></i>
-            </button>
-        `;
+        // 顯示AI區域，隱藏聊天區域
+        aiSection.style.display = 'block';
+        chatSection.style.display = 'none';
         
-        // 插入到主要內容區域的頂部
-        const mainContent = document.querySelector('.container-fluid') || document.body;
-        const firstChild = mainContent.firstElementChild;
+        // 更新按鈕狀態
+        aiTabBtn.classList.add('active');
+        aiTabBtn.classList.remove('btn-outline-primary');
+        aiTabBtn.classList.add('btn-primary');
         
-        if (firstChild) {
-            mainContent.insertBefore(indicator, firstChild);
-        } else {
-            mainContent.appendChild(indicator);
+        chatTabBtn.classList.remove('active');
+        chatTabBtn.classList.remove('btn-success');
+        chatTabBtn.classList.add('btn-outline-success');
+        
+        this.currentTab = 'ai';
+        console.log('✅ 切換到AI助教模式');
+    }
+
+    // 切換到聊天室
+    switchToChat() {
+        console.log('🔍 切換到聊天室');
+        
+        const aiSection = document.getElementById('aiSection');
+        const chatSection = document.getElementById('chatSection');
+        const aiTabBtn = document.getElementById('aiTabBtn');
+        const chatTabBtn = document.getElementById('chatTabBtn');
+        
+        if (!aiSection || !chatSection || !aiTabBtn || !chatTabBtn) {
+            console.error('❌ UI.switchToChat: 某些切換分頁所需的UI元素未找到!');
+            return;
         }
         
-        console.log('ℹ️ HTTP 模式狀態指示器已顯示');
+        // 顯示聊天區域，隱藏AI區域
+        aiSection.style.display = 'none';
+        chatSection.style.display = 'block';
+        
+        // 更新按鈕狀態
+        chatTabBtn.classList.add('active');
+        chatTabBtn.classList.remove('btn-outline-success');
+        chatTabBtn.classList.add('btn-success');
+        
+        aiTabBtn.classList.remove('active');
+        aiTabBtn.classList.remove('btn-primary');
+        aiTabBtn.classList.add('btn-outline-primary');
+        
+        this.currentTab = 'chat';
+        
+        // 強制刷新聊天容器顯示
+        const chatContainer = document.getElementById('chatContainer');
+        if (chatContainer) {
+            // 觸發重新渲染
+            chatContainer.style.display = 'none';
+            setTimeout(() => {
+                chatContainer.style.display = 'block';
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }, 10);
+        }
+        
+        // 自動聚焦到輸入框
+        setTimeout(() => {
+            const chatInput = document.getElementById('chatInput');
+            if (chatInput) {
+                chatInput.focus();
+            }
+            if (Chat && Chat.focusInput) {
+                Chat.focusInput();
+            }
+        }, 100);
+        
+        console.log('✅ 切換到聊天室模式');
     }
 }
 
@@ -534,14 +542,21 @@ function leaveRoom() {
 }
 
 function switchToAI() {
+    console.log('🎯 switchToAI 被調用');
+    if (UI && typeof UI.switchToAI === 'function') {
     UI.switchToAI();
+    } else {
+        console.error('UI not ready or switchToAI method missing');
+    }
 }
 
 function switchToChat() {
-    console.log('🔍 全局 switchToChat() 函數被調用！');
-    console.log('🔍 UI對象存在:', !!UI);
-    console.log('🔍 UI.switchToChat方法存在:', !!(UI && UI.switchToChat));
+    console.log('🎯 switchToChat 被調用');
+    if (UI && typeof UI.switchToChat === 'function') {
     UI.switchToChat();
+    } else {
+        console.error('UI not ready or switchToChat method missing');
+    }
 }
 
 function openTeacherDashboard() {
@@ -644,10 +659,17 @@ function globalSendChat() {
 
 function globalTestConflictAnalysis() {
     console.log('🎯 globalTestConflictAnalysis 被調用');
-    if (window.ConflictResolver) {
+    
+    // 使用AI助教來分析代碼衝突
+    if (window.AIAssistant && typeof window.AIAssistant.requestAnalysis === 'function') {
+        console.log('📡 調用AI助教進行衝突分析');
+        window.AIAssistant.requestAnalysis('conflict_analysis');
+    } else if (window.ConflictResolver) {
+        // 回退到本地衝突分析
+        console.log('🔄 回退到本地衝突分析');
         window.ConflictResolver.testConflictAnalysis();
     } else {
-        console.error('❌ ConflictResolver 未定義');
+        console.error('❌ AI助教和ConflictResolver都未定義');
     }
 }
 
@@ -732,8 +754,8 @@ function globalResolveConflict(action) {
 
 function globalSwitchToAI() {
     console.log('🎯 globalSwitchToAI 被調用');
-    if (window.UI && typeof window.UI.switchToAI === 'function') {
-        window.UI.switchToAI();
+    if (UI && typeof UI.switchToAI === 'function') {
+        UI.switchToAI();
     } else {
         console.error('UI not ready or switchToAI method missing');
     }
@@ -741,8 +763,8 @@ function globalSwitchToAI() {
 
 function globalSwitchToChat() {
     console.log('🎯 globalSwitchToChat 被調用');
-    if (window.UI && typeof window.UI.switchToChat === 'function') {
-        window.UI.switchToChat();
+    if (UI && typeof UI.switchToChat === 'function') {
+        UI.switchToChat();
     } else {
         console.error('UI not ready or switchToChat method missing');
     }
@@ -775,4 +797,83 @@ function globalSaveCode(isAutoSave = false) {
     } else {
         console.error('SaveLoadManager and Editor not ready or saveCode method missing');
     }
+}
+
+function globalOpenTeacherDashboard() {
+    console.log('🎯 globalOpenTeacherDashboard 被調用');
+    if (window.UI && typeof window.UI.openTeacherDashboard === 'function') {
+        window.UI.openTeacherDashboard();
+    } else {
+        console.error('UI not ready or openTeacherDashboard method missing');
+    }
+}
+
+function globalRunCode() {
+    console.log('🎯 globalRunCode 被調用');
+    if (window.Editor && typeof window.Editor.runCode === 'function') {
+        window.Editor.runCode();
+    } else {
+        console.error('Editor not ready or runCode method missing');
+    }
+}
+
+function globalLoadCode(loadType) {
+    console.log(`🎯 globalLoadCode 被調用，載入類型: ${loadType}`);
+    if (window.SaveLoadManager && typeof window.SaveLoadManager.loadCode === 'function') {
+        window.SaveLoadManager.loadCode(loadType);
+    } else {
+        console.error('SaveLoadManager not ready or loadCode method missing');
+    }
+}
+
+function resolveConflict(action) {
+    console.log(`🎯 resolveConflict 被調用，動作: ${action}`);
+    if (window.ConflictResolver && typeof window.ConflictResolver.resolveConflict === 'function') {
+        window.ConflictResolver.resolveConflict(action);
+        } else {
+        console.error('ConflictResolver not ready or resolveConflict method missing');
+    }
+}
+
+function askAI(action) {
+    console.log(`🎯 askAI 被調用，動作: ${action}`);
+    if (window.AIAssistant && typeof window.AIAssistant.requestAnalysis === 'function') {
+        window.AIAssistant.requestAnalysis(action);
+    } else {
+        console.error('AIAssistant not ready or requestAnalysis method missing');
+    }
+}
+
+function globalRunWithAI() {
+    console.log('🎯 globalRunWithAI 被調用');
+    if (window.AIAssistant && typeof window.AIAssistant.runCodeWithAI === 'function') {
+        console.log('📡 調用AI助教運行代碼');
+        // 獲取編輯器代碼
+        const code = window.AIAssistant.getEditorCode();
+        if (code && code.trim()) {
+            window.AIAssistant.runCodeWithAI(code);
+        } else {
+            console.error('❌ 無法獲取編輯器代碼');
+            if (window.AI && typeof window.AI.showResponse === 'function') {
+                window.AI.showResponse('<div class="alert alert-warning">⚠️ 請先在編輯器中輸入Python代碼</div>');
+            }
+        }
+    } else {
+        console.error('❌ AI助教或runCodeWithAI方法未定義');
+    }
+}
+
+// 🚀 初始化 UI 管理器
+window.UI = new UIManager();
+
+// 等待 DOM 載入完成後初始化
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        window.UI.initialize();
+        console.log('✅ UI 管理器已初始化');
+    });
+} else {
+    // DOM 已經載入完成
+    window.UI.initialize();
+    console.log('✅ UI 管理器已初始化');
 }

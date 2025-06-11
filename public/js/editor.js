@@ -265,7 +265,7 @@ class EditorManager {
         
         this.saveToHistory(code, saveName);
 
-        // 如果有 WebSocket 連接，也同步到服務器
+        // 如果有 HTTP 輪詢連接，也同步到服務器
         if (wsManager.isConnected() && wsManager.currentRoom) {
             wsManager.sendMessage({
                 type: 'save_code',
@@ -343,7 +343,7 @@ class EditorManager {
             }
         }
 
-        // 如果有 WebSocket 連接，也嘗試從服務器載入
+        // 如果有 HTTP 輪詢連接，也嘗試從服務器載入
         if (wsManager.isConnected() && wsManager.currentRoom) {
             console.log('📡 同時從服務器檢查最新版本...');
             wsManager.sendMessage({
@@ -399,7 +399,7 @@ class EditorManager {
         console.log(`   - 本地版本: ${this.codeVersion}`);
         console.log(`   - 遠程版本: ${message.version}`);
         console.log(`   - 本地用戶: \"${wsManager.currentUser}\"`);
-        console.log(`   - 遠程用戶: \"${message.username}\"`);
+        console.log(`   - 遠程用戶: \"${message.username || message.userName}\"`);
         console.log(`   - 強制更新: ${message.forceUpdate}`);
         console.log(`   - 有衝突預警: ${message.hasConflictWarning}`);
         
@@ -407,20 +407,46 @@ class EditorManager {
         if (message.forceUpdate) {
             console.log('🔥 強制更新模式，直接應用代碼');
             this.applyRemoteCode(message);
-            UI.showInfoToast(`${message.username} 強制更新了代碼`);
+            this.safeShowToast(`${message.username || message.userName} 強制更新了代碼`, 'info');
             return;
         }
         
-        // 🔧 衝突檢測邏輯 V6 - 增強雙方提醒
+        // 🎯 獲取在線用戶數量（從用戶管理器或輪詢管理器）
+        let onlineUserCount = 1; // 默認至少有自己
+        if (window.UserManager && window.UserManager.getOnlineUsers) {
+            onlineUserCount = window.UserManager.getOnlineUsers().length;
+        } else if (window.httpPollingManager && window.httpPollingManager.lastOnlineUsers) {
+            onlineUserCount = window.httpPollingManager.lastOnlineUsers.length;
+        } else if (wsManager && wsManager.onlineUsers) {
+            onlineUserCount = wsManager.onlineUsers.size || 1;
+        }
+        
+        // 統一用戶名處理
+        const remoteUserName = message.username || message.userName;
+        const currentUserName = wsManager.currentUser;
+        
+        console.log('🔍 衝突檢測前置條件:');
+        console.log(`   - 在線用戶數: ${onlineUserCount}`);
+        console.log(`   - 遠程用戶: "${remoteUserName}"`);
+        console.log(`   - 當前用戶: "${currentUserName}"`);
+        console.log(`   - 用戶不同: ${remoteUserName !== currentUserName}`);
+        
+        // 🔧 衝突檢測邏輯 V7 - 修復單人編輯問題
         const recentlyEdited = this.editStartTime && (Date.now() - this.editStartTime) < 5000;
-        const isConflict = (this.isEditing || recentlyEdited) && 
-                          message.username !== wsManager.currentUser;
+        const isDifferentUser = remoteUserName && currentUserName && remoteUserName !== currentUserName;
+        const hasMultipleUsers = onlineUserCount > 1;
+        const isLocallyEditing = this.isEditing || recentlyEdited;
+        
+        // 只有在多用戶環境下，且確實是不同用戶的修改，且本地正在編輯時才觸發衝突
+        const isConflict = hasMultipleUsers && isDifferentUser && isLocallyEditing;
         
         console.log(`🔍 衝突檢測結果:`);
         console.log(`   - 最近編輯: ${recentlyEdited}`);
-        console.log(`   - 編輯狀態: ${this.isEditing}`);
-        console.log(`   - 不同用戶: ${message.userName !== wsManager.currentUser}`);
-        console.log(`   - 發現衝突: ${isConflict}`);
+        console.log(`   - 正在編輯: ${this.isEditing}`);
+        console.log(`   - 本地編輯中: ${isLocallyEditing}`);
+        console.log(`   - 不同用戶: ${isDifferentUser}`);
+        console.log(`   - 多用戶環境: ${hasMultipleUsers}`);
+        console.log(`   - 最終判定衝突: ${isConflict}`);
         
         if (isConflict) {
             console.log('🚨 檢測到協作衝突！啟動雙方處理流程...');
@@ -429,16 +455,14 @@ class EditorManager {
             this.notifyRemoteUserAboutConflict(message);
             
             // 🔧 顯示本地衝突解決界面（被改方）
-            if (window.ConflictResolver && typeof window.ConflictResolver.showConflictModal === 'function') {
+            if (typeof ConflictResolver !== 'undefined' && ConflictResolver && typeof ConflictResolver.showConflict === 'function') {
                 const localCode = this.editor.getValue();
                 console.log('🔄 調用增強衝突解決器...');
-                window.ConflictResolver.showConflictModal(
-                    localCode,           // 本地代碼（您的版本）
-                    message.code,        // 遠程代碼（對方版本）
-                    message.username,    // 遠程用戶名
-                    this.codeVersion,    // 本地版本號
-                    message.version      // 遠程版本號
-                );
+                ConflictResolver.showConflict({
+                    code: message.code,        // 遠程代碼（對方版本）
+                    userName: remoteUserName,  // 遠程用戶名
+                    version: message.version   // 遠程版本號
+                });
             } else {
                 console.error('❌ ConflictResolver 未找到，使用後備衝突處理');
                 this.fallbackConflictHandling(message);
@@ -447,7 +471,7 @@ class EditorManager {
             // 在聊天室顯示衝突提醒
             if (window.Chat && typeof window.Chat.addSystemMessage === 'function') {
                 window.Chat.addSystemMessage(
-                    `⚠️ 協作衝突：${message.username} 和 ${wsManager.currentUser} 同時在修改代碼`
+                    `⚠️ 協作衝突：${remoteUserName} 和 ${currentUserName} 同時在修改代碼`
                 );
             }
             
@@ -457,11 +481,12 @@ class EditorManager {
             this.applyRemoteCode(message);
             
             // 🔧 如果對方有衝突預警，顯示協作提醒
-            if (message.hasConflictWarning) {
-                UI.showInfoToast(`⚠️ ${message.username} 在衝突預警後仍選擇發送了修改`);
-            } else {
-                UI.showInfoToast(`📝 ${message.username} 更新了代碼`);
+            if (message.hasConflictWarning && hasMultipleUsers) {
+                this.safeShowToast(`⚠️ ${remoteUserName} 在衝突預警後仍選擇發送了修改`, 'info');
+            } else if (hasMultipleUsers && isDifferentUser) {
+                this.safeShowToast(`📝 ${remoteUserName} 更新了代碼`, 'info');
             }
+            // 單人模式下不顯示更新提示
         }
     }
 
@@ -472,13 +497,13 @@ class EditorManager {
         // 發送衝突通知消息給服務器，服務器會轉發給相關用戶
         const conflictNotification = {
             type: 'conflict_notification',
-            targetUser: message.username,  // 發送給主改方
+            targetUser: message.username || message.userName,  // 發送給主改方
             conflictWith: wsManager.currentUser,  // 被改方（自己）
             message: `${wsManager.currentUser} 正在處理您剛才發送的代碼修改衝突`,
             timestamp: Date.now(),
             conflictData: {
                 localUser: wsManager.currentUser,
-                remoteUser: message.userName,
+                remoteUser: message.username || message.userName,
                 localCode: this.editor.getValue(),
                 remoteCode: message.code
             }
@@ -486,7 +511,7 @@ class EditorManager {
         
         if (wsManager.isConnected()) {
             wsManager.sendMessage(conflictNotification);
-            console.log('✅ 衝突通知已發送給:', message.userName);
+            console.log('✅ 衝突通知已發送給:', message.username || message.userName);
         }
     }
 
@@ -526,6 +551,26 @@ class EditorManager {
             setTimeout(() => {
                 this.sendCodeChange(true); // 強制發送
             }, 100);
+        }
+    }
+
+    // 🔧 安全顯示提示消息
+    safeShowToast(message, type = 'info') {
+        try {
+            if (window.UI && typeof window.UI.showInfoToast === 'function') {
+                if (type === 'info') {
+                    window.UI.showInfoToast(message);
+                } else if (type === 'success') {
+                    window.UI.showSuccessToast(message);
+                } else if (type === 'error') {
+                    window.UI.showErrorToast(message);
+                }
+            } else {
+                console.log(`📢 ${type.toUpperCase()}: ${message}`);
+            }
+        } catch (error) {
+            console.error('❌ 顯示提示消息失敗:', error);
+            console.log(`📢 ${type.toUpperCase()}: ${message}`);
         }
     }
 
@@ -989,7 +1034,7 @@ class EditorManager {
     // 發送代碼變更 - 🔧 增加衝突預警機制
     sendCodeChange(forceUpdate = false) {
         if (!wsManager.isConnected() || !this.editor) {
-            console.log('❌ WebSocket 未連接或編輯器未初始化，無法發送代碼變更');
+            console.log('❌ HTTP輪詢未連接或編輯器未初始化，無法發送代碼變更');
             return;
         }
 
@@ -1013,7 +1058,7 @@ class EditorManager {
             
             if (!userChoice) {
                 console.log('🚫 用戶取消發送，避免潛在衝突');
-                UI.showInfoToast('已取消發送，避免潛在衝突');
+                this.safeShowToast('已取消發送，避免潛在衝突', 'info');
                 
                 // 在聊天室提示用戶可以協商
                 if (window.Chat && typeof window.Chat.addSystemMessage === 'function') {
@@ -1331,3 +1376,26 @@ const Editor = new EditorManager();
 // 確保全域可訪問性 - 修復WebSocket訪問問題
 window.Editor = Editor;
 console.log('✅ 全域編輯器實例已創建並設置到 window.Editor:', window.Editor); 
+
+// 等待 DOM 完全載入後再初始化編輯器
+function initializeEditorWhenReady() {
+    const codeEditorElement = document.getElementById('codeEditor');
+    
+    if (codeEditorElement && typeof CodeMirror !== 'undefined') {
+        // DOM 和 CodeMirror 都已準備好
+        Editor.initialize();
+        console.log('✅ 編輯器已在 DOM 準備完成後初始化');
+    } else {
+        // 尚未準備好，延遲重試
+        console.log('⏳ 等待 DOM 元素和 CodeMirror 準備中...');
+        setTimeout(initializeEditorWhenReady, 100);
+    }
+}
+
+// 檢查 DOM 狀態並初始化
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeEditorWhenReady);
+} else {
+    // DOM 已經載入完成
+    initializeEditorWhenReady();
+} 

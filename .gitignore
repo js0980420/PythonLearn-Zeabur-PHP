@@ -72,6 +72,7 @@ Thumbs.db
 # 本地配置文件
 config.local.php
 database.local.php
+public/config/local-config.php
 
 # 開發工具
 .phpunit.result.cache
@@ -119,6 +120,8 @@ Thumbs.db
 
 # Cursor 規則檔案 (僅本地使用)
 .cursor/
+# 但保留 environment.json 配置檔案
+!.cursor/environment.json
 
 # 測試檔案
 test-*.php
@@ -145,3 +148,66 @@ uploads/
 
 # 編譯檔案
 *.compiled 
+
+# 開發和調試文件
+debug-websocket.html
+*.log
+*.tmp
+*.bak
+*.backup
+*_backup.*
+
+# 臨時文件和緩存
+temp/
+cache/
+logs/
+*.cache
+
+# 環境配置文件（包含敏感信息）
+.env
+.env.local
+.env.production
+
+# IDE 和編輯器文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 操作系統文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 依賴和包管理
+node_modules/
+vendor/composer/
+
+# 數據庫文件
+*.sqlite
+*.db
+
+# 上傳和用戶生成的文件
+uploads/
+storage/app/
+storage/framework/cache/
+storage/framework/sessions/
+storage/framework/views/
+storage/logs/
+
+# 測試和覆蓋率報告
+coverage/
+.nyc_output/
+.coverage
+htmlcov/
+
+# 編譯和構建文件
+dist/
+build/
+*.min.js
+*.min.css
+
+# 本地配置文件
+config/local.php
+config/development.php 

@@ -41,17 +41,486 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css" rel="stylesheet">
-    <link href="css/enhanced-slot-ui.css" rel="stylesheet">
+    
+    <!-- 本地自定義CSS - 多路徑備援 -->
+    <link href="css/styles.css" rel="stylesheet" id="primaryCSS">
+    <script>
+    // CSS 載入失敗時的備援機制
+    document.getElementById('primaryCSS').onerror = function() {
+        console.warn('主要CSS載入失敗，嘗試備用路徑...');
+        const fallbackCSS = document.createElement('link');
+        fallbackCSS.rel = 'stylesheet';
+        fallbackCSS.href = '/public/css/styles.css';
+        document.head.appendChild(fallbackCSS);
+    };
+    </script>
+
     
     <!-- 內嵌基本樣式 (確保即使外部CSS加載失敗或被移除，也有基本框架) -->
     <style>
-        body { background-color: #6f42c1; color: #333; font-family: sans-serif; padding-top: 20px; padding-bottom: 20px; }
-        .main-container { max-width: 1200px; margin: auto; }
-        .card-custom { background-color: white !important; border-radius: 10px !important; padding: 1.5rem !important; margin-bottom: 1.5rem !important; box-shadow: 0 4px 8px rgba(0,0,0,0.1) !important; }
-        .btn { cursor: pointer; }
-        #editorContainer, #chatContainer, #aiResponse, #outputContent { border: 1px solid #ddd; border-radius: 5px; min-height: 100px;}
-        #outputContent { background-color: #f8f9fa; padding: 10px; max-height: 200px; overflow-y: auto; font-family: monospace; white-space: pre-wrap;}
-        
+        /* Python協作教學平台 - 完整內嵌樣式 */
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .card-custom {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        /* 協作提醒樣式 */
+        .collaboration-alert {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1050;
+            max-width: 400px;
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            animation: slideInRight 0.5s ease;
+        }
+
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* 衝突檢測模態窗口 */
+        .conflict-modal .modal-content {
+            border-radius: 15px;
+            border: 3px solid #dc3545;
+        }
+
+        .conflict-header {
+            background: linear-gradient(45deg, #dc3545, #c82333);
+            color: white;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .conflict-option {
+            transition: all 0.3s ease;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+            border: 2px solid transparent;
+            cursor: pointer;
+        }
+
+        .conflict-option:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .option-reload {
+            background: linear-gradient(45deg, #17a2b8, #138496);
+            color: white;
+        }
+
+        .option-force {
+            background: linear-gradient(45deg, #ffc107, #e0a800);
+            color: black;
+        }
+
+        .option-discuss {
+            background: linear-gradient(45deg, #28a745, #1e7e34);
+            color: white;
+        }
+
+        /* 編輯器衝突警告 */
+        .editor-conflict-warning {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #dc3545;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            z-index: 1000;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        /* 在線用戶指示器 */
+        .user-indicator {
+            display: inline-block;
+            padding: 4px 12px;
+            background: #28a745;
+            color: white;
+            border-radius: 15px;
+            font-size: 12px;
+            margin: 2px;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .system-message {
+            background: #e9ecef;
+            border-left-color: #6c757d;
+            font-style: italic;
+        }
+
+        .conflict-code-block {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            border-left: 4px solid #dc3545;
+        }
+
+        /* AI助教樣式 */
+        .ai-analysis {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 15px 0;
+        }
+
+        .ai-suggestion {
+            background: rgba(255,255,255,0.2);
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+
+        /* 🔧 編輯器專用樣式 - 確保編輯器有足夠大小 */
+        #editor {
+            width: 100%;
+            height: 400px;
+            min-height: 400px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            background: #2d3748;
+            color: #e2e8f0;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        /* CodeMirror 編輯器樣式 */
+        .CodeMirror {
+            height: 400px !important;
+            min-height: 400px !important;
+            width: 100% !important;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            background: #2d3748 !important;
+        }
+
+        .CodeMirror-scroll {
+            height: 400px !important;
+            min-height: 400px !important;
+        }
+
+        .CodeMirror-lines {
+            padding: 10px;
+        }
+
+        /* 聊天室樣式 */
+        .chat-container {
+            height: 400px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .chat-message {
+            background: rgba(255,255,255,0.9);
+            padding: 8px 12px;
+            margin: 5px 0;
+            border-radius: 8px;
+            border-left: 3px solid #007bff;
+            word-wrap: break-word;
+        }
+
+        .chat-message.teacher {
+            border-left-color: #28a745;
+            background: rgba(40, 167, 69, 0.1);
+        }
+
+        .chat-message-time {
+            font-size: 11px;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        .chat-message-user {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .chat-input-container {
+            background: rgba(255,255,255,0.9);
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 10px;
+        }
+
+        /* 用戶登入記錄下拉選單樣式 */
+        .username-dropdown {
+            position: relative;
+        }
+
+        .username-history-item .dropdown-item {
+            padding: 8px 16px;
+            border-radius: 6px;
+            margin: 2px 0;
+            transition: all 0.2s ease;
+        }
+
+        .username-history-item .dropdown-item:hover {
+            background: linear-gradient(45deg, #007bff, #0056b3);
+            color: white;
+            transform: translateX(3px);
+        }
+
+        .username-history-item .dropdown-item small {
+            opacity: 0.8;
+            font-size: 10px;
+        }
+
+        .username-history-item .dropdown-item:hover small {
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        /* 時間標記樣式 */
+        .username-time-badge {
+            background: rgba(0, 123, 255, 0.1);
+            color: #007bff;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 9px;
+            font-weight: 500;
+        }
+
+        /* 清除記錄按鈕樣式 */
+        .username-history-item .text-danger {
+            transition: all 0.3s ease;
+        }
+
+        .username-history-item .text-danger:hover {
+            background: linear-gradient(45deg, #dc3545, #c82333);
+            color: white;
+            transform: scale(1.02);
+        }
+
+        /* 下拉選單動畫 */
+        #usernameDropdown {
+            animation: fadeInDown 0.3s ease;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 運行結果樣式 */
+        #runResult {
+            max-height: 200px;
+            min-height: 150px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            background: #212529;
+            color: #ffffff;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+        }
+
+        /* 確保容器有足夠的空間 */
+        .col-md-8 {
+            min-height: 600px;
+        }
+
+        .col-md-4 {
+            min-height: 600px;
+        }
+
+        /* 響應式設計 */
+        @media (max-width: 768px) {
+            #editor, .CodeMirror {
+                height: 300px !important;
+                min-height: 300px !important;
+            }
+            
+            #chatMessages {
+                max-height: 200px;
+                min-height: 150px;
+            }
+            
+            #runResult {
+                max-height: 150px;
+                min-height: 100px;
+            }
+        }
+
+        /* AI回應卡片樣式 */
+        .ai-response-card {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border-radius: 12px;
+            margin: 15px 0;
+            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
+            overflow: hidden;
+        }
+
+        .ai-response-header {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 12px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+        }
+
+        .ai-response-content {
+            padding: 20px;
+        }
+
+        .ai-response-content h6 {
+            color: #ffffff;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .ai-response-content h7 {
+            color: #f8f9fa;
+            font-weight: 600;
+        }
+
+        .ai-response-content .alert {
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            border-radius: 8px;
+        }
+
+        .ai-response-content .card {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .ai-response-content .card-body {
+            color: white;
+        }
+
+        .ai-response-content ul {
+            color: #f8f9fa;
+        }
+
+        .ai-response-content li {
+            margin-bottom: 8px;
+        }
+
+        .ai-conflict-analysis {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 15px 0;
+            border-left: 5px solid #a93226;
+        }
+
+        .ai-conflict-analysis .alert {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+        }
+
+        /* Toast 樣式 */
+        .success-toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1060;
+            animation: slideInDown 0.3s ease-out;
+        }
+
+        @keyframes slideInDown {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+
+        .error-toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(45deg, #dc3545, #c82333);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1060;
+            animation: slideInDown 0.3s ease-out;
+        }
+
+        .info-toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(45deg, #17a2b8, #138496);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1060;
+            animation: slideInDown 0.3s ease-out;
+        }
+
         /* 教師廣播樣式 */
         .teacher-broadcast {
             position: fixed;
@@ -64,52 +533,63 @@
             font-weight: bold;
             z-index: 2000;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            animation: slideInRight 0.5s ease-out;
+            animation: zoomIn 0.5s ease-out;
         }
-        
-        .broadcast-info {
-            background: linear-gradient(135deg, #17a2b8, #138496);
-            border-left: 5px solid #0056b3;
+
+        @keyframes zoomIn {
+            from { transform: scale(0.3); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
         }
-        
-        .broadcast-warning {
-            background: linear-gradient(135deg, #ffc107, #e0a800);
-            border-left: 5px solid #e0a800;
-            color: #212529;
+
+        .broadcast-info { background: #d1ecf1; border: 2px solid #bee5eb; color: #0c5460; }
+        .broadcast-warning { background: #fff3cd; border: 2px solid #ffeaa7; color: #856404; }
+        .broadcast-success { background: #d4edda; border: 2px solid #c3e6cb; color: #155724; }
+        .broadcast-error { background: #f8d7da; border: 2px solid #f5c6cb; color: #721c24; }
+
+        /* 教學內容樣式 */
+        .tutorial-content {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 8px;
         }
-        
-        .broadcast-error {
-            background: linear-gradient(135deg, #dc3545, #c82333);
-            border-left: 5px solid #b21f2d;
+
+        .tutorial-section {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 12px;
+            border-radius: 6px;
+            margin: 10px 0;
+            border-left: 4px solid #17a2b8;
         }
-        
-        .broadcast-success {
-            background: linear-gradient(135deg, #28a745, #1e7e34);
-            border-left: 5px solid #155724;
+
+        .tutorial-section h6 {
+            color: #17a2b8;
+            margin-bottom: 8px;
         }
-        
-        @keyframes slideInRight {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-        
-        .teacher-broadcast h5 {
-            margin: 0 0 10px 0;
-            font-size: 1.1em;
-        }
-        
-        .teacher-broadcast p {
-            margin: 0;
+
+        .tutorial-section p {
+            margin-bottom: 5px;
             line-height: 1.4;
         }
+
+        .tutorial-section strong {
+            color: #ffc107;
+        }
+
+        /* 基礎樣式覆蓋 */
+        #editorContainer, #chatContainer, #aiResponse, #outputContent { 
+            border: 1px solid #ddd; 
+            border-radius: 5px; 
+            min-height: 100px;
+        }
         
-        /* 更多必要的基礎樣式可以在這裡添加，以減少對外部CSS文件的依賴，並確保JS控制的樣式有基礎 */
+        #outputContent { 
+            background-color: #f8f9fa; 
+            padding: 10px; 
+            max-height: 200px; 
+            overflow-y: auto; 
+            font-family: monospace; 
+            white-space: pre-wrap;
+        }
     </style>
 </head>
 <body>
@@ -126,15 +606,11 @@
                         <label class="form-label">房間名稱</label>
                         <div class="input-group">
                             <select class="form-select" id="roomSelect" onchange="updateRoomInput()">
-                                <option value="test-room">test-room (預設測試房間)</option>
-                                <option value="class-1">class-1 (第一班)</option>
-                                <option value="class-2">class-2 (第二班)</option>
-                                <option value="class-3">class-3 (第三班)</option>
-                                <option value="advanced">advanced (進階班)</option>
+                                <option value="general-room">general-room (預設房間)</option>
                                 <option value="custom">自定義房間名稱...</option>
                             </select>
                         </div>
-                        <input type="text" class="form-control mt-2" id="roomInput" placeholder="或輸入自定義房間名稱" value="test-room" style="display: none;">
+                        <input type="text" class="form-control mt-2" id="roomInput" placeholder="或輸入自定義房間名稱" value="general-room" style="display: none;">
                         <div class="form-text">
                             <i class="fas fa-info-circle"></i> 
                             選擇預設房間或輸入自定義房間名稱
@@ -142,10 +618,22 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">您的名稱</label>
-                        <input type="text" class="form-control" id="nameInput" placeholder="輸入您的名稱" value="Alex Wang">
+                        <div class="dropdown">
+                            <input type="text" class="form-control dropdown-toggle" id="username" 
+                                   placeholder="請輸入您的用戶名稱" value="" required
+                                   data-bs-toggle="dropdown" aria-expanded="false"
+                                   autocomplete="off">
+                            <ul class="dropdown-menu w-100" id="usernameDropdown">
+                                <li><h6 class="dropdown-header">最近登入的用戶</h6></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li class="text-center text-muted py-2" id="noUsersMessage">
+                                    <i class="fas fa-info-circle"></i> 暫無登入記錄
+                                </li>
+                            </ul>
+                        </div>
                         <div class="form-text">
                             <i class="fas fa-info-circle"></i> 
-                            默認使用測試用戶"Alex Wang (艾克斯王)"，您可以修改為其他名稱
+                            輸入新名稱或從下拉選單選擇之前用過的名稱
                         </div>
                     </div>
                     <button class="btn btn-primary w-100 mb-3" onclick="globalJoinRoom()"><i class="fas fa-sign-in-alt"></i> 加入房間</button>
@@ -218,10 +706,6 @@
                                         <li><h6 class="dropdown-header">已保存版本</h6></li>
                                         <!-- 已保存的槽位項目將由 SaveLoadManager 動態生成 -->
                                     </ul>
-                                    
-                                    <button class="btn btn-outline-success btn-sm" onclick="globalRunCode()">
-                                        <i class="fas fa-play"></i> 運行
-                                    </button>
                                 </div>
                                 
                                 <!-- 第二組：複製 -->
@@ -263,22 +747,29 @@
                 </div>
                 
                 <div class="col-md-4">
-                    <div class="card-custom p-3 mb-3" id="panelCard">
+                    <div class="card-custom p-3" id="rightPanel">
+                        <!-- 切換按鈕 -->
                         <div class="d-flex justify-content-center mb-3">
                             <div class="btn-group" role="group">
-                                <button type="button" class="btn btn-primary" id="aiTabBtn" onclick="globalSwitchToAI()"><i class="fas fa-robot"></i> AI助教</button>
-                                <button type="button" class="btn btn-outline-success" id="chatTabBtn" onclick="globalSwitchToChat()"><i class="fas fa-comments"></i> 聊天室</button>
+                                <button type="button" class="btn btn-primary" id="aiTabBtn" onclick="globalSwitchToAI()">
+                                    <i class="fas fa-robot"></i> AI助教
+                                </button>
+                                <button type="button" class="btn btn-outline-success" id="chatTabBtn" onclick="globalSwitchToChat()">
+                                    <i class="fas fa-comments"></i> 聊天室
+                                </button>
                             </div>
                         </div>
+                        
+                        <!-- AI助教區域 -->
                         <div id="aiSection">
                             <div class="d-grid gap-2 mb-3">
                                 <button class="btn btn-outline-info" onclick="globalAskAI('analyze')"><i class="fas fa-lightbulb"></i> 解釋程式</button>
                                 <button class="btn btn-outline-warning" onclick="globalAskAI('check_errors')"><i class="fas fa-bug"></i> 檢查錯誤</button>
                                 <button class="btn btn-outline-success" onclick="globalAskAI('improvement_tips')"><i class="fas fa-lightbulb"></i> 改進建議</button>
                                 <button class="btn btn-outline-danger" onclick="globalTestConflictAnalysis()"><i class="fas fa-code-branch"></i> 衝突分析</button>
-                                <button class="btn btn-outline-primary" onclick="globalShowTutorial()"><i class="fas fa-question-circle"></i> 操作教學</button>
+                                <button class="btn btn-outline-primary" onclick="globalRunWithAI()"><i class="fas fa-play-circle"></i> AI運行代碼</button>
                             </div>
-                            <div id="aiResponse" class="p-2" style="min-height: 200px; background: #f8f9fa;"></div>
+                            <div id="aiResponse" class="p-2" style="min-height: 350px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;"></div>
                             <div id="aiShareOptions" class="mt-2" style="display: none;">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <small class="text-muted">分享到聊天室?</small>
@@ -289,28 +780,17 @@
                                 </div>
                             </div>
                         </div>
+                        
+                        <!-- 聊天室區域 -->
                         <div id="chatSection" style="display: none;">
-                            <div class="mb-2">
-                                <label class="form-label small">聊天房間</label>
-                                <select class="form-select form-select-sm" id="chatRoomSelect" onchange="switchChatRoom()">
-                                    <option value="">選擇聊天房間</option>
-                                    <option value="current">💬 當前房間</option>
-                                    <option value="test-room">test-room (預設測試房間)</option>
-                                    <option value="class-1">class-1 (第一班)</option>
-                                    <option value="class-2">class-2 (第二班)</option>
-                                    <option value="class-3">class-3 (第三班)</option>
-                                    <option value="advanced">advanced (進階班)</option>
-                                    <option value="global">🌐 全域聊天</option>
-                                </select>
-                            </div>
-                            <div id="chatContainer" class="p-2 mb-2" style="height: 250px; overflow-y: auto; background: #f8f9fa;">
+                            <div id="chatContainer" class="p-2 mb-2" style="height: 400px; overflow-y: auto; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;">
                                 <div class="text-center text-muted small">
                                     <i class="fas fa-comments"></i><br>
-                                    請選擇聊天房間開始對話
+                                    歡迎使用聊天室
                                 </div>
                             </div>
                             <div class="input-group">
-                                <input type="text" class="form-control" id="chatInput" placeholder="選擇房間後輸入消息..." disabled>
+                                <input type="text" class="form-control" id="chatInput" placeholder="輸入消息..." onkeypress="if(event.key==='Enter')globalSendChat()">
                                 <button class="btn btn-primary" onclick="globalSendChat()"><i class="fas fa-paper-plane"></i></button>
                             </div>
                         </div>
@@ -323,6 +803,22 @@
         <div id="collaborationAlert" style="display: none; position: fixed; top: 20px; right: 20px; background-color: #fff3cd; color: #664d03; padding: 15px; border-radius: 5px; border: 1px solid #ffeeba; z-index: 1050;">
             <div class="d-flex align-items-center"><i class="fas fa-exclamation-triangle text-warning me-2"></i><div><strong>⚠️ 其他同學也在修改程式碼！</strong><div id="collaboratingUsers" class="mt-1"></div></div></div>
         </div>
+
+        <!-- 🔧 環境檢測面板 -->
+        <div id="envCheckPanel" style="display: none; position: fixed; bottom: 20px; right: 20px; background: white; border: 2px solid #007bff; border-radius: 8px; padding: 15px; z-index: 1060; box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-width: 400px;">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0"><i class="fas fa-cog"></i> 環境變數檢測</h6>
+                <button class="btn btn-sm btn-outline-secondary" onclick="toggleEnvPanel()"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="envCheckContent">
+                <div class="text-center"><i class="fas fa-spinner fa-spin"></i> 檢測中...</div>
+            </div>
+        </div>
+
+        <!-- 🔧 環境檢測按鈕 -->
+        <button id="envCheckBtn" onclick="toggleEnvPanel()" style="position: fixed; bottom: 20px; left: 20px; background: #007bff; color: white; border: none; border-radius: 50%; width: 50px; height: 50px; z-index: 1059; box-shadow: 0 2px 8px rgba(0,0,0,0.2);" title="檢查環境變數">
+            <i class="fas fa-cog"></i>
+        </button>
 
         <!-- 衝突解決模態窗口 -->
         <div class="modal fade" id="conflictModal" tabindex="-1" data-bs-backdrop="static">
@@ -367,17 +863,17 @@
                         <!-- 解決方案按鈕 -->
                         <div class="row">
                             <div class="col-md-6 mb-2">
-                                <button class="btn btn-outline-success w-100" onclick="globalResolveConflict('reload')">
+                                <button class="btn btn-outline-success w-100" onclick="globalResolveConflict('accept')">
                                     <i class="fas fa-check"></i> 接受對方修改
                                 </button>
                             </div>
                             <div class="col-md-6 mb-2">
-                                <button class="btn btn-outline-warning w-100" onclick="globalResolveConflict('force')">
+                                <button class="btn btn-outline-warning w-100" onclick="globalResolveConflict('reject')">
                                     <i class="fas fa-times"></i> 保持我的版本
                                 </button>
                             </div>
                             <div class="col-md-6 mb-2">
-                                <button class="btn btn-outline-info w-100" onclick="globalResolveConflict('discuss')">
+                                <button class="btn btn-outline-info w-100" onclick="globalShareConflictToChat()">
                                     <i class="fas fa-comments"></i> 複製到聊天室討論
                                 </button>
                             </div>
@@ -400,684 +896,330 @@
         </div>
     </div> <!-- main-container end -->
 
+    <script>
+    // 🔧 動態路徑修復 - Zeabur 環境專用路徑檢測
+    (function() {
+        const currentPath = window.location.pathname;
+        const hostname = window.location.hostname;
+        const isZeabur = hostname.includes('zeabur.app');
+        const isInPublicPath = currentPath.includes('/public/');
+        
+        console.log('🔍 當前路徑:', currentPath);
+        console.log('🔍 是否 Zeabur 環境:', isZeabur);
+        console.log('🔍 是否在 public 路徑:', isInPublicPath);
+        
+        // 🎯 Zeabur 環境路徑修復
+        let jsBasePath = '';
+        
+        // 🔧 修復的JS檔案路徑邏輯 - 統一使用相對路徑
+        if (isZeabur) {
+            // Zeabur環境：由於 root: "public" 在 zeabur.yaml 中，直接使用相對路徑
+            jsBasePath = '';
+            console.log('☁️ Zeabur環境：使用相對路徑載入JS文件');
+        } else {
+            // 本地環境：PHP服務器 -t public 已經將 public/ 設為根目錄
+            jsBasePath = '';
+            console.log('🏠 本地環境：PHP服務器根目錄為public/，使用相對路徑');
+        }
+        
+        // 🎨 CSS檔案路徑修復 - 對於Zeabur環境使用相對路徑
+        const existingStylesLink = document.querySelector('link[href*="styles.css"]');
+        if (existingStylesLink && isZeabur) {
+            // Zeabur環境：嘗試正確的相對路徑到 public/css/
+            existingStylesLink.href = 'css/styles.css';
+            console.log('🎨 CSS路徑已更新為相對路徑: css/styles.css');
+        }
+        
+        console.log('🔧 JS 基礎路徑:', jsBasePath);
+        console.log('🔍 路徑條件檢查:', { isZeabur, isInPublicPath, currentPath, hostname });
+        
+        // 🎯 Zeabur環境調試路徑資訊
+        console.log('🌐 完整URL信息:', {
+            origin: window.location.origin,
+            pathname: window.location.pathname,
+            hostname: window.location.hostname,
+            href: window.location.href
+        });
+        
+        // 定義需要載入的 JS 文件（按依賴順序）- 純 HTTP 輪詢架構
+        const jsFiles = [
+            'js/user-manager.js',     // 用戶管理器（最高優先級）
+            'js/http-polling.js',     // HTTP 輪詢管理器（替代 WebSocket）
+            'js/save-load.js', 
+            'js/ui.js?v=20250128-3',  // 強制更新緩存
+            'js/editor.js',
+            'js/chat.js',
+            'js/ai-assistant.js',
+            'js/conflict.js?v=20250128-3'  // 衝突解決器也需要更新
+        ];
+        
+        let loadedCount = 0;
+        let totalFiles = jsFiles.length;
+        
+        // 🚀 串行載入 JS 文件以保持依賴關係
+        function loadNextScript(index) {
+            if (index >= jsFiles.length) {
+                console.log('🎉 所有 JS 文件載入完成');
+                return;
+            }
+            
+            const file = jsFiles[index];
+            const script = document.createElement('script');
+            script.src = jsBasePath + file;
+            script.async = false;
+            
+            script.onload = function() {
+                loadedCount++;
+                console.log(`✅ 成功載入 (${loadedCount}/${totalFiles}):`, file);
+                // 載入下一個文件
+                loadNextScript(index + 1);
+            };
+            
+            script.onerror = function() {
+                console.error('❌ 載入失敗:', file);
+                
+                // 🔄 備用路徑策略 - 統一使用相對路徑
+                const fallbackPaths = [
+                    './',               // 當前目錄（相對路徑）
+                    '/',                // 根目錄
+                    '../'               // 上級目錄（備用）
+                ];
+                
+                let fallbackIndex = 0;
+                function tryFallback() {
+                    if (fallbackIndex >= fallbackPaths.length) {
+                        console.error('❌ 所有備用路徑都失敗:', file);
+                        // 繼續載入下一個文件
+                        loadNextScript(index + 1);
+                        return;
+                    }
+                    
+                    const fallbackPath = fallbackPaths[fallbackIndex];
+                    const fallbackScript = document.createElement('script');
+                    fallbackScript.src = fallbackPath + file.split('?')[0]; // 移除版本參數
+                    
+                    fallbackScript.onload = () => {
+                        loadedCount++;
+                        console.log(`✅ 備用路徑成功 (${loadedCount}/${totalFiles}):`, fallbackPath + file);
+                        loadNextScript(index + 1);
+                    };
+                    
+                    fallbackScript.onerror = () => {
+                        console.warn(`⚠️ 備用路徑失敗: ${fallbackPath}${file}`);
+                        fallbackIndex++;
+                        tryFallback();
+                    };
+                    
+                    document.head.appendChild(fallbackScript);
+                }
+                
+                tryFallback();
+            };
+            
+            document.head.appendChild(script);
+        }
+        
+        // 開始載入第一個腳本
+        loadNextScript(0);
+        
+        // 🔥 添加頁面卸載處理 - 確保用戶正確退出房間
+        window.addEventListener('beforeunload', (event) => {
+            console.log('🔌 頁面即將卸載，正在離開房間...');
+            
+            // 🔥 強制發送離開請求，不管連接狀態如何
+            try {
+                let roomId = 'general-room';
+                let userId = '';
+                
+                // 嘗試獲取當前房間和用戶信息
+                if (window.wsManager) {
+                    roomId = window.wsManager.currentRoom || 'general-room';
+                    userId = window.wsManager.currentUser || '';
+                    
+                    // 立即標記為離線狀態
+                    window.wsManager.isConnectedState = false;
+                    
+                    // 停止輪詢
+                    if (window.wsManager.stopPolling) {
+                        window.wsManager.stopPolling();
+                    }
+                }
+                
+                // 如果沒有用戶ID，嘗試從其他地方獲取
+                if (!userId && window.UserManager && window.UserManager.getCurrentUser) {
+                    const currentUser = window.UserManager.getCurrentUser();
+                    userId = currentUser ? currentUser.id : '';
+                }
+                
+                console.log('🔌 離開房間信息:', { roomId, userId });
+                
+                // 🔥 使用 sendBeacon 發送離開請求（最可靠的方法）
+                if (userId) {
+                    const formData = new FormData();
+                    formData.append('action', 'leave');
+                    formData.append('room_id', roomId);
+                    formData.append('user_id', userId);
+                    
+                    const success = navigator.sendBeacon('/api.php', formData);
+                    console.log(success ? '✅ sendBeacon 離開請求已發送' : '⚠️ sendBeacon 可能失敗');
+                    
+                    // 🔥 備用方案：同步XHR（確保發送）
+                    if (!success) {
+                        try {
+                            const xhr = new XMLHttpRequest();
+                            xhr.open('POST', '/api.php', false); // 同步請求
+                            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                            xhr.send(`action=leave&room_id=${encodeURIComponent(roomId)}&user_id=${encodeURIComponent(userId)}`);
+                            console.log('✅ 備用 XHR 離開請求已發送');
+                        } catch (xhrError) {
+                            console.warn('⚠️ 備用 XHR 也失敗了:', xhrError);
+                        }
+                    }
+                } else {
+                    console.warn('⚠️ 無法獲取用戶ID，跳過離開請求');
+                }
+                
+            } catch (error) {
+                console.error('❌ 頁面卸載時離開房間失敗:', error);
+            }
+            
+            // 清理用戶管理器
+            if (window.UserManager && window.UserManager.cleanup) {
+                window.UserManager.cleanup();
+            }
+        });
+        
+        // 🔥 添加頁面隱藏處理 - 處理移動設備或瀏覽器標籤切換
+        let pageHiddenStartTime = 0;
+        
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                pageHiddenStartTime = Date.now();
+                console.log('📱 頁面已隱藏，開始計時...');
+                
+                // 🔥 設置延遲離開機制（5秒後如果還是隱藏就離開房間）
+                setTimeout(() => {
+                    if (document.visibilityState === 'hidden' && window.wsManager && window.wsManager.isConnected && window.wsManager.isConnected()) {
+                        console.log('⏰ 頁面隱藏超過5秒，主動離開房間');
+                        
+                        // 發送離開請求
+                        const formData = new FormData();
+                        formData.append('action', 'leave');
+                        formData.append('room_id', window.wsManager.currentRoom || 'general-room');
+                        formData.append('user_id', window.wsManager.currentUser || '');
+                        
+                        navigator.sendBeacon('/api.php', formData);
+                        
+                        // 停止輪詢
+                        if (window.wsManager.stopPolling) {
+                            window.wsManager.stopPolling();
+                        }
+                        
+                        window.wsManager.isConnectedState = false;
+                    }
+                }, 5000); // 5秒延遲
+                
+            } else if (document.visibilityState === 'visible') {
+                const hiddenDuration = pageHiddenStartTime > 0 ? Date.now() - pageHiddenStartTime : 0;
+                console.log(`👀 頁面重新可見，隱藏了 ${hiddenDuration}ms`);
+                
+                // 🔥 如果隱藏時間超過10秒，視為重新連接
+                if (hiddenDuration > 10000) {
+                    console.log('🔄 長時間隱藏後重新可見，重新初始化連接...');
+                    
+                    if (window.wsManager && !window.wsManager.isConnected()) {
+                        // 重新連接邏輯（如果需要）
+                        console.log('💭 考慮重新連接到房間...');
+                    }
+                }
+                
+                pageHiddenStartTime = 0;
+            }
+        });
+    })();
+    </script>
+    
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
-    
-    <!-- 模組化JS檔案 (確保路徑相對於public目錄是正確的) -->
-    <script src="js/auto-login.js"></script>
-    <script src="js/websocket.js"></script>
-    <script src="js/save-load.js"></script>
-    <script src="js/http-history-manager.js"></script>
-    <script src="js/ui.js"></script>
-    <script src="js/editor.js"></script>
-    <script src="js/chat.js"></script>
-    <script src="js/ai-assistant.js"></script>
-    <script src="js/conflict.js"></script>
-    <script src="js/advanced-conflict-detector.js"></script>
-    
-    <!-- 歷史記錄顯示修復腳本 -->
+
     <script>
-        // 確保歷史記錄能正確顯示的修復腳本
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('🔧 歷史記錄修復腳本啟動');
-            
-            // 初始化房間選擇功能
-            setTimeout(function() {
-                updateChatRoomOptions();
-                
-                // 監聽房間變更事件，自動更新聊天室選項
-                const currentRoomSpan = document.getElementById('currentRoom');
-                if (currentRoomSpan) {
-                    const observer = new MutationObserver(function(mutations) {
-                        mutations.forEach(function(mutation) {
-                            if (mutation.type === 'childList' || mutation.type === 'characterData') {
-                                updateChatRoomOptions();
-                            }
-                        });
-                    });
-                    observer.observe(currentRoomSpan, { childList: true, subtree: true, characterData: true });
-                }
-            }, 1000);
-            
-            // 等待其他模組載入完成
-            setTimeout(function() {
-                // 強制請求一次歷史記錄
-                if (window.wsManager && window.wsManager.isConnected) {
-                    console.log('📜 通過 WebSocket 請求歷史記錄');
-                    if (typeof window.wsManager.getHistory === 'function') {
-                        window.wsManager.getHistory();
-                    }
-                } else {
-                    console.log('📜 通過 HTTP API 請求歷史記錄');
-                    fetch('/api/history?room_id=test-room')
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.success && data.history && window.SaveLoadManager) {
-                                console.log('✅ 獲取到歷史數據，更新下拉選單');
-                                window.SaveLoadManager.updateHistoryDropdown(data.history);
-                            }
-                        })
-                        .catch(error => console.error('❌ 歷史記錄請求失敗:', error));
-                }
-            }, 3000);
-        });
-    </script>
-    
-    <script>
-        // 全域事件處理函數 (避免HTML中的onclick直接調用模組內部方法導致可能的初始化順序問題)
-        function globalJoinRoom() { if(UI) UI.joinRoom(); else console.error("UI not ready"); }
-        function globalLeaveRoom() { if(UI) UI.leaveRoom(); else console.error("UI not ready"); }
-        function globalLoadCode(loadType) { 
-            console.log(`🎯 globalLoadCode 被調用，類型: ${loadType}`);
-            if (window.SaveLoadManager && typeof window.SaveLoadManager.loadCode === 'function') {
-                window.SaveLoadManager.loadCode(loadType);
-            } else if (window.Editor && typeof window.Editor.loadCode === 'function') {
-                window.Editor.loadCode(loadType);
-            } else {
-                console.error('SaveLoadManager and Editor not ready or loadCode method missing');
-            }
-        }
-        function globalSaveCode() { if(Editor) Editor.saveCode(); else console.error("Editor not ready"); }
-        function globalRunCode() { if(Editor) Editor.runCode(); else console.error("Editor not ready"); }
-        function globalClearOutput() { if(Editor) Editor.clearOutput(); else console.error("Editor not ready"); }
-        function globalSwitchToAI() { if(UI) UI.switchToAI(); else console.error("UI not ready"); }
-        function globalSwitchToChat() { if(UI) UI.switchToChat(); else console.error("UI not ready"); }
-        function globalAskAI(action) { if(AIAssistant) AIAssistant.requestAnalysis(action); else console.error("AIAssistant not ready"); }
-        function globalShareAIResponse() { if(AIAssistant) AIAssistant.shareResponse(); else console.error("AIAssistant not ready"); }
-        function globalHideShareOptions() { if(AIAssistant) AIAssistant.hideShareOptions(); else console.error("AIAssistant not ready"); }
-        function globalSendChat() { if(Chat) Chat.sendMessage(); else console.error("Chat not ready"); }
-        function globalResolveConflict(action) { if(ConflictResolver) ConflictResolver.resolveConflict(action); else console.error("ConflictResolver not ready"); }
-        function globalAskAIForConflictHelp() { if(ConflictResolver) ConflictResolver.requestAIAnalysis(); else console.error("ConflictResolver not ready"); }
-        function globalTestConflictAnalysis() { 
-            console.log('🧪 執行衝突分析測試');
-            
-            // 顯示衝突分析選項模態框
-            showConflictAnalysisOptions();
-        }
-        function globalOpenTeacherDashboard() { window.open('teacher-dashboard.html', '_blank'); }
-        function globalShowTutorial() { if(UI) UI.showTutorial(); else console.error("UI not ready"); }
+    // 🔧 環境變數檢測功能
+    function toggleEnvPanel() {
+        const panel = document.getElementById('envCheckPanel');
+        const btn = document.getElementById('envCheckBtn');
         
-        // 新增的檔案操作功能
-        function globalCopyCode() { if(Editor) Editor.copyCode(); else console.error("Editor not ready"); }
-        function globalDownloadCode() { if(Editor) Editor.downloadCode(); else console.error("Editor not ready"); }
-        function globalImportCode() { if(Editor) Editor.importCode(); else console.error("Editor not ready"); }
-        function globalHandleFileImport(event) { if(Editor) Editor.handleFileImport(event); else console.error("Editor not ready"); }
-
-        // 房間選擇功能
-        function updateRoomInput() {
-            const roomSelect = document.getElementById('roomSelect');
-            const roomInput = document.getElementById('roomInput');
-            
-            if (roomSelect.value === 'custom') {
-                roomInput.style.display = 'block';
-                roomInput.value = '';
-                roomInput.focus();
-            } else {
-                roomInput.style.display = 'none';
-                roomInput.value = roomSelect.value;
-            }
+        if (panel.style.display === 'none') {
+            panel.style.display = 'block';
+            btn.style.display = 'none';
+            checkEnvironmentVariables();
+        } else {
+            panel.style.display = 'none';
+            btn.style.display = 'block';
         }
-
-        // 獲取當前選中的房間名稱
-        function getCurrentRoomName() {
-            const roomSelect = document.getElementById('roomSelect');
-            const roomInput = document.getElementById('roomInput');
+    }
+    
+    async function checkEnvironmentVariables() {
+        const content = document.getElementById('envCheckContent');
+        
+        try {
+            // 檢查健康狀態
+            const healthResponse = await fetch('/public/health.php');
+            const healthData = await healthResponse.json();
             
-            if (roomSelect.value === 'custom') {
-                return roomInput.value.trim() || 'custom-room';
-            } else {
-                return roomSelect.value;
-            }
-        }
-
-        // 聊天室房間切換功能
-        function switchChatRoom() {
-            const chatRoomSelect = document.getElementById('chatRoomSelect');
-            const chatContainer = document.getElementById('chatContainer');
-            const chatInput = document.getElementById('chatInput');
-            const selectedRoom = chatRoomSelect.value;
+            // 生成環境報告
+            let html = '<div style="font-size: 12px;">';
             
-            if (!selectedRoom) {
-                chatContainer.innerHTML = `
-                    <div class="text-center text-muted small">
-                        <i class="fas fa-comments"></i><br>
-                        請選擇聊天房間開始對話
-                    </div>
-                `;
-                chatInput.placeholder = '選擇房間後輸入消息...';
-                chatInput.disabled = true;
-                return;
-            }
+            // 環境狀態
+            html += `<div class="mb-2">
+                <strong>🌐 環境狀態:</strong><br>
+                <span class="badge bg-${healthData.environment === 'zeabur' ? 'success' : 'warning'}">${healthData.environment}</span>
+            </div>`;
             
-            // 啟用輸入框
-            chatInput.disabled = false;
-            
-            // 清空聊天容器並顯示載入狀態
-            chatContainer.innerHTML = `
-                <div class="text-center text-muted small">
-                    <i class="fas fa-spinner fa-spin"></i><br>
-                    正在載入聊天記錄...
-                </div>
-            `;
-            
-            let targetRoom = selectedRoom;
-            let displayName = selectedRoom;
-            
-            if (selectedRoom === 'current') {
-                // 使用當前房間
-                const currentRoomSpan = document.getElementById('currentRoom');
-                targetRoom = currentRoomSpan ? currentRoomSpan.textContent : 'test-room';
-                displayName = `當前房間 (${targetRoom})`;
-                chatInput.placeholder = `在 ${targetRoom} 中輸入消息...`;
-            } else if (selectedRoom === 'global') {
-                targetRoom = 'global-chat';
-                displayName = '全域聊天';
-                chatInput.placeholder = '在全域聊天中輸入消息...';
-            } else {
-                chatInput.placeholder = `在 ${selectedRoom} 中輸入消息...`;
-            }
-            
-            // 更新聊天系統的目標房間
-            if (window.Chat) {
-                window.Chat.setTargetRoom(targetRoom);
-            }
-            
-            // 載入聊天記錄
-            setTimeout(() => {
-                loadChatHistory(targetRoom, displayName);
-            }, 500);
-            
-            console.log(`💬 切換聊天室到: ${displayName} (${targetRoom})`);
-        }
-
-        // 載入聊天記錄
-        function loadChatHistory(roomId, displayName) {
-            const chatContainer = document.getElementById('chatContainer');
-            
-            // 模擬載入聊天記錄
-            chatContainer.innerHTML = `
-                <div class="text-center text-muted small mb-2">
-                    <i class="fas fa-comment-dots"></i> ${displayName} 聊天室<br>
-                    <small>歡迎加入聊天！開始與其他人對話吧 🎉</small>
-                </div>
-            `;
-            
-            // 如果有WebSocket連接，可以請求真實的聊天記錄
-            if (window.wsManager && window.wsManager.isConnected()) {
-                // 發送聊天記錄請求
-                window.wsManager.sendMessage({
-                    type: 'get_chat_history',
-                    room_id: roomId,
-                    limit: 20
+            // 服務狀態
+            html += '<div class="mb-2"><strong>🔧 服務狀態:</strong><br>';
+            if (healthData.services) {
+                Object.entries(healthData.services).forEach(([service, status]) => {
+                    const color = status === 'running' ? 'success' : status === 'partial' ? 'warning' : 'danger';
+                    html += `<span class="badge bg-${color} me-1">${service}: ${status}</span><br>`;
                 });
             }
-        }
-
-        // 更新聊天室房間選項
-        function updateChatRoomOptions() {
-            const chatRoomSelect = document.getElementById('chatRoomSelect');
-            const currentRoomSpan = document.getElementById('currentRoom');
+            html += '</div>';
             
-            if (!chatRoomSelect || !currentRoomSpan) return;
+            // 檢查關鍵環境變數（模擬，因為無法從前端直接訪問）
+            html += '<div class="mb-2"><strong>📋 推測環境變數:</strong><br>';
             
-            const currentRoomName = currentRoomSpan.textContent;
-            if (currentRoomName && currentRoomName !== '-') {
-                // 更新"當前房間"選項
-                const currentOption = chatRoomSelect.querySelector('option[value="current"]');
-                if (currentOption) {
-                    currentOption.textContent = `💬 當前房間 (${currentRoomName})`;
-                }
-            }
-        }
-
-        // 🔍 顯示衝突分析選項
-        function showConflictAnalysisOptions() {
-            const modalHTML = `
-                <div class="modal fade" id="conflictAnalysisModal" tabindex="-1" aria-labelledby="conflictAnalysisModalLabel" aria-hidden="true">
-                    <div class="modal-dialog modal-lg">
-                        <div class="modal-content">
-                            <div class="modal-header bg-info text-white">
-                                <h5 class="modal-title" id="conflictAnalysisModalLabel">
-                                    <i class="fas fa-code-branch"></i> 衝突分析工具
-                                </h5>
-                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                            </div>
-                            <div class="modal-body">
-                                <div class="row g-3">
-                                    <div class="col-md-6">
-                                        <div class="card h-100">
-                                            <div class="card-body text-center">
-                                                <i class="fas fa-vial text-warning mb-3" style="font-size: 2rem;"></i>
-                                                <h6 class="card-title">測試衝突檢測</h6>
-                                                <p class="card-text text-muted">模擬衝突情況，測試系統的衝突檢測功能</p>
-                                                <button class="btn btn-warning" onclick="performConflictTest()">
-                                                    <i class="fas fa-play"></i> 開始測試
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="card h-100">
-                                            <div class="card-body text-center">
-                                                <i class="fas fa-history text-primary mb-3" style="font-size: 2rem;"></i>
-                                                <h6 class="card-title">衝突歷史記錄</h6>
-                                                <p class="card-text text-muted">查看過去的衝突記錄和解決方案</p>
-                                                <button class="btn btn-primary" onclick="showConflictHistory()">
-                                                    <i class="fas fa-list"></i> 查看歷史
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="mt-4">
-                                    <div class="card">
-                                        <div class="card-body">
-                                            <h6 class="card-title">
-                                                <i class="fas fa-info-circle text-info"></i> 衝突分析說明
-                                            </h6>
-                                            <ul class="mb-0">
-                                                <li><strong>測試衝突檢測：</strong>模擬多人協作衝突，驗證系統反應</li>
-                                                <li><strong>衝突歷史記錄：</strong>查看之前的衝突事件和解決方式</li>
-                                                <li><strong>AI協助分析：</strong>在實際衝突發生時提供智能建議</li>
-                                            </ul>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
+            // 根據服務狀態推測環境變數
+            const pollingStatus = healthData.services?.polling || 'unknown';
+            html += `<small>HTTP_POLLING: <span class="badge bg-${pollingStatus === 'enabled' ? 'success' : 'warning'}">${pollingStatus === 'enabled' ? 'enabled' : 'disabled'}</span><br>`;
+            html += `NODE_ENV: <span class="badge bg-${healthData.environment === 'zeabur' ? 'success' : 'warning'}">${healthData.server?.environment || 'unknown'}</span><br>`;
+            html += `PORT: <span class="badge bg-info">8080 (推測)</span></small>`;
+            html += '</div>';
             
-            // 移除舊的模態框
-            const existingModal = document.getElementById('conflictAnalysisModal');
-            if (existingModal) {
-                existingModal.remove();
+            // 性能信息
+            if (healthData.performance) {
+                html += `<div class="mb-2"><strong>⚡ 性能:</strong><br>
+                    <small>內存使用: ${healthData.performance.memory_usage_mb}MB<br>
+                    PHP版本: ${healthData.services?.php || 'unknown'}</small>
+                </div>`;
             }
             
-            // 添加新的模態框
-            document.body.insertAdjacentHTML('beforeend', modalHTML);
-            
-            // 顯示模態框
-            const modal = new bootstrap.Modal(document.getElementById('conflictAnalysisModal'));
-            modal.show();
-        }
-        
-        // 🧪 執行衝突測試
-        function performConflictTest() {
-            console.log('🧪 開始衝突測試');
-            
-            // 關閉選項模態框
-            const modal = bootstrap.Modal.getInstance(document.getElementById('conflictAnalysisModal'));
-            if (modal) modal.hide();
-            
-            // 創建測試衝突數據
-            const testConflictData = {
-                roomId: 'test-room',
-                conflictUser: '測試用戶',
-                userVersion: 1,
-                serverVersion: 2,
-                userCode: window.Editor ? window.Editor.getCode() : '# 測試程式碼\nprint("Hello, World!")',
-                serverCode: '# 模擬的服務器代碼\nprint("Hello, Python!")\nprint("這是衝突測試")'
-            };
-            
-            // 顯示衝突解決模態框
-            if (window.ConflictResolver) {
-                window.ConflictResolver.showConflictModal(testConflictData);
-                showToast('衝突測試開始，請在彈出的視窗中查看', 'info');
+            // 建議
+            html += '<div class="mt-2">';
+            if (pollingStatus === 'enabled') {
+                html += '<div class="alert alert-success p-2" style="font-size: 11px;">✅ HTTP 輪詢模式已啟用，專為 Zeabur 單端口環境優化</div>';
             } else {
-                showToast('衝突解決器未初始化', 'error');
+                html += '<div class="alert alert-warning p-2" style="font-size: 11px;">⚠️ HTTP 輪詢未啟用，請檢查系統配置</div>';
             }
+            html += '</div>';
+            
+            html += '</div>';
+            content.innerHTML = html;
+            
+        } catch (error) {
+            content.innerHTML = `<div class="alert alert-danger p-2" style="font-size: 11px;">❌ 無法檢測環境狀態: ${error.message}</div>`;
         }
-        
-        // 📊 顯示衝突歷史
-        function showConflictHistory() {
-            console.log('📊 顯示衝突歷史');
-            
-            // 關閉選項模態框
-            const modal = bootstrap.Modal.getInstance(document.getElementById('conflictAnalysisModal'));
-            if (modal) modal.hide();
-            
-            if (typeof conflictHistoryManager === 'undefined') {
-                showToast('衝突歷史管理器未初始化', 'error');
-                return;
-            }
-            
-            const history = conflictHistoryManager.getConflictHistory();
-            const stats = conflictHistoryManager.getStatistics();
-            
-            let historyHTML = '';
-            if (history.length === 0) {
-                historyHTML = '<div class="text-center py-4"><i class="fas fa-inbox text-muted"></i><p class="text-muted mt-2">尚無衝突記錄</p></div>';
-            } else {
-                historyHTML = history.map(record => `
-                    <div class="card mb-2">
-                        <div class="card-body py-2">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div>
-                                    <h6 class="mb-1">
-                                        <i class="fas fa-users text-primary"></i> 
-                                        與 ${record.conflictUser} 的衝突
-                                        <span class="badge bg-${record.resolution === 'accepted' ? 'success' : record.resolution === 'rejected' ? 'warning' : 'info'} ms-2">
-                                            ${record.resolution === 'accepted' ? '已接受' : record.resolution === 'rejected' ? '已拒絕' : '已合併'}
-                                        </span>
-                                    </h6>
-                                    <small class="text-muted">
-                                        <i class="fas fa-clock"></i> ${new Date(record.timestamp).toLocaleString()}
-                                        <i class="fas fa-home ms-2"></i> ${record.roomId}
-                                    </small>
-                                </div>
-                                <button class="btn btn-sm btn-outline-primary" onclick="showConflictDetail(${record.id})">
-                                    <i class="fas fa-eye"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                `).join('');
-            }
-            
-            const modalHTML = `
-                <div class="modal fade" id="conflictHistoryModal" tabindex="-1" aria-labelledby="conflictHistoryModalLabel" aria-hidden="true">
-                    <div class="modal-dialog modal-xl">
-                        <div class="modal-content">
-                            <div class="modal-header bg-primary text-white">
-                                <h5 class="modal-title" id="conflictHistoryModalLabel">
-                                    <i class="fas fa-history"></i> 衝突歷史記錄
-                                </h5>
-                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                            </div>
-                            <div class="modal-body">
-                                <!-- 統計信息 -->
-                                <div class="row mb-4">
-                                    <div class="col-md-3">
-                                        <div class="card bg-light">
-                                            <div class="card-body text-center">
-                                                <h4 class="text-primary">${stats.total}</h4>
-                                                <small class="text-muted">總衝突數</small>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="card bg-light">
-                                            <div class="card-body text-center">
-                                                <h4 class="text-success">${stats.accepted}</h4>
-                                                <small class="text-muted">已接受</small>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="card bg-light">
-                                            <div class="card-body text-center">
-                                                <h4 class="text-warning">${stats.rejected}</h4>
-                                                <small class="text-muted">已拒絕</small>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="card bg-light">
-                                            <div class="card-body text-center">
-                                                <h4 class="text-info">${stats.acceptanceRate}%</h4>
-                                                <small class="text-muted">接受率</small>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- 衝突記錄列表 -->
-                                <div class="conflict-history-list" style="max-height: 400px; overflow-y: auto;">
-                                    ${historyHTML}
-                                </div>
-                                
-                                ${history.length > 0 ? `
-                                <div class="mt-3 text-center">
-                                    <button class="btn btn-outline-danger" onclick="clearConflictHistory()">
-                                        <i class="fas fa-trash"></i> 清除所有記錄
-                                    </button>
-                                </div>
-                                ` : ''}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            // 移除舊的模態框
-            const existingModal = document.getElementById('conflictHistoryModal');
-            if (existingModal) {
-                existingModal.remove();
-            }
-            
-            // 添加新的模態框
-            document.body.insertAdjacentHTML('beforeend', modalHTML);
-            
-            // 顯示模態框
-            const historyModal = new bootstrap.Modal(document.getElementById('conflictHistoryModal'));
-            historyModal.show();
-        }
-        
-        // 📋 顯示衝突詳情
-        function showConflictDetail(recordId) {
-            if (typeof conflictHistoryManager === 'undefined') return;
-            
-            const record = conflictHistoryManager.getConflictHistory().find(r => r.id === recordId);
-            if (!record) return;
-            
-            const detailHTML = `
-                <div class="modal fade" id="conflictDetailModal" tabindex="-1" aria-labelledby="conflictDetailModalLabel" aria-hidden="true">
-                    <div class="modal-dialog modal-xl">
-                        <div class="modal-content">
-                            <div class="modal-header bg-info text-white">
-                                <h5 class="modal-title" id="conflictDetailModalLabel">
-                                    <i class="fas fa-info-circle"></i> 衝突詳情 - ${new Date(record.timestamp).toLocaleString()}
-                                </h5>
-                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                            </div>
-                            <div class="modal-body">
-                                <!-- 基本信息 -->
-                                <div class="row mb-3">
-                                    <div class="col-md-6">
-                                        <div class="card">
-                                            <div class="card-header">
-                                                <i class="fas fa-info"></i> 衝突信息
-                                            </div>
-                                            <div class="card-body">
-                                                <p><strong>房間：</strong>${record.roomId}</p>
-                                                <p><strong>衝突對象：</strong>${record.conflictUser}</p>
-                                                <p><strong>我的版本：</strong>${record.userVersion}</p>
-                                                <p><strong>對方版本：</strong>${record.serverVersion}</p>
-                                                <p><strong>解決方式：</strong>
-                                                    <span class="badge bg-${record.resolution === 'accepted' ? 'success' : record.resolution === 'rejected' ? 'warning' : 'info'}">
-                                                        ${record.resolution === 'accepted' ? '接受對方修改' : record.resolution === 'rejected' ? '拒絕對方修改' : '手動合併'}
-                                                    </span>
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="card">
-                                            <div class="card-header">
-                                                <i class="fas fa-chart-bar"></i> 代碼統計
-                                            </div>
-                                            <div class="card-body">
-                                                <p><strong>我的代碼長度：</strong>${record.userCode.length} 字符</p>
-                                                <p><strong>對方代碼長度：</strong>${record.serverCode.length} 字符</p>
-                                                <p><strong>AI分析：</strong>${record.aiAnalysis ? '已提供' : '未使用'}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- 代碼對比 -->
-                                <div class="row mb-3">
-                                    <div class="col-md-6">
-                                        <div class="card">
-                                            <div class="card-header bg-primary text-white">
-                                                <i class="fas fa-user"></i> 我的代碼
-                                            </div>
-                                            <div class="card-body">
-                                                <pre class="bg-light p-2 rounded" style="max-height: 200px; overflow-y: auto;"><code>${record.userCode || '(空白)'}</code></pre>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="card">
-                                            <div class="card-header bg-secondary text-white">
-                                                <i class="fas fa-users"></i> 對方代碼
-                                            </div>
-                                            <div class="card-body">
-                                                <pre class="bg-light p-2 rounded" style="max-height: 200px; overflow-y: auto;"><code>${record.serverCode || '(空白)'}</code></pre>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                ${record.aiAnalysis ? `
-                                <!-- AI分析結果 -->
-                                <div class="card">
-                                    <div class="card-header bg-success text-white">
-                                        <i class="fas fa-robot"></i> AI分析結果
-                                    </div>
-                                    <div class="card-body">
-                                        <div style="max-height: 300px; overflow-y: auto;">
-                                            ${record.aiAnalysis.replace(/\n/g, '<br>')}
-                                        </div>
-                                    </div>
-                                </div>
-                                ` : ''}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            // 移除舊的詳情模態框
-            const existingDetailModal = document.getElementById('conflictDetailModal');
-            if (existingDetailModal) {
-                existingDetailModal.remove();
-            }
-            
-            // 添加新的詳情模態框
-            document.body.insertAdjacentHTML('beforeend', detailHTML);
-            
-            // 顯示詳情模態框
-            const detailModal = new bootstrap.Modal(document.getElementById('conflictDetailModal'));
-            detailModal.show();
-        }
-        
-        // 🗑️ 清除衝突歷史
-        function clearConflictHistory() {
-            if (typeof conflictHistoryManager === 'undefined') return;
-            
-            if (confirm('確定要清除所有衝突歷史記錄嗎？此操作無法恢復。')) {
-                conflictHistoryManager.clearHistory();
-                
-                // 關閉模態框並重新顯示
-                const modal = bootstrap.Modal.getInstance(document.getElementById('conflictHistoryModal'));
-                if (modal) modal.hide();
-                
-                showToast('衝突歷史記錄已清除', 'success');
-                
-                // 延遲重新顯示歷史（現在是空的）
-                setTimeout(() => {
-                    showConflictHistory();
-                }, 500);
-            }
-        }
-
-        // DOMContentLoaded 事件處理
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('🚀 Python多人協作教學平台載入完成');
-            
-            // 等待 CodeMirror 完全加載後再初始化
-            function initializeModules() {
-                console.log('🚀 初始化所有模組...');
-                
-                // 初始化UI模組
-                if (typeof UI !== 'undefined' && UI.initialize) {
-                    UI.initialize();
-                    console.log('✅ UI模組初始化完成');
-                } else {
-                    console.error('❌ UI模組初始化失敗');
-                }
-                
-                // 初始化編輯器模組 - 確保 CodeMirror 已加載
-                if (typeof CodeMirror !== 'undefined' && typeof Editor !== 'undefined' && Editor.initialize) {
-                    try {
-                        Editor.initialize();
-                        console.log('✅ 編輯器模組初始化完成');
-                    } catch (error) {
-                        console.error('❌ 編輯器初始化錯誤:', error);
-                        // 重試一次
-                        setTimeout(() => {
-                            try {
-                                Editor.initialize();
-                                console.log('✅ 編輯器模組重試初始化成功');
-                            } catch (retryError) {
-                                console.error('❌ 編輯器重試初始化失敗:', retryError);
-                            }
-                        }, 1000);
-                    }
-                } else {
-                    console.error('❌ 編輯器模組初始化失敗 - CodeMirror 或 Editor 未定義');
-                }
-                
-                // 初始化WebSocket管理器
-                if (typeof wsManager !== 'undefined' && wsManager.initialize) {
-                    wsManager.initialize();
-                    console.log('✅ WebSocket管理器初始化完成');
-                } else {
-                    console.error('❌ WebSocket管理器初始化失敗');
-                }
-                
-                // 初始化AI助教
-                if (typeof AIAssistant !== 'undefined' && AIAssistant.initialize) {
-                    AIAssistant.initialize();
-                    console.log('✅ AI助教模組初始化完成');
-                } else {
-                    console.error('❌ AI助教模組初始化失敗');
-                }
-                
-                // 初始化聊天系統
-                if (typeof Chat !== 'undefined' && Chat.initialize) {
-                    Chat.initialize();
-                    console.log('✅ 聊天系統初始化完成');
-                } else {
-                    console.error('❌ 聊天系統初始化失敗');
-                }
-                
-                console.log('✨ 模組初始化完成');
-                
-                // 預設顯示AI助教
-                if (typeof UI !== 'undefined' && UI.switchToAI) {
-                    UI.switchToAI();
-                    console.log('✅ AI助教已設為預設顯示');
-                } else {
-                    console.error('❌ 無法設置預設界面，UI未定義');
-                }
-            }
-            
-            // 檢查 CodeMirror 是否已加載
-            if (typeof CodeMirror !== 'undefined') {
-                initializeModules();
-            } else {
-                // 等待 CodeMirror 加載
-                let checkCount = 0;
-                const checkInterval = setInterval(() => {
-                    checkCount++;
-                    if (typeof CodeMirror !== 'undefined') {
-                        clearInterval(checkInterval);
-                        console.log('✅ CodeMirror 已加載，開始初始化模組');
-                        initializeModules();
-                    } else if (checkCount > 50) { // 5秒超時
-                        clearInterval(checkInterval);
-                        console.error('❌ CodeMirror 加載超時，嘗試初始化其他模組');
-                        initializeModules();
-                    }
-                }, 100);
-            }
-        });
+    }
     </script>
 </body>
 </html> 

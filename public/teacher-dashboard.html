@@ -157,6 +157,7 @@
             cursor: pointer;
             transition: all 0.3s;
             border-left: 4px solid transparent;
+            position: relative;
         }
 
         .room-item:hover {
@@ -177,6 +178,28 @@
         .room-stats {
             font-size: 12px;
             color: var(--text-secondary);
+        }
+
+        .sync-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(72, 187, 120, 0.2);
+            border: 1px solid rgba(72, 187, 120, 0.5);
+            color: var(--active-student);
+            border-radius: 4px;
+            padding: 4px 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            opacity: 0.7;
+        }
+
+        .sync-btn:hover {
+            background: var(--active-student);
+            color: #1a202c;
+            opacity: 1;
+            transform: scale(1.1);
         }
 
         /* 學生列表 */
@@ -929,11 +952,6 @@
                 <div class="room-selector" style="margin-left: 20px; display: inline-block;">
                     <select id="teacherRoomSelect" class="form-select" style="background: #4a5568; color: var(--text-primary); border: 1px solid #68d391; padding: 5px 10px; border-radius: 4px; font-size: 14px;" onchange="switchMonitorRoom()">
                         <option value="">選擇監控房間</option>
-                        <option value="test-room">test-room (預設測試房間)</option>
-                        <option value="class-1">class-1 (第一班)</option>
-                        <option value="class-2">class-2 (第二班)</option>
-                        <option value="class-3">class-3 (第三班)</option>
-                        <option value="advanced">advanced (進階班)</option>
                         <option value="all">👀 監控所有房間</option>
                     </select>
                 </div>
@@ -1116,7 +1134,7 @@
             initializeControls();
             initializeChat(); // 初始化聊天功能
             initializeBroadcastForm(); // 初始化廣播表單
-            connectWebSocket();
+            connectHTTPPolling();
         });
 
         // 調試廣播按鈕函數
@@ -1172,70 +1190,110 @@
             }, 1000);
         }
 
-        // 連接WebSocket
-        function connectWebSocket() {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            // 修復：WebSocket服務器運行在8081端口
-            const wsUrl = `${protocol}//${window.location.hostname}:8081`;
+        // 初始化教師監控
+        function connectHTTPPolling() {
+            addLog('正在建立教師監控連接...');
             
             try {
-                ws = new WebSocket(wsUrl);
+                // 初始化教師ID
+                initializeTeacher();
                 
-                ws.onopen = () => {
-                    addLog('已連接到WebSocket服務器 (端口8081) - 實時監控模式');
-                    reconnectAttempts = 0;
-                    
-                    // 註冊為教師監控
-                    sendMessage({
-                        type: 'teacher_monitor',
-                        data: { action: 'register' }
-                    });
-                    
-                    // 不再使用API載入房間數據，改為通過WebSocket實時接收
-                    // loadRoomsData();
-                    
-                    // 停止定期刷新，改為實時接收WebSocket數據
-                    if (refreshInterval) {
-                        clearInterval(refreshInterval);
-                    }
-                    // refreshInterval = setInterval(loadRoomsData, 5000);
-                };
-
-                ws.onmessage = (event) => {
-                    try {
-                        const message = JSON.parse(event.data);
-                        handleMessage(message);
-                    } catch (error) {
-                        console.error('消息解析錯誤:', error);
-                    }
-                };
-
-                ws.onclose = () => {
-                    addLog('與服務器連線中斷');
-                    
-                    // 自動重連
-                    if (reconnectAttempts < maxReconnectAttempts) {
-                        reconnectAttempts++;
-                        addLog(`嘗試重新連線 (${reconnectAttempts}/${maxReconnectAttempts})...`);
-                        setTimeout(connectWebSocket, 3000);
-                    } else {
-                        addLog('重連失敗，請刷新頁面');
-                    }
-                };
-
-                ws.onerror = (error) => {
-                    console.error('WebSocket錯誤:', error);
-                };
-
+                // 開始輪詢
+                startTeacherPolling();
+                
+                addLog('✅ 教師監控已啟動');
+                reconnectAttempts = 0;
+                
             } catch (error) {
-                console.error('WebSocket連接失敗:', error);
+                console.error('教師監控連接失敗:', error);
+                addLog(`❌ 連接失敗: ${error.message}`);
+                
+                // 自動重連
+                if (reconnectAttempts < maxReconnectAttempts) {
+                    reconnectAttempts++;
+                    addLog(`嘗試重新連線 (${reconnectAttempts}/${maxReconnectAttempts})...`);
+                    setTimeout(connectHTTPPolling, 3000);
+                } else {
+                    addLog('重連失敗，請刷新頁面');
+                }
+            }
+        }
+        
+        // 初始化教師ID
+        function initializeTeacher() {
+            teacherId = `teacher_${Date.now()}`;
+            addLog(`教師ID: ${teacherId}`);
+        }
+        
+        // 開始教師輪詢
+        function startTeacherPolling() {
+            // 停止任何現有的輪詢
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
+            
+            // 立即執行一次
+            loadRoomsData();
+            
+            // 設置定期輪詢 (每2秒輪詢一次)
+            refreshInterval = setInterval(loadRoomsData, 2000);
+        }
+        
+
+        
+        // 處理教師輪詢數據
+        function handleTeacherPollingData(data) {
+            // 更新統計信息
+            if (data.stats) {
+                updateStats(data.stats);
+            }
+            
+            // 更新房間信息
+            if (data.rooms) {
+                handleRoomsUpdate(data.rooms);
+            }
+            
+            // 處理教師消息
+            if (data.messages && data.messages.length > 0) {
+                data.messages.forEach(message => {
+                    handleMessage(message);
+                });
+            }
+            
+            // 處理用戶活動
+            if (data.activities && data.activities.length > 0) {
+                data.activities.forEach(activity => {
+                    handleUserActivity(activity);
+                });
             }
         }
 
-        // 發送消息
-        function sendMessage(message) {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify(message));
+        // 發送消息 (HTTP 請求)
+        async function sendMessage(message) {
+            try {
+                const formData = new URLSearchParams();
+                formData.append('action', 'teacher_action');
+                formData.append('teacher_id', teacherId);
+                formData.append('message_type', message.type);
+                formData.append('message_data', JSON.stringify(message.data || message));
+                
+                const response = await fetch('/api.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: formData
+                });
+                
+                const data = await response.json();
+                if (!data.success) {
+                    console.error('發送教師消息失敗:', data.error);
+                    addLog(`❌ 操作失敗: ${data.error}`);
+                }
+                
+            } catch (error) {
+                console.error('發送教師消息失敗:', error);
+                addLog(`❌ 網絡錯誤: ${error.message}`);
             }
         }
 
@@ -1260,6 +1318,10 @@
 
                 case 'room_update':
                     handleRoomUpdate(message.data);
+                    break;
+
+                case 'room_sync':
+                    handleRoomSync(message.data);
                     break;
 
                 case 'code_change':
@@ -1320,7 +1382,7 @@
         function handleRoomUpdate(data) {
             const { roomName, users, code, version } = data;
             
-            console.log(`🏠 收到房間更新:`, { roomName, userCount: users?.length, version });
+            console.log(`🏠 收到房間更新:`, { roomName, userCount: users?.length, version, codeLength: code?.length });
 
             // 更新房間信息
             rooms.set(roomName, {
@@ -1415,6 +1477,33 @@
             updateStudentList();
             updateChatRoomSelector(); // 添加這行來更新聊天房間選擇器
             updateBroadcastTargets(); // 同時更新廣播目標選擇器
+            updateTeacherRoomSelector(); // 更新教師房間選擇器
+        }
+
+        // 處理房間同步
+        function handleRoomSync(data) {
+            console.log(`🔄 收到房間同步響應:`, data);
+            
+            // 強制更新房間信息，確保代碼同步
+            handleRoomUpdate(data);
+            
+            addLog(`🔄 房間 ${data.roomName} 代碼已強制同步`);
+        }
+
+        // 請求同步特定房間的代碼
+        async function syncRoomCode(roomName) {
+            try {
+                await sendMessage({
+                    type: 'teacher_sync_room',
+                    data: {
+                        room_id: roomName
+                    }
+                });
+                addLog(`🔄 請求同步房間 ${roomName} 的代碼`);
+            } catch (error) {
+                console.error('同步房間代碼失敗:', error);
+                alert('HTTP 連接問題，無法同步');
+            }
         }
 
         // 處理房間空置
@@ -1679,14 +1768,14 @@
         }
 
         // 發送教師聊天消息
-        function sendTeacherChatMessage() {
+        async function sendTeacherChatMessage() {
             const input = document.getElementById('teacherChatInput');
-            const targetSelector = document.getElementById('chatTargetRoom');
+            const selector = document.getElementById('chatTargetRoom');
             
-            if (!input || !targetSelector) return;
+            if (!input || !selector) return;
 
             const message = input.value.trim();
-            const targetRoom = targetSelector.value;
+            const targetRoom = selector.value;
 
             if (!message) {
                 alert('請輸入消息內容');
@@ -1698,16 +1787,16 @@
                 return;
             }
 
-            // 發送消息到服務器
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
+            // 發送消息到服務器 (使用 HTTP 請求)
+            try {
+                await sendMessage({
                     type: 'teacher_chat',
                     data: {
                         targetRoom: targetRoom,
                         message: message,
                         teacherName: '教師'
                     }
-                }));
+                });
 
                 // 在聊天面板顯示自己的消息
                 const displayRoom = targetRoom === 'all' ? '所有房間' : targetRoom;
@@ -1717,8 +1806,9 @@
                 input.value = '';
                 
                 addLog(`💬 教師向 ${displayRoom} 發送消息: ${message}`);
-            } else {
-                alert('連接已斷開，無法發送消息');
+            } catch (error) {
+                console.error('發送消息失敗:', error);
+                alert('發送消息失敗，請檢查網絡連接');
             }
         }
 
@@ -1907,6 +1997,9 @@
                 roomElement.innerHTML = `
                     <div class="room-name">${roomId}</div>
                     <div class="room-stats">${room.userCount} 人在線 • ${room.codeLines || 0} 行代碼</div>
+                    <button class="sync-btn" onclick="event.stopPropagation(); syncRoomCode('${roomId}')" title="同步房間代碼">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
                 `;
                 
                 roomElement.addEventListener('click', () => selectRoom(roomId));
@@ -2148,7 +2241,7 @@
         function initializeBroadcastForm() {
             const broadcastForm = document.getElementById('broadcastForm');
             if (broadcastForm) {
-                broadcastForm.addEventListener('submit', function(e) {
+                broadcastForm.addEventListener('submit', async function(e) {
                     e.preventDefault();
                     
                     const target = document.getElementById('broadcastTarget').value;
@@ -2159,8 +2252,9 @@
                         return;
                     }
                     
-                    if (ws && ws.readyState === WebSocket.OPEN) {
-                        sendMessage({
+                    // 使用 HTTP 請求發送廣播 (替代 WebSocket)
+                    try {
+                        await sendMessage({
                             type: 'teacher_broadcast',
                             data: {
                                 targetRoom: target,
@@ -2172,8 +2266,9 @@
                         const targetName = target === 'all' ? '所有房間' : target;
                         addLog(`📢 已廣播消息到 ${targetName}: ${message}`);
                         closeBroadcastModal();
-                    } else {
-                        alert('連線已斷開，請重新整理頁面');
+                    } catch (error) {
+                        console.error('廣播失敗:', error);
+                        alert('廣播失敗，請檢查網絡連接');
                     }
                 });
             }
@@ -2261,18 +2356,25 @@
 
         // 頁面卸載時關閉連接
         window.addEventListener('beforeunload', () => {
-            if (ws) {
-                ws.close();
-            }
+            // 停止 HTTP 輪詢
             if (refreshInterval) {
                 clearInterval(refreshInterval);
+                refreshInterval = null;
+            }
+            
+            // 通知服務器教師離線
+            if (teacherId) {
+                navigator.sendBeacon('/api.php', new URLSearchParams({
+                    action: 'teacher_disconnect',
+                    teacher_id: teacherId
+                }));
             }
         });
 
         // 載入房間數據
         async function loadRoomsData() {
             try {
-                const response = await fetch('/api/teacher.php/rooms');
+                const response = await fetch('/api/teacher.php?action=rooms');
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
@@ -2282,7 +2384,7 @@
                 
                 // 更新統計信息
                 updateStats({
-                    activeRooms: data.totalRooms || 0,
+                    activeRooms: data.activeRooms || data.totalRooms || 0,
                     onlineStudents: data.studentsInRooms || data.nonTeacherUsers || data.totalUsers || 0,
                     editCount: 0 // 這個值需要從其他地方獲取
                 });
@@ -2296,27 +2398,29 @@
                     data.rooms.forEach(room => {
                         // 添加房間
                         rooms.set(room.id, {
-                            name: room.id,
+                            name: room.name || room.id,
                             users: room.users || [],
-                            code: '', // 需要單獨載入
+                            code: room.current_code || '',
                             version: room.version || 1,
                             userCount: room.userCount || 0,
-                            lastActivity: room.lastActivity || Date.now(),
-                            codeLines: room.codeLength ? Math.max(1, Math.ceil(room.codeLength / 50)) : 0
+                            lastActivity: room.last_activity ? new Date(room.last_activity * 1000) : new Date(),
+                            codeLines: room.codeLength ? Math.max(1, Math.ceil(room.codeLength / 50)) : 0,
+                            isActive: room.isActive || false
                         });
                         
                         // 添加房間中的學生
                         if (room.users && Array.isArray(room.users)) {
                             room.users.forEach(user => {
-                                const studentId = user.id;
+                                const studentId = user.user_id || user.id || user.name;
+                                const studentName = user.user_name || user.name || studentId;
                                 students.set(studentId, {
                                     id: studentId,
-                                    name: user.name || studentId,
+                                    name: studentName,
                                     roomId: room.id,
                                     online: true,
-                                    lastActivity: user.lastActivity || Date.now(),
-                                    code: '', // 需要單獨載入
-                                    codeLines: 0
+                                    lastActivity: user.last_active ? new Date(user.last_active) : new Date(),
+                                    code: room.current_code || '',
+                                    codeLines: room.current_code ? room.current_code.split('\n').length : 0
                                 });
                             });
                         }
@@ -2328,13 +2432,14 @@
                 updateStudentList();
                 updateChatRoomSelector(); // 更新聊天房間選擇器
                 updateBroadcastTargets(); // 更新廣播目標選擇器
+                updateTeacherRoomSelector(); // 更新教師房間選擇器
                 
                 // 如果有選中的房間，載入房間詳細信息
                 if (currentRoom && rooms.has(currentRoom)) {
                     loadRoomDetails(currentRoom);
                 }
                 
-                addLog(`📂 載入了 ${data.rooms ? data.rooms.length : 0} 個房間，已更新選擇器`);
+                addLog(`📂 載入了 ${data.rooms ? data.rooms.length : 0} 個房間，${data.totalUsers || 0} 名在線學生`);
                 
             } catch (error) {
                 console.error('❌ 載入房間數據失敗:', error);
@@ -2345,7 +2450,7 @@
         // 載入房間詳細信息
         async function loadRoomDetails(roomId) {
             try {
-                const response = await fetch(`/api/teacher.php/room/${roomId}`);
+                const response = await fetch(`/api/teacher.php?action=room&id=${encodeURIComponent(roomId)}`);
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
@@ -2366,12 +2471,14 @@
                         room.codeLines = roomData.code ? roomData.code.split('\n').length : 0;
                         rooms.set(roomId, room);
                     }
+                    
+                    addLog(`📝 載入房間 ${roomId} 代碼: ${roomData.code.split('\n').length} 行`);
                 }
                 
                 // 更新學生代碼信息
                 if (roomData.users && Array.isArray(roomData.users)) {
                     roomData.users.forEach(user => {
-                        const studentId = user.id;
+                        const studentId = user.user_id || user.id || user.name;
                         if (students.has(studentId)) {
                             const student = students.get(studentId);
                             student.code = roomData.code || '';
@@ -2458,12 +2565,65 @@
 
         // 更新廣播目標選擇器
         function updateBroadcastTargets() {
-            // 這個函數可以在廣播表單中更新目標選擇器
-            // 如果需要的話可以實現
+            const select = document.getElementById('broadcastTarget');
+            if (!select) {
+                console.warn('❌ 找不到廣播目標選擇器元素');
+                return;
+            }
+            
+            select.innerHTML = '<option value="all">📢 所有房間</option>';
+            
+            let roomCount = 0;
+            rooms.forEach((room, roomId) => {
+                const option = document.createElement('option');
+                option.value = roomId;
+                option.textContent = `🏠 ${roomId} (${room.userCount} 人)`;
+                select.appendChild(option);
+                roomCount++;
+            });
+            
+            // 如果有當前選中的房間，設為預設值
+            if (currentRoom && rooms.has(currentRoom)) {
+                select.value = currentRoom;
+            }
+            
+            console.log(`✅ 廣播目標選擇器已更新，添加了 ${roomCount} 個房間`);
+        }
+
+        // 更新教師房間選擇器
+        function updateTeacherRoomSelector() {
+            const roomSelect = document.getElementById('teacherRoomSelect');
+            if (!roomSelect) return;
+            
+            // 保存當前選中值
+            const currentValue = roomSelect.value;
+            
+            // 清空現有選項（保留預設選項）
+            roomSelect.innerHTML = `
+                <option value="">選擇監控房間</option>
+                <option value="all">👀 監控所有房間</option>
+            `;
+            
+            // 添加活躍房間
+            let roomCount = 0;
+            rooms.forEach((room, roomId) => {
+                const option = document.createElement('option');
+                option.value = roomId;
+                option.textContent = `🏠 ${roomId} (${room.userCount} 人)`;
+                roomSelect.appendChild(option);
+                roomCount++;
+            });
+            
+            // 恢復選中值
+            if (currentValue && [...roomSelect.options].some(opt => opt.value === currentValue)) {
+                roomSelect.value = currentValue;
+            }
+            
+            console.log(`✅ 教師房間選擇器已更新，添加了 ${roomCount} 個房間`);
         }
 
         // 初始化連接
-        connectWebSocket();
+        connectHTTPPolling();
     </script>
 </body>
 </html> 

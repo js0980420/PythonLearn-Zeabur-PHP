@@ -4,6 +4,9 @@ class ChatManager {
         this.chatContainer = null;
         this.chatInput = null;
         this.initialized = false;
+        this.recentSentMessage = null; // 🔥 用於防止重複顯示消息
+        this.displayedMessages = new Set(); // 🔥 已顯示的消息ID集合
+        this.messageBuffer = new Map(); // 🔥 消息緩衝區，防止重複
     }
 
     // 初始化聊天功能
@@ -194,10 +197,25 @@ class ChatManager {
 
     // 發送聊天消息
     sendMessage() {
+        // 檢查聊天輸入框是否已初始化
+        if (!this.chatInput) {
+            console.error('❌ 聊天輸入框未初始化，嘗試重新初始化...');
+            this.attemptInitialization();
+            
+            // 如果初始化後仍然沒有輸入框，則退出
+            if (!this.chatInput) {
+                console.error('❌ 無法初始化聊天輸入框，發送失敗');
+                if (window.UI && window.UI.showErrorToast) {
+                    window.UI.showErrorToast('聊天功能尚未準備就緒，請稍後再試');
+                }
+                return;
+            }
+        }
+        
         const message = this.chatInput.value.trim();
         
         console.log(`💬 學生嘗試發送聊天消息: "${message}"`);
-        console.log(`🔗 WebSocket連接狀態: ${wsManager.isConnected()}`);
+        console.log(`🔗 HTTP輪詢連接狀態: ${wsManager.isConnected()}`);
         
         if (!message) {
             console.log(`❌ 消息為空，取消發送`);
@@ -205,18 +223,44 @@ class ChatManager {
         }
         
         if (!wsManager.isConnected()) {
-            console.log(`❌ WebSocket未連接，無法發送消息`);
+            console.log(`❌ HTTP輪詢未連接，無法發送消息`);
+            if (window.UI && window.UI.showErrorToast) {
+                window.UI.showErrorToast('未連接到服務器，無法發送消息');
+            }
             return;
         }
         
         console.log(`📤 發送聊天消息到服務器...`);
+        
+        // 🔥 立即在本地顯示消息（樂觀更新）
+        const currentUser = window.UserManager?.getCurrentUser?.()?.name || window.wsManager?.currentUser || '我';
+        
+        // 🔥 創建本地消息對象，包含臨時ID
+        const localMessage = {
+            id: `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            userName: currentUser,
+            message: message,
+            timestamp: Date.now(),
+            isLocal: true
+        };
+        
+        // 🔥 記錄本地消息，防止服務器返回時重複顯示
+        const messageId = this.generateMessageHash(localMessage);
+        this.displayedMessages.add(messageId);
+        
+        // 🔥 同時記錄消息內容哈希，防止服務器返回相同內容
+        const contentHash = this.simpleHash(`${currentUser}:${message}`);
+        this.displayedMessages.add(`content_${contentHash}`);
+        
+        this.addMessage(currentUser, message, false, false);
+        
         wsManager.sendMessage({
             type: 'chat_message',
             message: message
         });
         
         this.chatInput.value = '';
-        console.log(`✅ 聊天消息已發送，輸入框已清空`);
+        console.log(`✅ 聊天消息已發送並顯示，輸入框已清空`);
     }
 
     // 發送AI回應到聊天室
@@ -418,6 +462,106 @@ class ChatManager {
         if (this.chatContainer) {
             this.chatContainer.innerHTML = '';
         }
+        
+        // 🔥 清除重複消息防護機制的緩存
+        this.displayedMessages.clear();
+        this.messageBuffer.clear();
+        this.recentSentMessage = null;
+        
+        console.log('🧹 聊天記錄和防重複緩存已清除');
+    }
+
+    // 顯示從服務器接收的聊天消息
+    displayMessage(message) {
+        console.log('💬 顯示聊天消息:', message);
+        
+        if (!message || !message.userName || !message.message) {
+            console.warn('⚠️ 收到無效的聊天消息:', message);
+            return;
+        }
+        
+        // 🔥 創建消息的唯一標識符
+        const messageId = message.id || this.generateMessageHash(message);
+        
+        // 🔥 檢查是否已經顯示過這條消息
+        if (this.displayedMessages.has(messageId)) {
+            console.log('🔄 跳過重複消息 (ID):', messageId, message.message.substring(0, 30));
+            return;
+        }
+        
+        // 🔥 檢查內容哈希是否已存在（防止內容相同但ID不同的重複）
+        const contentHash = this.simpleHash(`${message.userName}:${message.message}`);
+        const contentHashId = `content_${contentHash}`;
+        if (this.displayedMessages.has(contentHashId)) {
+            console.log('🔄 跳過重複消息 (內容):', contentHash, message.message.substring(0, 30));
+            return;
+        }
+        
+        // 🔥 檢查消息緩衝區是否有相同內容的消息（防止快速重複）
+        const messageKey = `${message.userName}:${message.message}:${message.timestamp || Date.now()}`;
+        const now = Date.now();
+        
+        if (this.messageBuffer.has(messageKey)) {
+            const lastTime = this.messageBuffer.get(messageKey);
+            if (now - lastTime < 1000) { // 1秒內的重複消息
+                console.log('🔄 跳過1秒內的重複消息:', message.message.substring(0, 30));
+                return;
+            }
+        }
+        
+        // 🔥 記錄消息ID和內容哈希
+        this.displayedMessages.add(messageId);
+        this.displayedMessages.add(contentHashId);
+        this.messageBuffer.set(messageKey, now);
+        
+        // 🔥 清理舊的緩衝區記錄（保持最近100條）
+        if (this.displayedMessages.size > 100) {
+            const oldestEntries = Array.from(this.displayedMessages).slice(0, 20);
+            oldestEntries.forEach(id => this.displayedMessages.delete(id));
+        }
+        
+        // 🔥 清理舊的消息緩衝區（保持最近50條）
+        if (this.messageBuffer.size > 50) {
+            const oldestKeys = Array.from(this.messageBuffer.keys()).slice(0, 10);
+            oldestKeys.forEach(key => this.messageBuffer.delete(key));
+        }
+        
+        // 處理消息格式
+        const userName = message.userName;
+        const messageText = message.message;
+        const isTeacher = message.isTeacher || false;
+        const isSystem = message.type === 'system';
+        
+        this.addMessage(userName, messageText, isSystem, isTeacher);
+    }
+
+    // 🔥 生成消息哈希值
+    generateMessageHash(message) {
+        const content = `${message.userName}:${message.message}:${message.timestamp || ''}`;
+        return this.simpleHash(content);
+    }
+
+    // 🔥 簡單哈希函數
+    simpleHash(str) {
+        let hash = 0;
+        if (str.length === 0) return hash;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // 轉換為32位整數
+        }
+        return Math.abs(hash).toString(36);
+    }
+
+    // 🔥 獲取防重複機制狀態（調試用）
+    getDeduplicationStats() {
+        return {
+            displayedMessagesCount: this.displayedMessages.size,
+            messageBufferCount: this.messageBuffer.size,
+            recentSentMessage: this.recentSentMessage,
+            displayedMessages: Array.from(this.displayedMessages).slice(-10), // 最近10個
+            messageBufferKeys: Array.from(this.messageBuffer.keys()).slice(-5) // 最近5個
+        };
     }
 }
 
@@ -429,6 +573,30 @@ window.Chat = Chat;
 
 console.log('🔧 聊天管理器已創建');
 console.log('✅ 全域 Chat 實例已創建並設置到 window.Chat:', Chat);
+
+// 等待 DOM 完全載入後再初始化聊天
+function initializeChatWhenReady() {
+    const chatSection = document.getElementById('chatSection');
+    const chatInput = document.getElementById('chatInput');
+    
+    if (chatSection && chatInput) {
+        // DOM 和聊天元素都已準備好
+        Chat.initialize();
+        console.log('✅ 聊天系統已在 DOM 準備完成後初始化');
+    } else {
+        // 尚未準備好，延遲重試
+        console.log('⏳ 等待聊天 DOM 元素準備中...');
+        setTimeout(initializeChatWhenReady, 100);
+    }
+}
+
+// 檢查 DOM 狀態並初始化
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeChatWhenReady);
+} else {
+    // DOM 已經載入完成
+    initializeChatWhenReady();
+}
 
 // 全局函數供HTML調用
 function sendChat() {

@@ -13,7 +13,7 @@ class AIAssistant {
     private $logger;
     
     public function __construct() {
-        // 使用現有的配置系統，它已經支援本地 ai_config.json 和環境變數
+        // 使用簡化的配置系統，只支援Zeabur環境變數
         $this->config = require __DIR__ . '/../config/openai.php';
         $this->client = new Client([
             'timeout' => $this->config['timeout'] / 1000, // 轉換為秒
@@ -40,14 +40,8 @@ class AIAssistant {
                 echo "[{$timestamp}] AI {$level}: {$message}{$contextStr}\n";
             }
         };
-        
-        // 移除API密鑰檢查，允許使用模擬響應
-        // if (empty($this->config['api_key'])) {
-        //     throw new Exception('OpenAI API密鑰未設置');
-        // }
     }
 
-    
     /**
      * 1. 解釋程式碼
      */
@@ -81,7 +75,7 @@ class AIAssistant {
     }
     
     /**
-     * 5. 詢問問題
+     * 5. 回答問題
      */
     public function answerQuestion($question, $userId, $context = '', $category = 'general') {
         $prompt = $this->buildQuestionPrompt($question, $context, $category);
@@ -212,23 +206,6 @@ class AIAssistant {
         $startTime = microtime(true);
         
         try {
-            // 檢查是否有有效的API密鑰
-            if (empty($this->config['api_key']) || $this->config['api_key'] === 'your-openai-api-key-here') {
-                // 使用模擬響應
-                $executionTime = microtime(true) - $startTime;
-                $content = $this->getMockResponse($requestType, $prompt);
-                $tokenUsage = 100; // 模擬token使用量
-                
-                $this->logRequest($userId, $requestType, $prompt, $content, $executionTime, $tokenUsage, true);
-                
-                return [
-                    'success' => true,
-                    'analysis' => $content,
-                    'token_usage' => $tokenUsage,
-                    'execution_time' => $executionTime
-                ];
-            }
-            
             $response = $this->client->post($this->config['base_url'] . '/chat/completions', [
                 'headers' => array_merge($this->config['headers'], [
                     'Authorization' => 'Bearer ' . $this->config['api_key']
@@ -307,32 +284,6 @@ class AIAssistant {
                 'error' => $errorMessage,
                 'execution_time' => $executionTime
             ];
-        }
-    }
-    
-    private function getMockResponse($requestType, $prompt) {
-        switch ($requestType) {
-            case 'explain':
-                return "這段Python代碼的功能解釋：\n\n1. **主要功能**：這是一個基本的Python程序\n2. **代碼結構**：包含函數定義和執行邏輯\n3. **執行流程**：\n   - 定義變數或函數\n   - 執行相關操作\n   - 輸出結果\n\n**學習重點**：\n- Python的基本語法結構\n- 函數的定義和調用\n- 變數的使用方法\n\n這段代碼適合初學者學習Python的基礎概念。";
-                
-            case 'check_errors':
-                return "代碼錯誤檢查結果：\n\n✅ **語法檢查**：語法正確，沒有發現語法錯誤\n✅ **邏輯檢查**：邏輯結構清晰\n✅ **性能檢查**：代碼效率良好\n✅ **安全檢查**：沒有發現安全問題\n\n**建議**：\n- 代碼結構良好，可以正常運行\n- 建議添加適當的註釋說明\n- 可以考慮添加錯誤處理機制\n\n總體評價：這是一段品質良好的Python代碼。";
-                
-            case 'suggest_improvements':
-                return "代碼改進建議：\n\n🔧 **性能優化**：\n- 可以使用更高效的算法\n- 考慮使用內建函數提升效率\n\n📖 **可讀性改進**：\n- 添加清楚的註釋說明\n- 使用更具描述性的變數名稱\n- 適當的代碼格式化\n\n⭐ **最佳實踐**：\n- 遵循PEP 8編碼規範\n- 添加適當的錯誤處理\n- 考慮代碼的可重用性\n\n**改進後的代碼範例**：\n```python\n# 添加註釋和改進的代碼示例\ndef improved_function():\n    \"\"\"函數說明文檔\"\"\"\n    # 具體的改進實現\n    pass\n```";
-                
-            case 'analyze_conflict':
-                return "代碼衝突分析：\n\n🔍 **衝突原因**：\n- 多人同時修改了相同的代碼區域\n- 修改內容存在邏輯上的差異\n\n📊 **差異分析**：\n- 原始代碼：實現了基本功能\n- 衝突代碼：添加了新的功能或修改了邏輯\n\n💡 **合併建議**：\n1. 保留兩個版本的優點\n2. 整合新增的功能\n3. 確保代碼邏輯的一致性\n\n✅ **推薦解決方案**：\n建議採用較新的版本，因為它包含了更完整的功能實現。\n\n⚠️ **注意事項**：\n- 合併後需要進行測試\n- 確認所有功能正常運作";
-                
-            case 'answer_question':
-                if (strpos($prompt, '網頁') !== false || strpos($prompt, 'web') !== false) {
-                    return "關於網頁操作的解答：\n\n🌐 **網頁基礎**：\n- HTML：網頁的結構\n- CSS：網頁的樣式\n- JavaScript：網頁的互動功能\n\n🔧 **常用操作**：\n1. 元素選取和操作\n2. 事件處理\n3. 數據提交和接收\n\n📚 **學習建議**：\n- 先掌握HTML基礎\n- 學習CSS樣式設計\n- 逐步學習JavaScript程式設計\n\n如果您有具體的網頁操作問題，歡迎進一步詢問！";
-                } else {
-                    return "關於Python程式設計的解答：\n\n🐍 **Python特點**：\n- 語法簡潔易學\n- 功能強大且靈活\n- 擁有豐富的函式庫\n\n📖 **學習重點**：\n1. 基本語法和數據類型\n2. 控制結構（if、for、while）\n3. 函數定義和調用\n4. 物件導向程式設計\n\n💡 **實用建議**：\n- 多練習編寫小程序\n- 閱讀優秀的代碼範例\n- 參與程式設計社群討論\n\n如果您有具體的Python問題，請隨時提問！";
-                }
-                
-            default:
-                return "感謝您使用AI助教服務！我是您的Python程式設計助手，可以幫助您：\n\n✨ **主要功能**：\n- 解釋代碼功能\n- 檢查代碼錯誤\n- 提供改進建議\n- 分析代碼衝突\n- 回答程式設計問題\n\n如果您有任何Python相關的問題，歡迎隨時詢問！";
         }
     }
     

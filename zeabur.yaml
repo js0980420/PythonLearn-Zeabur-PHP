@@ -1,93 +1,141 @@
-# Zeabur 部署配置 - 標準 PHP Web 服務器
-name: pythonlearn-php-collaboration
+# 🚀 Zeabur 雲端部署配置 - 純 HTTP 輪詢版
+# Python多人協作教學平台專用配置
 
+name: pythonlearn-collaboration
+
+# ⚙️ 全域設定
+config:
+  # 🔧 PHP 運行時配置
+  runtime: php
+  php_version: "8.2"
+
+  # 🌐 網路配置
+  network:
+    # HTTP 服務器端口
+    http_port: 8080
+
+  # 📊 資源配置
+  resources:
+    cpu: "1000m" # 1 CPU core
+    memory: "512Mi" # 512MB RAM
+
+  # 🏥 健康檢查配置
+  health_check:
+    path: "/health.php"
+    port: 8080
+    timeout: 30s
+
+# 📦 建構配置
+build:
+  # 建構指令
+  commands:
+    - "composer install --no-dev --optimize-autoloader"
+
+  # 忽略檔案
+  ignore:
+    - "*.md"
+    - ".cursor/"
+    - ".vscode/"
+
+# 🚀 部署配置
+deploy:
+  # 啟動指令 - 純 HTTP 服務器
+  start_command: "php -S 0.0.0.0:8080 -t public"
+
+  # 端口配置 - 僅 HTTP
+  ports:
+    - port: 8080
+      protocol: "http"
+      public: true
+
+  # 🌍 環境變數
+  envs:
+    # 平台識別
+    PLATFORM: "zeabur"
+    NODE_ENV: "production"
+    DEPLOYMENT_MODE: "cloud"
+
+    # 服務器配置
+    HTTP_PORT: "8080"
+    CONNECTION_MODE: "http_polling"
+
+    # 應用配置
+    MAX_CONCURRENT_USERS: "100"
+    MAX_ROOMS: "50"
+    MAX_USERS_PER_ROOM: "8"
+
+    # PHP 配置
+    PHP_MEMORY_LIMIT: "256M"
+    PHP_MAX_EXECUTION_TIME: "300"
+    PHP_POST_MAX_SIZE: "10M"
+    PHP_UPLOAD_MAX_FILESIZE: "10M"
+
+    # Session 配置
+    SESSION_LIFETIME: "86400"
+
+    # 日誌配置
+    LOG_LEVEL: "info"
+    ERROR_REPORTING: "E_ALL & ~E_NOTICE"
+
+# 🔄 服務配置
 services:
+  # 主要 Web 服務
   web:
-    # 🏗️ 建構設定 - 標準 PHP 項目
+    type: "php"
+    php_version: "8.2"
+
+    # 🏗️ 建構設定
     build:
-      env: php
-      command: |
-        echo "🚀 PHP Web 項目構建開始..."
-        echo "📦 跳過 Composer 安裝 (零依賴項目)"
-        echo "✅ 構建完成 - 使用標準 PHP 運行時"
-    
+      dockerfile: false
+      buildCommand: |
+        echo "📦 安裝 Composer 依賴..."
+        composer install --no-dev --optimize-autoloader
+        echo "✅ 建構完成"
+
+    # 🚀 啟動命令
+    startCommand: "php -S 0.0.0.0:$PORT -t public"
+
     # 🌐 環境變數
     env:
-      # PHP 配置
-      PHP_VERSION: "8.1"
-      COMPOSER_ALLOW_SUPERUSER: "1"
-      
-      # 應用配置
-      APP_ENV: "production"
-      MAX_CONCURRENT_USERS: 50
-      MAX_ROOMS: 20
-      MAX_USERS_PER_ROOM: 8
-      
-      # AI 配置 (可選)
+      NODE_ENV: production
+      CONNECTION_MODE: http_polling
+      PLATFORM: zeabur
+      DEPLOYMENT_MODE: cloud
+      # AI 配置
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENAI_MODEL: ${OPENAI_MODEL}
-    
-    # 🔌 端口配置
+      # 數據庫配置
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: pythonlearn
+      MYSQL_PORT: ${MYSQL_PORT}
+
+    # 🔌 端口配置 - 單端口
     ports:
       - 8080
-    
+
     # 🏥 健康檢查
     healthcheck:
-      path: /api/status
+      path: /health.php
       interval: 30s
       timeout: 10s
       retries: 3
-    
+
     # 📊 資源配置
     resources:
-      cpu: 500m      # 0.5 CPU core
-      memory: 256Mi  # 256MB RAM
+      cpu: 1000m
+      memory: 512Mi
 
-# 📊 監控配置
-monitoring:
-  enabled: true
-  metrics:
-    - name: http_requests_total
-      type: counter
-      help: "Total HTTP requests"
-    
-    - name: websocket_connections
-      type: gauge
-      help: "Active WebSocket connections"
-    
-    - name: ai_requests_total
-      type: counter
-      help: "Total AI assistant requests"
+# 📝 額外配置
+extras:
+  # 🔧 自動重啟配置
+  auto_restart: true
 
-# 🔐 密鑰管理
-secrets:
-  openai-api-key:
-    external: true
-    name: OPENAI_API_KEY
+  # 📊 監控配置
+  monitoring:
+    enabled: true
 
-# 卷配置
-volumes:
-  mysql_data:
-    driver: local
-
-# 健康檢查配置
-healthcheck:
-  web:
-    path: /health.php
-    interval: 30s
-    timeout: 10s
-    
-  caddy:
-    port: 80
-    interval: 30s
-    timeout: 10s
-
-# 環境變數配置
-env:
-  # OpenAI API 密鑰（需要在 Zeabur 控制台設置）
-  OPENAI_API_KEY:
-    type: secret
-    
-  # 域名（Zeabur 自動設置）
-  ZEABUR_DOMAIN:
-    type: auto 
+  # 🔒 安全配置
+  security:
+    force_https: true
